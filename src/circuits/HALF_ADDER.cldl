@@ -1,0 +1,16 @@
+CIRCUIT HalfAdder {
+    INPUT a, b;
+    OUTPUT sum, carry;
+    
+    PART G_XOR: XOR;
+    PART G_AND: AND;
+    
+    CONNECT a -> G_XOR.in1;
+    CONNECT b -> G_XOR.in2;
+    
+    CONNECT a -> G_AND.in1;
+    CONNECT b -> G_AND.in2;
+    
+    CONNECT G_XOR.out -> sum;
+    CONNECT G_AND.out -> carry;
+}

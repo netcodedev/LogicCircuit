@@ -1,0 +1,8 @@
+CIRCUIT NOT {
+    INPUT in;
+    OUTPUT out;
+    PART G1: NAND;
+    CONNECT in -> G1.in1;
+    CONNECT in -> G1.in2;
+    CONNECT G1.out -> out;
+}

@@ -1,0 +1,29 @@
+// `WHITESPACE` and `COMMENT` are defined once at the top level.
+// The `_` makes them "silent", so pest consumes them automatically
+// between other rules, but they don't appear in the parse tree.
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+COMMENT = _{ ( ("#" ~ (!("\r" | "\n") ~ ANY)*) | ("//" ~ (!("\r" | "\n") ~ ANY)*) ) }
+
+// The `file` rule starts parsing.
+file = { SOI ~ circuit ~ EOI }
+
+// The `circuit` rule no longer lists WHITESPACE or COMMENT.
+// The `*` (zero or more) is correct.
+circuit = { "CIRCUIT" ~ ident ~ "{" ~
+    (input_def | output_def | part_def | connect_def)*
+~ "}" }
+
+// Definitions. The `@` makes them "atomic", so WHITESPACE is not
+// allowed inside them (e.g., "IN PUT a;").
+input_def = { "INPUT" ~ ident ~ ("," ~ ident)* ~ ";" }
+output_def = { "OUTPUT" ~ ident ~ ("," ~ ident)* ~ ";" }
+part_def = { "PART" ~ ident ~ ":" ~ ident ~ ";" }
+connect_def = { "CONNECT" ~ pin ~ "->" ~ pin ~ ";" }
+
+// A pin is an identifier, optionally with a dot and another identifier.
+// e.g., "a" or "G1.in1"
+pin = { ident ~ ("." ~ ident)? }
+
+// An identifier is one or more letters, numbers, or underscores.
+ident = @{ (ASCII_ALPHANUMERIC | "_")+ }
+

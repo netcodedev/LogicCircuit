@@ -1,0 +1,24 @@
+CIRCUIT XOR {
+    INPUT in1, in2;
+    OUTPUT out;
+    
+    # This is the 4-NAND-gate implementation
+    PART N1: NAND;  # Common NAND(a, b)
+    PART N2: NAND;  # NAND(a, N1.out)
+    PART N3: NAND;  # NAND(b, N1.out)
+    PART N4: NAND;  # NAND(N2.out, N3.out)
+    
+    CONNECT in1 -> N1.in1;
+    CONNECT in2 -> N1.in2;
+    
+    CONNECT in1 -> N2.in1;
+    CONNECT N1.out -> N2.in2;
+    
+    CONNECT in2 -> N3.in1;
+    CONNECT N1.out -> N3.in2;
+    
+    CONNECT N2.out -> N4.in1;
+    CONNECT N3.out -> N4.in2;
+    
+    CONNECT N4.out -> out;
+}

@@ -1,0 +1,14 @@
+CIRCUIT XNOR {
+    INPUT in1, in2;
+    OUTPUT out;
+
+    PART G_XOR: XOR;
+    PART G_NOT: NOT;
+
+    CONNECT in1 -> G_XOR.in1;
+    CONNECT in2 -> G_XOR.in2;
+
+    CONNECT G_XOR.out -> G_NOT.in;
+
+    CONNECT G_NOT.out -> out;
+}

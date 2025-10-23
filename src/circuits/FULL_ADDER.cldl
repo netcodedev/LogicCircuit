@@ -1,0 +1,20 @@
+CIRCUIT FullAdder {
+    INPUT a, b, cin;
+    OUTPUT sum, cout;
+
+    PART HA1: HalfAdder;
+    PART HA2: HalfAdder;
+    PART G_OR: OR;
+
+    CONNECT a -> HA1.a;
+    CONNECT b -> HA1.b;
+
+    CONNECT HA1.sum -> HA2.a;
+    CONNECT cin -> HA2.b;
+
+    CONNECT HA2.sum -> sum;
+
+    CONNECT HA1.carry -> G_OR.in1;
+    CONNECT HA2.carry -> G_OR.in2;
+    CONNECT G_OR.out -> cout;
+}

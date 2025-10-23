@@ -4,3 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+include_dir = "0.7.4"
+pest = "2.8.3"
+pest_derive = "2.8.3"
+uuid = { version = "1.18.1", features = ["v4"] }
