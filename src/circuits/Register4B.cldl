@@ -1,0 +1,42 @@
+CIRCUIT Register4Bit {
+    // Inputs: 4 Data bits (D0-D3) and 1 Clock signal (CLK)
+    INPUT D0, D1, D2, D3;
+    INPUT CLK;
+
+    // Outputs: 4 Stored bits (Q0-Q3) and their complements (nQ0-nQ3)
+    OUTPUT Q0, Q1, Q2, Q3;
+    OUTPUT nQ0, nQ1, nQ2, nQ3;
+
+    PART DFF0: DFlipFlop;
+    PART DFF1: DFlipFlop;
+    PART DFF2: DFlipFlop;
+    PART DFF3: DFlipFlop;
+
+    CONNECT CLK -> DFF0.CLK;
+    CONNECT CLK -> DFF1.CLK;
+    CONNECT CLK -> DFF2.CLK;
+    CONNECT CLK -> DFF3.CLK;
+
+    CONNECT D0 -> DFF0.D;
+    CONNECT D1 -> DFF1.D;
+    CONNECT D2 -> DFF2.D;
+    CONNECT D3 -> DFF3.D;
+
+    CONNECT DFF0.Q -> Q0;
+    CONNECT DFF1.Q -> Q1;
+    CONNECT DFF2.Q -> Q2;
+    CONNECT DFF3.Q -> Q3;
+
+    CONNECT DFF0.nQ -> nQ0;
+    CONNECT DFF1.nQ -> nQ1;
+    CONNECT DFF2.nQ -> nQ2;
+    CONNECT DFF3.nQ -> nQ3;
+
+    // Initialize the register to all zeros
+    INIT {
+        // Set all data inputs low, pulse the clock once (0->1->0)
+        // This relies on DFlipFlop's own init handling the internal stability.
+        SEQ D0 0, D1 0, D2 0, D3 0, CLK 0 -> CLK 1 -> CLK 0;
+    }
+}
+

@@ -115,6 +115,10 @@ impl Circuit {
     pub fn get_output(&self, name: &str) -> Option<bool> {
         self.outputs.get(name).map(|wire| wire.borrow().value)
     }
+    
+    pub fn get_output_unwrapped(&self, name: &str) -> bool {
+        self.get_output(name).expect(&format!("Output '{}' not found in circuit '{}'", name, self.name))
+    }
 
     pub fn evaluate_all(&self) -> bool {
         let mut changed = false;
@@ -143,37 +147,35 @@ impl Circuit {
     }
 }
 
-/// Sets the inputs for the 4-bit adder.
-/// a, b are u8 values (0-15), cin is bool.
-fn set_adder4_inputs(adder: &Circuit, a: u8, b: u8, cin: bool) {
-    assert!(a < 16, "Input 'a' must be < 16 for 4-bit adder");
-    assert!(b < 16, "Input 'b' must be < 16 for 4-bit adder");
 
-    adder.set_input("A0", (a & 0b0001) != 0);
-    adder.set_input("A1", (a & 0b0010) != 0);
-    adder.set_input("A2", (a & 0b0100) != 0);
-    adder.set_input("A3", (a & 0b1000) != 0);
+// --- Helper Functions for 4-Bit Register Tests ---
 
-    adder.set_input("B0", (b & 0b0001) != 0);
-    adder.set_input("B1", (b & 0b0010) != 0);
-    adder.set_input("B2", (b & 0b0100) != 0);
-    adder.set_input("B3", (b & 0b1000) != 0);
-
-    adder.set_input("Cin", cin);
+/// Sets the data inputs (D0-D3) for the 4-bit register.
+fn set_register4_data(register: &Circuit, data: u8) {
+    assert!(data < 16, "Input data must be < 16 for 4-bit register");
+    register.set_input("D0", (data & 0b0001) != 0);
+    register.set_input("D1", (data & 0b0010) != 0);
+    register.set_input("D2", (data & 0b0100) != 0);
+    register.set_input("D3", (data & 0b1000) != 0);
 }
 
-/// Gets the outputs from the 4-bit adder.
-/// Returns (sum: u8, cout: bool).
-fn get_adder4_outputs(adder: &Circuit) -> (u8, bool) {
-    let s0 = adder.get_output("S0").expect(&format!("Output 'S0' not found in circuit 'Adder4Bit'"));
-    let s1 = adder.get_output("S1").expect(&format!("Output 'S1' not found in circuit 'Adder4Bit'"));
-    let s2 = adder.get_output("S2").expect(&format!("Output 'S2' not found in circuit 'Adder4Bit'"));
-    let s3 = adder.get_output("S3").expect(&format!("Output 'S3' not found in circuit 'Adder4Bit'"));
-    let cout = adder.get_output("Cout").expect(&format!("Output 'Cout' not found in circuit 'Adder4Bit'"));
+/// Gets the Q and nQ outputs from the 4-bit register.
+/// Returns (q_value: u8, nq_value: u8).
+fn get_register4_outputs(register: &Circuit) -> (u8, u8) {
+    let q0 = register.get_output_unwrapped("Q0");
+    let q1 = register.get_output_unwrapped("Q1");
+    let q2 = register.get_output_unwrapped("Q2");
+    let q3 = register.get_output_unwrapped("Q3");
 
-    let sum = (s0 as u8) | ((s1 as u8) << 1) | ((s2 as u8) << 2) | ((s3 as u8) << 3);
+    let nq0 = register.get_output_unwrapped("nQ0");
+    let nq1 = register.get_output_unwrapped("nQ1");
+    let nq2 = register.get_output_unwrapped("nQ2");
+    let nq3 = register.get_output_unwrapped("nQ3");
 
-    (sum, cout)
+    let q_value = (q0 as u8) | ((q1 as u8) << 1) | ((q2 as u8) << 2) | ((q3 as u8) << 3);
+    let nq_value = (nq0 as u8) | ((nq1 as u8) << 1) | ((nq2 as u8) << 2) | ((nq3 as u8) << 3);
+
+    (q_value, nq_value)
 }
 
 /// Formats a 4-bit number for printing.
@@ -181,26 +183,12 @@ fn format_u4(n: u8) -> String {
     format!("{:04b}", n)
 }
 
-/// Runs a single test case for the 4-bit adder.
-fn test_adder4_case(adder: &Circuit, a: u8, b: u8, cin: bool) {
-    set_adder4_inputs(adder, a, b, cin);
-    adder.evaluate_stable();
-    let (sum, cout) = get_adder4_outputs(adder);
-
-    // Calculate expected result using standard Rust arithmetic
-    let expected_result = a as u16 + b as u16 + cin as u16;
-    let expected_sum = (expected_result & 0b1111) as u8;
-    let expected_cout = (expected_result & 0b10000) != 0;
-
-    println!(
-        "  {} + {} + {} = Sum: {} (Cout: {}) [Expected: Sum={}, Cout={}] {}",
-        format_u4(a), format_u4(b), cin as u8,
-        format_u4(sum), cout as u8,
-        format_u4(expected_sum), expected_cout as u8,
-        if sum == expected_sum && cout == expected_cout { "✅" } else { "❌ ERROR" }
-    );
-    assert_eq!(sum, expected_sum, "Sum mismatch for {} + {} + {}", a, b, cin);
-    assert_eq!(cout, expected_cout, "Cout mismatch for {} + {} + {}", a, b, cin);
+/// Pulses the clock (0 -> 1 -> 0) and evaluates stability.
+fn pulse_clock(circuit: &Circuit) {
+    circuit.set_input("CLK", true);  // Rising edge
+    circuit.evaluate_stable();
+    circuit.set_input("CLK", false); // Falling edge
+    circuit.evaluate_stable();
 }
 // --- End Helper Functions ---
 
@@ -217,20 +205,50 @@ fn main() {
         }
     }
 
-    // --- 4-Bit Adder Test ---
-    println!("\nTesting 4-Bit Adder:");
-    let adder4 = builder.build("Adder4Bit");
+    // --- 4-Bit Register Test ---
+    println!("\nTesting 4-Bit Register:");
+    let register4 = builder.build("Register4Bit");
 
-    // Test cases (A + B + Cin)
-    test_adder4_case(&adder4, 0, 0, false); // 0000 + 0000 + 0 = 0000 (C=0)
-    test_adder4_case(&adder4, 1, 0, false); // 0001 + 0000 + 0 = 0001 (C=0)
-    test_adder4_case(&adder4, 1, 1, false); // 0001 + 0001 + 0 = 0010 (C=0)
-    test_adder4_case(&adder4, 2, 3, false); // 0010 + 0011 + 0 = 0101 (C=0)
-    test_adder4_case(&adder4, 7, 1, false); // 0111 + 0001 + 0 = 1000 (C=0) -> Tests carry ripple
-    test_adder4_case(&adder4, 8, 8, false); // 1000 + 1000 + 0 = 0000 (C=1) -> Tests carry out
-    test_adder4_case(&adder4, 15, 1, false); // 1111 + 0001 + 0 = 0000 (C=1)
-    test_adder4_case(&adder4, 15, 15, false); // 1111 + 1111 + 0 = 1110 (C=1)
-    test_adder4_case(&adder4, 5, 5, true);  // 0101 + 0101 + 1 = 1011 (C=0) -> Tests carry in
-    test_adder4_case(&adder4, 8, 7, true);  // 1000 + 0111 + 1 = 0000 (C=1) -> Tests carry in and out
-    test_adder4_case(&adder4, 15, 15, true); // 1111 + 1111 + 1 = 1111 (C=1)
+    // The INIT block should have already run, setting Q=0000. Verify initial state.
+    println!("1. Initial State after INIT (CLK=0):");
+    let (q_val, nq_val) = get_register4_outputs(&register4);
+    println!("   Q = {} ({}), nQ = {} ({})", format_u4(q_val), q_val, format_u4(nq_val), nq_val);
+    assert_eq!(q_val, 0b0000, "Initial Q state incorrect");
+    assert_eq!(nq_val, 0b1111, "Initial nQ state incorrect"); // nQ should be NOT Q
+
+    // Set Data input to 5 (0101), keep CLK low. Output should not change.
+    println!("2. Set D = 5 (0101), CLK=0:");
+    set_register4_data(&register4, 0b0101);
+    register4.evaluate_stable(); // Ensure combinational logic settles if any
+    let (q_val, nq_val) = get_register4_outputs(&register4);
+    println!("   Q = {} ({}), nQ = {} ({})", format_u4(q_val), q_val, format_u4(nq_val), nq_val);
+    assert_eq!(q_val, 0b0000, "Q changed while CLK low");
+    assert_eq!(nq_val, 0b1111, "nQ changed while CLK low");
+
+    // Pulse the clock. Q should now latch the value 5 (0101).
+    println!("3. Pulse CLK (Rising Edge latches D=5):");
+    pulse_clock(&register4);
+    let (q_val, nq_val) = get_register4_outputs(&register4);
+    println!("   Q = {} ({}), nQ = {} ({})", format_u4(q_val), q_val, format_u4(nq_val), nq_val);
+    assert_eq!(q_val, 0b0101, "Q did not latch D=5 on rising edge");
+    assert_eq!(nq_val, 0b1010, "nQ is not NOT(Q) after latching 5"); // Check nQ = NOT(0101) = 1010
+
+    // Change Data input to 10 (1010), keep CLK low. Output should hold 5.
+    println!("4. Set D = 10 (1010), CLK=0:");
+    set_register4_data(&register4, 0b1010);
+    register4.evaluate_stable();
+    let (q_val, nq_val) = get_register4_outputs(&register4);
+    println!("   Q = {} ({}), nQ = {} ({})", format_u4(q_val), q_val, format_u4(nq_val), nq_val);
+    assert_eq!(q_val, 0b0101, "Q changed while CLK low (should hold 5)");
+    assert_eq!(nq_val, 0b1010, "nQ changed while CLK low (should hold NOT 5)");
+
+    // Pulse the clock again. Q should now latch the value 10 (1010).
+    println!("5. Pulse CLK (Rising Edge latches D=10):");
+    pulse_clock(&register4);
+    let (q_val, nq_val) = get_register4_outputs(&register4);
+    println!("   Q = {} ({}), nQ = {} ({})", format_u4(q_val), q_val, format_u4(nq_val), nq_val);
+    assert_eq!(q_val, 0b1010, "Q did not latch D=10 on rising edge");
+    assert_eq!(nq_val, 0b0101, "nQ is not NOT(Q) after latching 10"); // Check nQ = NOT(1010) = 0101
+
+    println!("\nRegister tests passed! ✅");
 }
