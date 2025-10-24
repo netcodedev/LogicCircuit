@@ -1,0 +1,24 @@
+CIRCUIT DLatch {
+    INPUT Data, Store;
+    OUTPUT Q, nQ;
+    
+    PART G_NOT: NOT;   // Inverts D
+    PART G_S: AND;   // Set = AND(D, E)
+    PART G_R: AND;   // Reset = AND(NOT D, E)
+    
+    PART SRLatch: SRLatch;
+
+    CONNECT Data -> G_NOT.in;
+    
+    CONNECT Data -> G_S.in1;
+    CONNECT Store -> G_S.in2;
+    
+    CONNECT G_NOT.out -> G_R.in1; 
+    CONNECT Store -> G_R.in2;
+    
+    CONNECT G_R.out -> SRLatch.Reset;
+    CONNECT G_S.out -> SRLatch.Set;
+    
+    CONNECT SRLatch.Q -> Q;
+    CONNECT SRLatch.nQ -> nQ;
+}

@@ -2,7 +2,9 @@ use std::path::Path;
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use uuid::Uuid; // Import uuid
+use uuid::Uuid;
+use std::fs;
+use std::fmt; // Import the formatting trait
 
 mod cldl;
 use crate::cldl::CircuitBuilder;
@@ -40,23 +42,34 @@ pub trait LogicGate: std::fmt::Debug {
 }
 
 // --- Primitive Gate: NAND ---
-#[derive(Debug)]
+// #[derive(Debug)] // Remove derive, we'll implement it manually
 struct NandGate {
+    id: String, // <-- ADDED: The hierarchical instance name
     in1: Wire,
     in2: Wire,
     out: Wire,
 }
 
+// --- NEW: Custom Debug implementation for NandGate ---
+impl fmt::Debug for NandGate {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("NandGate")
+         .field("id", &self.id) // Add the id field
+         .field("in1", &self.in1)
+         .field("in2", &self.in2)
+         .field("out", &self.out)
+         .finish()
+    }
+}
+
+
 impl LogicGate for NandGate {
     fn evaluate(&self) -> bool {
-        // Read the .value field from the WireData
         let val1 = self.in1.borrow().value;
         let val2 = self.in2.borrow().value;
         
         let new_val = !(val1 && val2);
 
-        // Get the old value and update the new one
-        // This is a clearer pattern than .replace()
         let old_val = self.out.borrow().value;
         self.out.borrow_mut().value = new_val;
         
@@ -102,7 +115,6 @@ impl Circuit {
 
     pub fn set_input(&self, name: &str, value: bool) {
         if let Some(wire) = self.inputs.get(name) {
-            // Update the .value field
             wire.borrow_mut().value = value;
         } else {
             eprintln!("Warning: Input '{}' not found.", name);
@@ -110,7 +122,6 @@ impl Circuit {
     }
 
     pub fn get_output(&self, name: &str) -> Option<bool> {
-        // Read the .value field
         self.outputs.get(name).map(|wire| wire.borrow().value)
     }
 
@@ -150,68 +161,112 @@ fn main() {
         }
     }
 
-    // --- SR Latch Test ---
-    println!("\nTesting SR Latch (Active-Low):");
-    let latch = builder.build("SRLatch");
+    // --- D Latch Test ---
+    println!("\nTesting D Latch:");
+    let d_latch = builder.build("DLatch");
 
-    // Start in a stable state.
-    // We must "Set" or "Reset" it first to get a known value.
-    // Let's Reset it: nS=1, nR=0
-    println!("1. Resetting Latch (nS=1, nR=0):");
-    latch.set_input("nS", true);
-    latch.set_input("nR", false);
-    latch.evaluate_stable();
+    println!("1. Enable Latch to Set (Store=1, Data=1):");
+    d_latch.set_input("Store", true);
+    d_latch.set_input("Data", true);
+    d_latch.evaluate_stable();
     println!(
         "   Q={}, nQ={}",
-        latch.get_output("Q").unwrap(),
-        latch.get_output("nQ").unwrap()
+        d_latch.get_output("Q").unwrap(),
+        d_latch.get_output("nQ").unwrap()
     );
 
-    // Test 1: Hold after Reset (nS=1, nR=1)
-    // The latch should "remember" its 0 state.
-    println!("2. Holding State (nS=1, nR=1):");
-    latch.set_input("nS", true);
-    latch.set_input("nR", true);
-    latch.evaluate_stable();
+    // Test 2: Hold State (E=0)
+    // Latch closes. Q should "remember" its 1 state, even though D changes to 0.
+    println!("2. Hold State (Store=0, Data=0):");
+    d_latch.set_input("Store", false);
+    d_latch.set_input("Data", false);
+    d_latch.evaluate_stable();
     println!(
         "   Q={}, nQ={}",
-        latch.get_output("Q").unwrap(),
-        latch.get_output("nQ").unwrap()
+        d_latch.get_output("Q").unwrap(),
+        d_latch.get_output("nQ").unwrap()
     );
 
-    // Test 2: Set the Latch (nS=0, nR=1)
-    println!("3. Setting Latch (nS=0, nR=1):");
-    latch.set_input("nS", false);
-    latch.set_input("nR", true);
-    latch.evaluate_stable();
+    // Test 3: Enable Latch to Reset (E=1, D=0)
+    // Latch becomes transparent. Q should follow D and become 0.
+    println!("3. Enable Latch to Reset (Store=1, Data=0):");
+    d_latch.set_input("Store", true);
+    d_latch.set_input("Data", false);
+    d_latch.evaluate_stable();
     println!(
         "   Q={}, nQ={}",
-        latch.get_output("Q").unwrap(),
-        latch.get_output("nQ").unwrap()
+        d_latch.get_output("Q").unwrap(),
+        d_latch.get_output("nQ").unwrap()
     );
 
-    // Test 3: Hold after Set (nS=1, nR=1)
-    // The latch should "remember" its 1 state.
-    println!("4. Holding State (nS=1, nR=1):");
-    latch.set_input("nS", true);
-    latch.set_input("nR", true);
-    latch.evaluate_stable();
+    // Test 4: Hold State (E=0)
+    // Latch closes. Q should "remember" its 0 state, even though D changes to 1.
+    println!("4. Hold State (Store=0, Data=1):");
+    d_latch.set_input("Store", false);
+    d_latch.set_input("Data", true);
+    d_latch.evaluate_stable();
+    // println!("STATE: {:?}", d_latch);
     println!(
         "   Q={}, nQ={}",
-        latch.get_output("Q").unwrap(),
-        latch.get_output("nQ").unwrap()
+        d_latch.get_output("Q").unwrap(),
+        d_latch.get_output("nQ").unwrap()
     );
-    
-    // Test 4: Invalid State (nS=0, nR=0)
-    // Both outputs should go to 1.
-    println!("5. Invalid State (nS=0, nR=0):");
-    latch.set_input("nS", false);
-    latch.set_input("nR", false);
-    latch.evaluate_stable();
+
+    // Second cycle
+    println!("1. Enable Latch to Set (Store=1, Data=1):");
+    d_latch.set_input("Store", true);
+    d_latch.set_input("Data", true);
+    d_latch.evaluate_stable();
     println!(
         "   Q={}, nQ={}",
-        latch.get_output("Q").unwrap(),
-        latch.get_output("nQ").unwrap()
+        d_latch.get_output("Q").unwrap(),
+        d_latch.get_output("nQ").unwrap()
     );
+
+    // Test 2: Hold State (E=0)
+    // Latch closes. Q should "remember" its 1 state, even though D changes to 0.
+    println!("2. Hold State (Store=0, Data=0):");
+    d_latch.set_input("Store", false);
+    d_latch.set_input("Data", false);
+    d_latch.evaluate_stable();
+    println!(
+        "   Q={}, nQ={}",
+        d_latch.get_output("Q").unwrap(),
+        d_latch.get_output("nQ").unwrap()
+    );
+
+    // Test 3: Enable Latch to Reset (E=1, D=0)
+    // Latch becomes transparent. Q should follow D and become 0.
+    println!("3. Enable Latch to Reset (Store=1, Data=0):");
+    d_latch.set_input("Store", true);
+    d_latch.set_input("Data", false);
+    d_latch.evaluate_stable();
+    println!(
+        "   Q={}, nQ={}",
+        d_latch.get_output("Q").unwrap(),
+        d_latch.get_output("nQ").unwrap()
+    );
+
+    // Test 4: Hold State (E=0)
+    // Latch closes. Q should "remember" its 0 state, even though D changes to 1.
+    println!("4. Hold State (Store=0, Data=1):");
+    d_latch.set_input("Store", false);
+    d_latch.set_input("Data", true);
+    d_latch.evaluate_stable();
+    // println!("STATE: {:?}", d_latch);
+    println!(
+        "   Q={}, nQ={}",
+        d_latch.get_output("Q").unwrap(),
+        d_latch.get_output("nQ").unwrap()
+    );
+
+    // --- NEW: Export DLatch_AND to DOT file ---
+    // println!("\nExporting DLatch to dot file...");
+    // let dot_content = builder.export_to_dot("DLatch");
+    // match fs::write("DLatch.dot", dot_content) {
+    //     Ok(_) => println!("Successfully wrote DLatch.dot"),
+    //     Err(e) => eprintln!("Error writing .dot file: {}", e),
+    // }
 
 }
+

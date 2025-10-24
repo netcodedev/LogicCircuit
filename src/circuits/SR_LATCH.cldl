@@ -1,16 +1,16 @@
 CIRCUIT SRLatch {
-    INPUT nS, nR;
+    INPUT Set, Reset;
     OUTPUT Q, nQ;
 
-    PART G_Q: NAND;  // This gate's output is Q
-    PART G_nQ: NAND; // This gate's output is nQ
-
-    CONNECT nS -> G_Q.in1;
-    CONNECT nR -> G_nQ.in1;
-
-    CONNECT G_nQ.out -> G_Q.in2;
-    CONNECT G_Q.out -> G_nQ.in2;
+    PART G_Q: NOR;
+    PART G_nQ: NOR;
 
     CONNECT G_Q.out -> Q;
     CONNECT G_nQ.out -> nQ;
+
+    CONNECT Reset -> G_Q.in1;
+    CONNECT G_nQ.out -> G_Q.in2;
+
+    CONNECT Set -> G_nQ.in2;
+    CONNECT G_Q.out -> G_nQ.in1;
 }
