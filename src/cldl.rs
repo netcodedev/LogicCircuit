@@ -1,4 +1,4 @@
-use include_dir::{Dir, include_dir};
+use include_dir::{include_dir, Dir, DirEntry};
 use std::{collections::HashMap, fs, path::Path};
 
 use pest::{Parser, iterators::Pair};
@@ -279,23 +279,34 @@ impl CircuitBuilder {
         let mut definitions = HashMap::new();
 
         println!("Loading embedded circuit definitions...");
-        for file in CIRCUIT_DIR.files() {
-            // Only read files with the .cldl extension
-            if file.path().extension().map_or(false, |s| s == "cldl") {
-                let cldl_string = file.contents_utf8().expect("Circuit file not valid UTF-8");
-
-                match parse_cldl(cldl_string.trim()) {
-                    Ok(def) => {
-                        definitions.insert(def.name.clone(), def);
+        fn load_recursive(dir: &'static Dir<'static>, definitions: &mut HashMap<String, CldlDefinition>) {
+            for entry in dir.entries() {
+                match entry {
+                    DirEntry::Dir(sub_dir) => {
+                        // Recurse into subdirectories
+                        load_recursive(sub_dir, definitions);
                     }
-                    Err(e) => panic!(
-                        "Failed to parse embedded CLDL from {:?}:\n{}",
-                        file.path(),
-                        e
-                    ),
+                    DirEntry::File(file) => {
+                        // Process files
+                        if file.path().extension().map_or(false, |s| s == "cldl") {
+                            let cldl_string = file.contents_utf8().expect("Circuit file not valid UTF-8");
+                            match parse_cldl(cldl_string.trim()) { // Use trimmed parse_cldl
+                                Ok(def) => {
+                                    if definitions.contains_key(&def.name) {
+                                        // Handle potential name collisions if desired
+                                        eprintln!("Warning: Duplicate circuit definition found for '{}'. Overwriting.", def.name);
+                                    }
+                                    definitions.insert(def.name.clone(), def);
+                                },
+                                Err(e) => panic!("Failed to parse embedded CLDL from {:?}:\n{}", file.path(), e),
+                            }
+                        }
+                    }
                 }
             }
         }
+
+        load_recursive(&CIRCUIT_DIR, &mut definitions);
         if definitions.is_empty() {
             eprintln!("Warning: No embedded .cldl files found.");
         }
@@ -313,23 +324,22 @@ impl CircuitBuilder {
         }
 
         println!("Loading circuits from path: {:?}", path);
-        let entries = fs::read_dir(path)?;
-
-        for entry in entries {
-            let entry = entry?;
-            let path = entry.path();
-
-            // Only read files with the .cldl extension
+        for entry in fs::read_dir(path)? {
+            let entry = entry?; let path = entry.path();
             if path.is_file() && path.extension().map_or(false, |s| s == "cldl") {
                 let cldl_string = fs::read_to_string(&path)?;
-
                 match parse_cldl(cldl_string.trim()) {
                     Ok(def) => {
-                        println!("[Builder] Loaded file definition for '{}'", def.name);
-                        self.definitions.insert(def.name.clone(), def);
-                    }
+                         if self.definitions.contains_key(&def.name) {
+                             eprintln!("Warning: Overwriting definition for '{}' from file.", def.name);
+                         }
+                         self.definitions.insert(def.name.clone(), def);
+                    },
                     Err(e) => eprintln!("Failed to parse CLDL from file {:?}:\n{}", path, e),
                 }
+            } else if path.is_dir() {
+                // Optionally add recursion for loading from paths too
+                // self.load_circuits_from_path(&path)?;
             }
         }
         Ok(())

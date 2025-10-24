@@ -148,47 +148,27 @@ impl Circuit {
 }
 
 
-// --- Helper Functions for 4-Bit Register Tests ---
+// --- Helper Functions for Mux2To1 Tests ---
 
-/// Sets the data inputs (D0-D3) for the 4-bit register.
-fn set_register4_data(register: &Circuit, data: u8) {
-    assert!(data < 16, "Input data must be < 16 for 4-bit register");
-    register.set_input("D0", (data & 0b0001) != 0);
-    register.set_input("D1", (data & 0b0010) != 0);
-    register.set_input("D2", (data & 0b0100) != 0);
-    register.set_input("D3", (data & 0b1000) != 0);
-}
+/// Runs a single test case for the Mux2To1.
+fn test_mux2to1_case(mux: &Circuit, a: bool, b: bool, s: bool) {
+    mux.set_input("A", a);
+    mux.set_input("B", b);
+    mux.set_input("S", s);
+    mux.evaluate_stable();
+    let out = mux.get_output_unwrapped("Out");
 
-/// Gets the Q and nQ outputs from the 4-bit register.
-/// Returns (q_value: u8, nq_value: u8).
-fn get_register4_outputs(register: &Circuit) -> (u8, u8) {
-    let q0 = register.get_output_unwrapped("Q0");
-    let q1 = register.get_output_unwrapped("Q1");
-    let q2 = register.get_output_unwrapped("Q2");
-    let q3 = register.get_output_unwrapped("Q3");
+    // Calculate expected result
+    let expected_out = if s { b } else { a };
 
-    let nq0 = register.get_output_unwrapped("nQ0");
-    let nq1 = register.get_output_unwrapped("nQ1");
-    let nq2 = register.get_output_unwrapped("nQ2");
-    let nq3 = register.get_output_unwrapped("nQ3");
-
-    let q_value = (q0 as u8) | ((q1 as u8) << 1) | ((q2 as u8) << 2) | ((q3 as u8) << 3);
-    let nq_value = (nq0 as u8) | ((nq1 as u8) << 1) | ((nq2 as u8) << 2) | ((nq3 as u8) << 3);
-
-    (q_value, nq_value)
-}
-
-/// Formats a 4-bit number for printing.
-fn format_u4(n: u8) -> String {
-    format!("{:04b}", n)
-}
-
-/// Pulses the clock (0 -> 1 -> 0) and evaluates stability.
-fn pulse_clock(circuit: &Circuit) {
-    circuit.set_input("CLK", true);  // Rising edge
-    circuit.evaluate_stable();
-    circuit.set_input("CLK", false); // Falling edge
-    circuit.evaluate_stable();
+    println!(
+        "  Mux(A={}, B={}, S={}) -> Out={} [Expected: {}] {}",
+        a as u8, b as u8, s as u8,
+        out as u8,
+        expected_out as u8,
+        if out == expected_out { "✅" } else { "❌ ERROR" }
+    );
+    assert_eq!(out, expected_out, "Mux output mismatch for A={}, B={}, S={}", a, b, s);
 }
 // --- End Helper Functions ---
 
@@ -205,50 +185,22 @@ fn main() {
         }
     }
 
-    // --- 4-Bit Register Test ---
-    println!("\nTesting 4-Bit Register:");
-    let register4 = builder.build("Register4Bit");
+    // --- Mux 2-to-1 Test ---
+    println!("\nTesting 2-to-1 Multiplexer:");
+    let mux = builder.build("Mux2To1");
 
-    // The INIT block should have already run, setting Q=0000. Verify initial state.
-    println!("1. Initial State after INIT (CLK=0):");
-    let (q_val, nq_val) = get_register4_outputs(&register4);
-    println!("   Q = {} ({}), nQ = {} ({})", format_u4(q_val), q_val, format_u4(nq_val), nq_val);
-    assert_eq!(q_val, 0b0000, "Initial Q state incorrect");
-    assert_eq!(nq_val, 0b1111, "Initial nQ state incorrect"); // nQ should be NOT Q
+    // Test cases (A, B, S)
+    println!("Testing S=0 (Select A):");
+    test_mux2to1_case(&mux, false, false, false); // S=0, A=0 -> Out=0
+    test_mux2to1_case(&mux, true, false, false);  // S=0, A=1 -> Out=1
+    test_mux2to1_case(&mux, false, true, false);  // S=0, A=0 -> Out=0 (B is ignored)
+    test_mux2to1_case(&mux, true, true, false);   // S=0, A=1 -> Out=1 (B is ignored)
 
-    // Set Data input to 5 (0101), keep CLK low. Output should not change.
-    println!("2. Set D = 5 (0101), CLK=0:");
-    set_register4_data(&register4, 0b0101);
-    register4.evaluate_stable(); // Ensure combinational logic settles if any
-    let (q_val, nq_val) = get_register4_outputs(&register4);
-    println!("   Q = {} ({}), nQ = {} ({})", format_u4(q_val), q_val, format_u4(nq_val), nq_val);
-    assert_eq!(q_val, 0b0000, "Q changed while CLK low");
-    assert_eq!(nq_val, 0b1111, "nQ changed while CLK low");
+    println!("Testing S=1 (Select B):");
+    test_mux2to1_case(&mux, false, false, true);  // S=1, B=0 -> Out=0
+    test_mux2to1_case(&mux, true, false, true);   // S=1, B=0 -> Out=0 (A is ignored)
+    test_mux2to1_case(&mux, false, true, true);   // S=1, B=1 -> Out=1
+    test_mux2to1_case(&mux, true, true, true);    // S=1, B=1 -> Out=1 (A is ignored)
 
-    // Pulse the clock. Q should now latch the value 5 (0101).
-    println!("3. Pulse CLK (Rising Edge latches D=5):");
-    pulse_clock(&register4);
-    let (q_val, nq_val) = get_register4_outputs(&register4);
-    println!("   Q = {} ({}), nQ = {} ({})", format_u4(q_val), q_val, format_u4(nq_val), nq_val);
-    assert_eq!(q_val, 0b0101, "Q did not latch D=5 on rising edge");
-    assert_eq!(nq_val, 0b1010, "nQ is not NOT(Q) after latching 5"); // Check nQ = NOT(0101) = 1010
-
-    // Change Data input to 10 (1010), keep CLK low. Output should hold 5.
-    println!("4. Set D = 10 (1010), CLK=0:");
-    set_register4_data(&register4, 0b1010);
-    register4.evaluate_stable();
-    let (q_val, nq_val) = get_register4_outputs(&register4);
-    println!("   Q = {} ({}), nQ = {} ({})", format_u4(q_val), q_val, format_u4(nq_val), nq_val);
-    assert_eq!(q_val, 0b0101, "Q changed while CLK low (should hold 5)");
-    assert_eq!(nq_val, 0b1010, "nQ changed while CLK low (should hold NOT 5)");
-
-    // Pulse the clock again. Q should now latch the value 10 (1010).
-    println!("5. Pulse CLK (Rising Edge latches D=10):");
-    pulse_clock(&register4);
-    let (q_val, nq_val) = get_register4_outputs(&register4);
-    println!("   Q = {} ({}), nQ = {} ({})", format_u4(q_val), q_val, format_u4(nq_val), nq_val);
-    assert_eq!(q_val, 0b1010, "Q did not latch D=10 on rising edge");
-    assert_eq!(nq_val, 0b0101, "nQ is not NOT(Q) after latching 10"); // Check nQ = NOT(1010) = 0101
-
-    println!("\nRegister tests passed! ✅");
+    println!("\nMux tests passed! ✅");
 }

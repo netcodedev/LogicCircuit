@@ -1,0 +1,26 @@
+CIRCUIT Mux2To1 {
+    // Inputs: Two data inputs (A, B) and one Select input (S)
+    INPUT A, B;
+    INPUT S; 
+
+    // Output: Selected data input (Out)
+    OUTPUT Out;
+
+    PART G_NOT_S: NOT;
+    PART G_AND_A: AND;
+    PART G_AND_B: AND;
+    PART G_OR_Out: OR;
+
+    CONNECT S -> G_NOT_S.in;
+
+    CONNECT A -> G_AND_A.in1;
+    CONNECT G_NOT_S.out -> G_AND_A.in2;
+
+    CONNECT B -> G_AND_B.in1;
+    CONNECT S -> G_AND_B.in2;
+
+    CONNECT G_AND_A.out -> G_OR_Out.in1;
+    CONNECT G_AND_B.out -> G_OR_Out.in2;
+
+    CONNECT G_OR_Out.out -> Out;
+}
