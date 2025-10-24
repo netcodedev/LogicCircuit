@@ -148,27 +148,58 @@ impl Circuit {
 }
 
 
-// --- Helper Functions for Mux2To1 Tests ---
+// --- Helper Functions for 4-Bit Mux 2-to-1 Tests ---
 
-/// Runs a single test case for the Mux2To1.
-fn test_mux2to1_case(mux: &Circuit, a: bool, b: bool, s: bool) {
-    mux.set_input("A", a);
-    mux.set_input("B", b);
+/// Sets the inputs for the 4-bit mux.
+fn set_mux4b2to1_inputs(mux: &Circuit, a: u8, b: u8, s: bool) {
+    assert!(a < 16, "Input 'a' must be < 16 for 4-bit mux");
+    assert!(b < 16, "Input 'b' must be < 16 for 4-bit mux");
+
+    mux.set_input("A0", (a & 0b0001) != 0);
+    mux.set_input("A1", (a & 0b0010) != 0);
+    mux.set_input("A2", (a & 0b0100) != 0);
+    mux.set_input("A3", (a & 0b1000) != 0);
+
+    mux.set_input("B0", (b & 0b0001) != 0);
+    mux.set_input("B1", (b & 0b0010) != 0);
+    mux.set_input("B2", (b & 0b0100) != 0);
+    mux.set_input("B3", (b & 0b1000) != 0);
+
     mux.set_input("S", s);
+}
+
+/// Gets the 4-bit output from the mux.
+fn get_mux4b2to1_output(mux: &Circuit) -> u8 {
+    let out0 = mux.get_output_unwrapped("Out0");
+    let out1 = mux.get_output_unwrapped("Out1");
+    let out2 = mux.get_output_unwrapped("Out2");
+    let out3 = mux.get_output_unwrapped("Out3");
+
+    (out0 as u8) | ((out1 as u8) << 1) | ((out2 as u8) << 2) | ((out3 as u8) << 3)
+}
+
+/// Formats a 4-bit number for printing.
+fn format_u4(n: u8) -> String {
+    format!("{:04b}", n)
+}
+
+/// Runs a single test case for the 4-bit mux.
+fn test_mux4b2to1_case(mux: &Circuit, a: u8, b: u8, s: bool) {
+    set_mux4b2to1_inputs(mux, a, b, s);
     mux.evaluate_stable();
-    let out = mux.get_output_unwrapped("Out");
+    let out = get_mux4b2to1_output(mux);
 
     // Calculate expected result
     let expected_out = if s { b } else { a };
 
     println!(
-        "  Mux(A={}, B={}, S={}) -> Out={} [Expected: {}] {}",
-        a as u8, b as u8, s as u8,
-        out as u8,
-        expected_out as u8,
+        "  Mux4(A={}, B={}, S={}) -> Out={} [Expected: {}] {}",
+        format_u4(a), format_u4(b), s as u8,
+        format_u4(out),
+        format_u4(expected_out),
         if out == expected_out { "✅" } else { "❌ ERROR" }
     );
-    assert_eq!(out, expected_out, "Mux output mismatch for A={}, B={}, S={}", a, b, s);
+    assert_eq!(out, expected_out, "Mux4 output mismatch for A={}, B={}, S={}", a, b, s);
 }
 // --- End Helper Functions ---
 
@@ -185,22 +216,22 @@ fn main() {
         }
     }
 
-    // --- Mux 2-to-1 Test ---
-    println!("\nTesting 2-to-1 Multiplexer:");
-    let mux = builder.build("Mux2To1");
+    // --- Mux 4-Bit 2-to-1 Test ---
+    println!("\nTesting 4-Bit 2-to-1 Multiplexer:");
+    let mux4b = builder.build("MUX_4B_2_1");
 
     // Test cases (A, B, S)
     println!("Testing S=0 (Select A):");
-    test_mux2to1_case(&mux, false, false, false); // S=0, A=0 -> Out=0
-    test_mux2to1_case(&mux, true, false, false);  // S=0, A=1 -> Out=1
-    test_mux2to1_case(&mux, false, true, false);  // S=0, A=0 -> Out=0 (B is ignored)
-    test_mux2to1_case(&mux, true, true, false);   // S=0, A=1 -> Out=1 (B is ignored)
+    test_mux4b2to1_case(&mux4b, 0b0000, 0b1111, false); // S=0, A=0, B=15 -> Out=0
+    test_mux4b2to1_case(&mux4b, 0b0101, 0b1010, false); // S=0, A=5, B=10 -> Out=5
+    test_mux4b2to1_case(&mux4b, 0b1111, 0b0000, false); // S=0, A=15, B=0 -> Out=15
+    test_mux4b2to1_case(&mux4b, 0b1001, 0b0110, false); // S=0, A=9, B=6 -> Out=9
 
     println!("Testing S=1 (Select B):");
-    test_mux2to1_case(&mux, false, false, true);  // S=1, B=0 -> Out=0
-    test_mux2to1_case(&mux, true, false, true);   // S=1, B=0 -> Out=0 (A is ignored)
-    test_mux2to1_case(&mux, false, true, true);   // S=1, B=1 -> Out=1
-    test_mux2to1_case(&mux, true, true, true);    // S=1, B=1 -> Out=1 (A is ignored)
+    test_mux4b2to1_case(&mux4b, 0b1111, 0b0000, true);  // S=1, A=15, B=0 -> Out=0
+    test_mux4b2to1_case(&mux4b, 0b1010, 0b0101, true);  // S=1, A=10, B=5 -> Out=5
+    test_mux4b2to1_case(&mux4b, 0b0000, 0b1111, true);  // S=1, A=0, B=15 -> Out=15
+    test_mux4b2to1_case(&mux4b, 0b0110, 0b1001, true);  // S=1, A=6, B=9 -> Out=9
 
-    println!("\nMux tests passed! ✅");
+    println!("\nMux4Bit tests passed! ✅");
 }

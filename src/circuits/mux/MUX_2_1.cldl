@@ -1,4 +1,4 @@
-CIRCUIT Mux2To1 {
+CIRCUIT MUX_2_1 {
     // Inputs: Two data inputs (A, B) and one Select input (S)
     INPUT A, B;
     INPUT S; 

@@ -1,0 +1,34 @@
+CIRCUIT MUX_4B_2_1 {
+    // Inputs: Two 4-bit data buses (A0-A3, B0-B3) and one Select input (S)
+    INPUT A0, A1, A2, A3;
+    INPUT B0, B1, B2, B3;
+    INPUT S; 
+
+    // Output: Selected 4-bit data bus (Out0-Out3)
+    OUTPUT Out0, Out1, Out2, Out3;
+
+    PART MUX0: MUX_2_1;
+    PART MUX1: MUX_2_1;
+    PART MUX2: MUX_2_1;
+    PART MUX3: MUX_2_1;
+
+    CONNECT A0 -> MUX0.A;
+    CONNECT B0 -> MUX0.B;
+    CONNECT S  -> MUX0.S;
+    CONNECT MUX0.Out -> Out0;
+
+    CONNECT A1 -> MUX1.A;
+    CONNECT B1 -> MUX1.B;
+    CONNECT S  -> MUX1.S;
+    CONNECT MUX1.Out -> Out1;
+
+    CONNECT A2 -> MUX2.A;
+    CONNECT B2 -> MUX2.B;
+    CONNECT S  -> MUX2.S;
+    CONNECT MUX2.Out -> Out2;
+
+    CONNECT A3 -> MUX3.A;
+    CONNECT B3 -> MUX3.B;
+    CONNECT S  -> MUX3.S;
+    CONNECT MUX3.Out -> Out3;
+}
