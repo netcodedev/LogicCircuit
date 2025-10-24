@@ -1,0 +1,38 @@
+CIRCUIT Adder4Bit {
+    // Inputs: Two 4-bit numbers (A0-A3, B0-B3) and an initial Carry In (Cin)
+    INPUT A0, A1, A2, A3;
+    INPUT B0, B1, B2, B3;
+    INPUT Cin; 
+
+    // Outputs: 4-bit Sum (S0-S3) and final Carry Out (Cout)
+    OUTPUT S0, S1, S2, S3;
+    OUTPUT Cout;
+
+    PART FA0: FullAdder; // Least significant bit
+    PART FA1: FullAdder;
+    PART FA2: FullAdder;
+    PART FA3: FullAdder; // Most significant bit
+
+    CONNECT A0 -> FA0.a;
+    CONNECT B0 -> FA0.b;
+    CONNECT Cin -> FA0.cin; // Initial carry-in
+
+    CONNECT A1 -> FA1.a;
+    CONNECT B1 -> FA1.b;
+    CONNECT FA0.cout -> FA1.cin; // Carry out from FA0 goes to carry in of FA1
+
+    CONNECT A2 -> FA2.a;
+    CONNECT B2 -> FA2.b;
+    CONNECT FA1.cout -> FA2.cin; // Ripple carry
+
+    CONNECT A3 -> FA3.a;
+    CONNECT B3 -> FA3.b;
+    CONNECT FA2.cout -> FA3.cin; // Ripple carry
+
+    CONNECT FA0.sum -> S0;
+    CONNECT FA1.sum -> S1;
+    CONNECT FA2.sum -> S2;
+    CONNECT FA3.sum -> S3;
+
+    CONNECT FA3.cout -> Cout;
+}
