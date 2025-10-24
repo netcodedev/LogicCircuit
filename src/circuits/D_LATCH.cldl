@@ -21,4 +21,8 @@ CIRCUIT DLatch {
     
     CONNECT SRLatch.Q -> Q;
     CONNECT SRLatch.nQ -> nQ;
+
+    INIT {
+        SEQ Data 0, Store 1 -> Store 0;
+    }
 }

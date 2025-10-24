@@ -1,10 +1,10 @@
-use std::path::Path;
-use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use uuid::Uuid;
-use std::fs;
 use std::fmt;
+use std::fs;
+use std::path::Path;
+use std::rc::Rc;
+use uuid::Uuid;
 
 mod cldl;
 use crate::cldl::CircuitBuilder;
@@ -49,25 +49,24 @@ struct NandGate {
 impl fmt::Debug for NandGate {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("NandGate")
-         .field("id", &self.id)
-         .field("in1", &self.in1)
-         .field("in2", &self.in2)
-         .field("out", &self.out)
-         .finish()
+            .field("id", &self.id)
+            .field("in1", &self.in1)
+            .field("in2", &self.in2)
+            .field("out", &self.out)
+            .finish()
     }
 }
-
 
 impl LogicGate for NandGate {
     fn evaluate(&self) -> bool {
         let val1 = self.in1.borrow().value;
         let val2 = self.in2.borrow().value;
-        
+
         let new_val = !(val1 && val2);
 
         let old_val = self.out.borrow().value;
         self.out.borrow_mut().value = new_val;
-        
+
         let changed = new_val != old_val;
 
         changed
@@ -129,7 +128,7 @@ impl Circuit {
         }
         changed
     }
-    
+
     pub fn evaluate_stable(&self) {
         let mut iterations = 0;
         const MAX_ITERATIONS: u32 = 1000;
@@ -137,7 +136,10 @@ impl Circuit {
         while self.evaluate_all() {
             iterations += 1;
             if iterations > MAX_ITERATIONS {
-                eprintln!("Warning: Circuit {} did not stabilize after {} iterations. Possible oscillation detected.", self.name, MAX_ITERATIONS);
+                eprintln!(
+                    "Warning: Circuit {} did not stabilize after {} iterations. Possible oscillation detected.",
+                    self.name, MAX_ITERATIONS
+                );
                 break;
             }
         }
@@ -145,7 +147,6 @@ impl Circuit {
 }
 
 fn main() {
-    println!("Initializing CircuitBuilder...");
     let mut builder = CircuitBuilder::new();
 
     let args: Vec<String> = std::env::args().collect();
@@ -155,104 +156,72 @@ fn main() {
             eprintln!("Error loading custom circuits: {}", e);
         }
     }
+    // --- D Flip-Flop Test ---
+    println!("\nTesting D Flip-Flop:");
+    let dff = builder.build("DFlipFlop");
 
-    // --- D Latch Test ---
-    println!("\nTesting D Latch:");
-    let d_latch = builder.build("DLatch");
-
-    println!("1. Enable Latch to Set (Store=1, Data=1):");
-    d_latch.set_input("Store", true);
-    d_latch.set_input("Data", true);
-    d_latch.evaluate_stable();
+    // Now start the actual test sequence. CLK is already low. D is 0.
+    println!("1. Initial State (CLK=0, D=0) after priming:");
     println!(
         "   Q={}, nQ={}",
-        d_latch.get_output("Q").unwrap(),
-        d_latch.get_output("nQ").unwrap()
+        dff.get_output("Q").unwrap(),
+        dff.get_output("nQ").unwrap()
     );
 
-    // Test 2: Hold State (E=0)
-    // Latch closes. Q should "remember" its 1 state, even though D changes to 0.
-    println!("2. Hold State (Store=0, Data=0):");
-    d_latch.set_input("Store", false);
-    d_latch.set_input("Data", false);
-    d_latch.evaluate_stable();
+    // Set D=1, but keep CLK=0. Q should not change (still 0).
+    println!("2. Set D=1 (CLK=0):");
+    dff.set_input("D", true);
+    dff.evaluate_stable();
     println!(
         "   Q={}, nQ={}",
-        d_latch.get_output("Q").unwrap(),
-        d_latch.get_output("nQ").unwrap()
+        dff.get_output("Q").unwrap(),
+        dff.get_output("nQ").unwrap()
     );
 
-    // Test 3: Enable Latch to Reset (E=1, D=0)
-    // Latch becomes transparent. Q should follow D and become 0.
-    println!("3. Enable Latch to Reset (Store=1, Data=0):");
-    d_latch.set_input("Store", true);
-    d_latch.set_input("Data", false);
-    d_latch.evaluate_stable();
+    // Pulse the clock: 0 -> 1 (Rising Edge)
+    // The Master latch (which captured D=1 just before edge) value is copied to Slave.
+    // Q should become 1.
+    println!("3. Clock Rising Edge (CLK=1):");
+    dff.set_input("CLK", true);
+    dff.evaluate_stable();
     println!(
         "   Q={}, nQ={}",
-        d_latch.get_output("Q").unwrap(),
-        d_latch.get_output("nQ").unwrap()
+        dff.get_output("Q").unwrap(),
+        dff.get_output("nQ").unwrap()
     );
 
-    // Test 4: Hold State (E=0)
-    // Latch closes. Q should "remember" its 0 state, even though D changes to 1.
-    println!("4. Hold State (Store=0, Data=1):");
-    d_latch.set_input("Store", false);
-    d_latch.set_input("Data", true);
-    d_latch.evaluate_stable();
-    // println!("STATE: {:?}", d_latch);
+    // Change D while CLK is high. Q should *not* change (still 1).
+    println!("4. Change D while CLK is High (CLK=1, D=0):");
+    dff.set_input("D", false);
+    dff.evaluate_stable();
     println!(
         "   Q={}, nQ={}",
-        d_latch.get_output("Q").unwrap(),
-        d_latch.get_output("nQ").unwrap()
+        dff.get_output("Q").unwrap(),
+        dff.get_output("nQ").unwrap()
     );
 
-    // Second cycle
-    println!("1. Enable Latch to Set (Store=1, Data=1):");
-    d_latch.set_input("Store", true);
-    d_latch.set_input("Data", true);
-    d_latch.evaluate_stable();
+    // Pulse the clock: 1 -> 0 (Falling Edge)
+    // The Master latch opens (capturing D=0), but the Slave latch closes,
+    // *holding* the previous Q=1.
+    println!("5. Clock Falling Edge (CLK=0):");
+    dff.set_input("CLK", false);
+    dff.evaluate_stable();
     println!(
         "   Q={}, nQ={}",
-        d_latch.get_output("Q").unwrap(),
-        d_latch.get_output("nQ").unwrap()
+        dff.get_output("Q").unwrap(),
+        dff.get_output("nQ").unwrap()
     );
 
-    // Test 2: Hold State (E=0)
-    // Latch closes. Q should "remember" its 1 state, even though D changes to 0.
-    println!("2. Hold State (Store=0, Data=0):");
-    d_latch.set_input("Store", false);
-    d_latch.set_input("Data", false);
-    d_latch.evaluate_stable();
+    // Pulse the clock: 0 -> 1 (Rising Edge)
+    // The Master latch (which holds 0) copies its value to the Slave.
+    // Q should now update to 0.
+    println!("6. Next Rising Edge (CLK=1):");
+    dff.set_input("CLK", true);
+    dff.evaluate_stable();
     println!(
         "   Q={}, nQ={}",
-        d_latch.get_output("Q").unwrap(),
-        d_latch.get_output("nQ").unwrap()
-    );
-
-    // Test 3: Enable Latch to Reset (E=1, D=0)
-    // Latch becomes transparent. Q should follow D and become 0.
-    println!("3. Enable Latch to Reset (Store=1, Data=0):");
-    d_latch.set_input("Store", true);
-    d_latch.set_input("Data", false);
-    d_latch.evaluate_stable();
-    println!(
-        "   Q={}, nQ={}",
-        d_latch.get_output("Q").unwrap(),
-        d_latch.get_output("nQ").unwrap()
-    );
-
-    // Test 4: Hold State (E=0)
-    // Latch closes. Q should "remember" its 0 state, even though D changes to 1.
-    println!("4. Hold State (Store=0, Data=1):");
-    d_latch.set_input("Store", false);
-    d_latch.set_input("Data", true);
-    d_latch.evaluate_stable();
-    // println!("STATE: {:?}", d_latch);
-    println!(
-        "   Q={}, nQ={}",
-        d_latch.get_output("Q").unwrap(),
-        d_latch.get_output("nQ").unwrap()
+        dff.get_output("Q").unwrap(),
+        dff.get_output("nQ").unwrap()
     );
 
     // --- Export DLatch_AND to DOT file ---
@@ -265,4 +234,3 @@ fn main() {
         }
     }
 }
-

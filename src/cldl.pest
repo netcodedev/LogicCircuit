@@ -1,29 +1,56 @@
-// `WHITESPACE` and `COMMENT` are defined once at the top level.
-// The `_` makes them "silent", so pest consumes them automatically
-// between other rules, but they don't appear in the parse tree.
 WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
-COMMENT = _{ ( ("#" ~ (!("\r" | "\n") ~ ANY)*) | ("//" ~ (!("\r" | "\n") ~ ANY)*) ) }
+COMMENT    = _{ ("#" | "//") ~ (!("\r" | "\n") ~ ANY)* }
 
-// The `file` rule starts parsing.
-file = { SOI ~ circuit ~ EOI }
+// --- Basic Tokens ---
+// Identifier: Starts with letter/underscore, followed by letters/numbers/underscore
+ident = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
+// Pin Identifier: Can be simple "a" or namespaced "G1.in1"
+pin   = @{ ident ~ ("." ~ ident)* }
+// Value: Simple 0 or 1
+value = @{ "0" | "1" }
 
-// The `circuit` rule no longer lists WHITESPACE or COMMENT.
-// The `*` (zero or more) is correct.
-circuit = { "CIRCUIT" ~ ident ~ "{" ~
-    (input_def | output_def | part_def | connect_def)*
-~ "}" }
-
-// Definitions. The `@` makes them "atomic", so WHITESPACE is not
-// allowed inside them (e.g., "IN PUT a;").
+// --- Definitions ---
+// INPUT a, b;
 input_def = { "INPUT" ~ ident ~ ("," ~ ident)* ~ ";" }
+// OUTPUT sum, cout;
 output_def = { "OUTPUT" ~ ident ~ ("," ~ ident)* ~ ";" }
+// PART G1: NAND;
 part_def = { "PART" ~ ident ~ ":" ~ ident ~ ";" }
+// CONNECT a -> G1.in1;
 connect_def = { "CONNECT" ~ pin ~ "->" ~ pin ~ ";" }
 
-// A pin is an identifier, optionally with a dot and another identifier.
-// e.g., "a" or "G1.in1"
-pin = { ident ~ ("." ~ ident)? }
+// --- Initialization Block ---
+// INIT { SET ...; EVAL; SEQ ...; }
+init_block = { "INIT" ~ "{" ~ init_command* ~ "}" }
 
-// An identifier is one or more letters, numbers, or underscores.
-ident = @{ (ASCII_ALPHANUMERIC | "_")+ }
+// An initialization command can be SET, EVAL, or SEQ
+init_command = { set_command | eval_command | seq_command }
 
+// SET D 0, CLK 0;
+set_command = { "SET" ~ pin_value ~ ("," ~ pin_value)* ~ ";" }
+
+// EVAL;
+eval_command = { "EVAL" ~ ";" }
+
+// SEQ D 0, CLK 0 -> CLK 1 -> CLK 0;
+seq_command = { "SEQ" ~ step ~ ("->" ~ step)* ~ ";" }
+
+// A single step within a SEQ command: one or more pin assignments
+// e.g., "D 0, CLK 0" or just "CLK 1"
+step = { pin_value ~ ("," ~ pin_value)* }
+
+// A single pin assignment: "D 0" or "CLK 1"
+pin_value = { ident ~ value }
+// --- End Initialization Block ---
+
+// --- Structure ---
+// The main body of a circuit definition
+circuit_body = {
+    (input_def | output_def | part_def | connect_def | init_block)*
+}
+
+// The top-level circuit block: CIRCUIT Name { ... }
+circuit = { "CIRCUIT" ~ ident ~ "{" ~ circuit_body ~ "}" }
+
+// A file contains exactly one circuit definition
+file = { SOI ~ circuit ~ EOI }

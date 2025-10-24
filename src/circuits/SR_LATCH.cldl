@@ -13,4 +13,8 @@ CIRCUIT SRLatch {
 
     CONNECT Set -> G_nQ.in2;
     CONNECT G_Q.out -> G_nQ.in1;
+
+    INIT {
+        SEQ Reset 1 -> Reset 0;
+    }
 }

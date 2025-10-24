@@ -1,0 +1,25 @@
+CIRCUIT DFlipFlop {
+    // D: The Data to store
+    // CLK: The Clock signal
+    INPUT D, CLK;
+    OUTPUT Q, nQ;
+
+    PART G_NOT: NOT;
+    PART LATCH_M: DLatch;
+    PART LATCH_S: DLatch;
+
+    CONNECT CLK -> G_NOT.in;
+    CONNECT G_NOT.out -> LATCH_M.Store;
+    CONNECT D -> LATCH_M.Data;
+
+    CONNECT CLK -> LATCH_S.Store;
+    CONNECT LATCH_M.Q -> LATCH_S.Data;
+
+    CONNECT LATCH_S.Q -> Q;
+    CONNECT LATCH_S.nQ -> nQ;
+
+    INIT {
+        // This primes the flip-flop to a known Q=0 state.
+        SEQ D 0, CLK 0 -> CLK 1 -> CLK 0;
+    }
+}
