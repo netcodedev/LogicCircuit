@@ -1,5 +1,5 @@
 use include_dir::{Dir, include_dir};
-use std::{collections::HashMap, fmt::Write, fs, path::Path};
+use std::{collections::HashMap, fs, path::Path};
 
 use pest::{Parser, iterators::Pair};
 // Import LogicGate trait
@@ -198,19 +198,6 @@ fn parse_cldl(cldl_string: &str) -> Result<CldlDefinition, pest::error::Error<Ru
 pub struct CircuitBuilder {
     /// A map from circuit name (e.g., "XOR") to its parsed definition.
     definitions: HashMap<String, CldlDefinition>,
-}
-
-// Helper function for DOT export
-// This needs to parse "Parent.Child.Pin" into (Parent.Child, Pin)
-fn parse_dot_pin_path(full_pin_path: &str) -> (String, Option<String>) {
-    let parts: Vec<&str> = full_pin_path.split('.').collect();
-    if parts.len() > 1 {
-        let pin_name = parts.last().unwrap().to_string();
-        let node_name = parts[0..parts.len() - 1].join(".");
-        (node_name, Some(pin_name))
-    } else {
-        (full_pin_path.to_string(), None)
-    }
 }
 
 // Helper function to execute initialization using the wire_map
@@ -470,134 +457,5 @@ impl CircuitBuilder {
     /// Helper to get a wire from the map or create it if it doesn't exist.
     fn get_or_create_wire(&self, name: &str, map: &mut HashMap<String, Wire>) -> Wire {
         map.entry(name.to_string()).or_insert_with(wire).clone()
-    }
-
-    /// Exports the hierarchical definition of a circuit to the DOT graph language.
-    pub fn export_to_dot(&self, top_level_name: &str) -> String {
-        let mut dot_string = String::new();
-        let top_def = self
-            .definitions
-            .get(top_level_name)
-            .expect("Top-level circuit definition not found");
-
-        writeln!(dot_string, "digraph G {{").unwrap();
-        writeln!(dot_string, "  rankdir=LR;").unwrap(); // Left-to-right layout
-        writeln!(dot_string, "  node [fontname=\"Helvetica\"];").unwrap();
-        writeln!(dot_string, "  edge [fontname=\"Helvetica\"];").unwrap();
-        writeln!(dot_string, "  compound=true;").unwrap(); // Allow edges to/from subgraphs
-
-        // Recursively build the graph
-        self.build_dot_recursive(top_def, "", &mut dot_string);
-
-        writeln!(dot_string, "}}").unwrap();
-        dot_string
-    }
-
-    /// Recursive helper for building the DOT string.
-    fn build_dot_recursive(&self, def: &CldlDefinition, prefix: &str, dot_string: &mut String) {
-        // Create a subgraph cluster for this component
-        let cluster_id = if prefix.is_empty() {
-            def.name.clone()
-        } else {
-            prefix.to_string()
-        };
-        writeln!(dot_string, "  subgraph \"cluster_{}\" {{", cluster_id).unwrap();
-        writeln!(dot_string, "    label = \"{}\";", def.name).unwrap();
-        writeln!(dot_string, "    style = \"filled\";").unwrap();
-        writeln!(dot_string, "    color = \"lightgrey\";").unwrap();
-        writeln!(
-            dot_string,
-            "    node [shape=record, style=filled, fillcolor=white];"
-        )
-        .unwrap();
-
-        // Define "dummy" nodes for top-level inputs and outputs within this cluster
-        for input_name in &def.inputs {
-            let input_node_id = format!("{}_in_{}", cluster_id, input_name);
-            writeln!(
-                dot_string,
-                "    \"{}\" [label=\"{}\", shape=invhouse, height=0.3, width=0.3, fixedsize=true];",
-                input_node_id, input_name
-            )
-            .unwrap();
-        }
-        for output_name in &def.outputs {
-            let output_node_id = format!("{}_out_{}", cluster_id, output_name);
-            writeln!(
-                dot_string,
-                "    \"{}\" [label=\"{}\", shape=house, height=0.3, width=0.3, fixedsize=true];",
-                output_node_id, output_name
-            )
-            .unwrap();
-        }
-
-        let primitives = ["NAND", "NOT", "AND", "OR", "XOR", "XNOR", "NOR"];
-
-        // Define Parts (Nodes) and recurse for subcircuits
-        for part in &def.parts {
-            let part_dot_id = format!("{}.{}", cluster_id, part.instance_name);
-
-            if primitives.contains(&part.part_type.as_str()) {
-                // Primitive gates are nodes with ports
-                let label = if part.part_type == "NOT" {
-                    // Format: {<port_id>port_label | ...}
-                    format!("{{{}}}", part.instance_name)
-                } else {
-                    // All other 2-input primitives
-                    format!("{{{}}}", part.instance_name)
-                };
-                writeln!(dot_string, "    \"{}\" [label=\"{}\"];", part_dot_id, label).unwrap();
-            } else if let Some(sub_def) = self.definitions.get(&part.part_type) {
-                // Recursive case: This part is a subgraph
-                self.build_dot_recursive(sub_def, &part_dot_id, dot_string);
-            }
-        }
-
-        for conn in &def.connections {
-            let (src_node_name, src_pin_opt) = parse_dot_pin_path(&conn.source_pin);
-            let (dest_node_name, dest_pin_opt) = parse_dot_pin_path(&conn.dest_pin);
-
-            // 1. Find the full DOT ID for the SOURCE node
-            let src_dot_id = match src_node_name.as_str() {
-                _ if def.inputs.contains(&src_node_name) => {
-                    // It's a connection FROM a cluster input
-                    format!("\"{}\"", format!("{}_in_{}", cluster_id, src_node_name))
-                }
-                _ => {
-                    // It's a connection FROM a part's output
-                    let node_id = format!("{}.{}", cluster_id, src_node_name);
-                    let port_id = src_pin_opt.as_deref().unwrap_or("out"); // Default to "out"
-                    format!("\"{}\":{}", node_id, port_id)
-                }
-            };
-
-            // 2. Find the full DOT ID for the DESTINATION node
-            let dest_dot_id = match dest_node_name.as_str() {
-                _ if def.outputs.contains(&dest_node_name) => {
-                    // It's a connection TO a cluster output
-                    format!("\"{}\"", format!("{}_out_{}", cluster_id, dest_node_name))
-                }
-                _ => {
-                    // It's a connection TO a part's input
-                    let node_id = format!("{}.{}", cluster_id, dest_node_name);
-                    // The pin name *is* the port name (e.g., "in1", "in2", "in")
-                    let port_id = dest_pin_opt.as_deref().unwrap_or("in");
-                    format!("\"{}\":{}", node_id, port_id)
-                }
-            };
-
-            // 3. Use the destination pin name as the label
-            let edge_label = dest_pin_opt.unwrap_or_default();
-
-            // 4. Write the edge
-            writeln!(
-                dot_string,
-                "  {} -> {} [label=\"{}\"];",
-                src_dot_id, dest_dot_id, edge_label
-            )
-            .unwrap();
-        }
-
-        writeln!(dot_string, "  }}").unwrap(); // End of subgraph cluster
     }
 }

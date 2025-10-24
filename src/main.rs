@@ -1,15 +1,12 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
-use std::fs;
 use std::path::Path;
 use std::rc::Rc;
 use uuid::Uuid;
 
 mod cldl;
 use crate::cldl::CircuitBuilder;
-
-const EXPORT_DLATCH: bool = false;
 /// A struct to hold the wire's value and its unique ID
 pub struct WireData {
     id: Uuid,
@@ -223,14 +220,4 @@ fn main() {
         dff.get_output("Q").unwrap(),
         dff.get_output("nQ").unwrap()
     );
-
-    // --- Export DLatch_AND to DOT file ---
-    if EXPORT_DLATCH {
-        println!("\nExporting DLatch to dot file...");
-        let dot_content = builder.export_to_dot("DLatch");
-        match fs::write("DLatch.dot", dot_content) {
-            Ok(_) => println!("Successfully wrote DLatch.dot"),
-            Err(e) => eprintln!("Error writing .dot file: {}", e),
-        }
-    }
 }
