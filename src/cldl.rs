@@ -3,7 +3,7 @@ use include_dir::{include_dir, Dir};
 
 use pest::Parser;
 // Import LogicGate trait
-use crate::{wire, Circuit, NandGate, Wire, LogicGate}; // <-- ADDED LogicGate
+use crate::{wire, Circuit, NandGate, Wire};
 
 #[cfg(debug_assertions)]
 const _GRAMMAR: &str = include_str!("cldl.pest"); 
@@ -221,7 +221,6 @@ impl CircuitBuilder {
             let in2 = self.get_or_create_wire(&format!("{}.in2", instance_name), wire_map);
             let out = self.get_or_create_wire(&format!("{}.out", instance_name), wire_map);
             
-            // --- MODIFIED: Pass the instance_name as the ID ---
             let gate = NandGate {
                 id: instance_name.to_string(),
                 in1, 
@@ -316,30 +315,25 @@ impl CircuitBuilder {
         writeln!(dot_string, "    label = \"{}\";", def.name).unwrap();
         writeln!(dot_string, "    style = \"filled\";").unwrap();
         writeln!(dot_string, "    color = \"lightgrey\";").unwrap();
-        // --- MODIFIED: Default node shape is now record ---
         writeln!(dot_string, "    node [shape=record, style=filled, fillcolor=white];").unwrap();
 
 
         // Define "dummy" nodes for top-level inputs and outputs within this cluster
         for input_name in &def.inputs {
             let input_node_id = format!("{}_in_{}", cluster_id, input_name);
-            // --- MODIFIED: Use record shape for consistency, but simple label ---
             writeln!(dot_string, "    \"{}\" [label=\"{}\", shape=invhouse, height=0.3, width=0.3, fixedsize=true];", input_node_id, input_name).unwrap();
         }
         for output_name in &def.outputs {
             let output_node_id = format!("{}_out_{}", cluster_id, output_name);
-            // --- MODIFIED: Use record shape for consistency, but simple label ---
             writeln!(dot_string, "    \"{}\" [label=\"{}\", shape=house, height=0.3, width=0.3, fixedsize=true];", output_node_id, output_name).unwrap();
         }
 
-        // --- NEW: List of all primitive gates ---
         let primitives = ["NAND", "NOT", "AND", "OR", "XOR", "XNOR", "NOR"];
 
         // Define Parts (Nodes) and recurse for subcircuits
         for part in &def.parts {
             let part_dot_id = format!("{}.{}", cluster_id, part.instance_name);
             
-            // --- MODIFIED: Use record shape for primitives ---
             if primitives.contains(&part.part_type.as_str()) {
                 // Primitive gates are nodes with ports
                 let label = if part.part_type == "NOT" {
@@ -357,7 +351,6 @@ impl CircuitBuilder {
             }
         }
 
-        // --- MODIFIED: Connection Logic ---
         for conn in &def.connections {
             let (src_node_name, src_pin_opt) = parse_dot_pin_path(&conn.source_pin);
             let (dest_node_name, dest_pin_opt) = parse_dot_pin_path(&conn.dest_pin);

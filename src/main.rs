@@ -4,13 +4,12 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use uuid::Uuid;
 use std::fs;
-use std::fmt; // Import the formatting trait
+use std::fmt;
 
 mod cldl;
 use crate::cldl::CircuitBuilder;
 
-// --- Core Data Types ---
-
+const EXPORT_DLATCH: bool = false;
 /// A struct to hold the wire's value and its unique ID
 pub struct WireData {
     id: Uuid,
@@ -20,12 +19,10 @@ pub struct WireData {
 impl std::fmt::Debug for WireData {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let state_char = if self.value { '●' } else { '○' }; // ● for on, ○ for off
-        // Write the formatted string: (○ 123e4567-...)
         write!(f, "({} {})", state_char, self.id)
     }
 }
 
-// A 'Wire' is now a shared pointer to our WireData struct
 type Wire = Rc<RefCell<WireData>>;
 
 /// Creates a new, unique wire with a v4 UUID.
@@ -42,19 +39,17 @@ pub trait LogicGate: std::fmt::Debug {
 }
 
 // --- Primitive Gate: NAND ---
-// #[derive(Debug)] // Remove derive, we'll implement it manually
 struct NandGate {
-    id: String, // <-- ADDED: The hierarchical instance name
+    id: String,
     in1: Wire,
     in2: Wire,
     out: Wire,
 }
 
-// --- NEW: Custom Debug implementation for NandGate ---
 impl fmt::Debug for NandGate {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("NandGate")
-         .field("id", &self.id) // Add the id field
+         .field("id", &self.id)
          .field("in1", &self.in1)
          .field("in2", &self.in2)
          .field("out", &self.out)
@@ -260,13 +255,14 @@ fn main() {
         d_latch.get_output("nQ").unwrap()
     );
 
-    // --- NEW: Export DLatch_AND to DOT file ---
-    // println!("\nExporting DLatch to dot file...");
-    // let dot_content = builder.export_to_dot("DLatch");
-    // match fs::write("DLatch.dot", dot_content) {
-    //     Ok(_) => println!("Successfully wrote DLatch.dot"),
-    //     Err(e) => eprintln!("Error writing .dot file: {}", e),
-    // }
-
+    // --- Export DLatch_AND to DOT file ---
+    if EXPORT_DLATCH {
+        println!("\nExporting DLatch to dot file...");
+        let dot_content = builder.export_to_dot("DLatch");
+        match fs::write("DLatch.dot", dot_content) {
+            Ok(_) => println!("Successfully wrote DLatch.dot"),
+            Err(e) => eprintln!("Error writing .dot file: {}", e),
+        }
+    }
 }
 
