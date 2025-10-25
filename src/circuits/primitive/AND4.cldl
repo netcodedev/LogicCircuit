@@ -1,0 +1,29 @@
+CIRCUIT AND_4B {
+    // Inputs: Two 4-bit data buses (A0-A3, B0-B3)
+    INPUT A0, A1, A2, A3;
+    INPUT B0, B1, B2, B3;
+
+    // Output: 4-bit result of bitwise AND (Out0-Out3)
+    OUTPUT Out0, Out1, Out2, Out3;
+
+    PART AND0: AND; // For bit 0
+    PART AND1: AND; // For bit 1
+    PART AND2: AND; // For bit 2
+    PART AND3: AND; // For bit 3
+
+    CONNECT A0 -> AND0.in1;
+    CONNECT B0 -> AND0.in2;
+    CONNECT AND0.out -> Out0;
+
+    CONNECT A1 -> AND1.in1;
+    CONNECT B1 -> AND1.in2;
+    CONNECT AND1.out -> Out1;
+
+    CONNECT A2 -> AND2.in1;
+    CONNECT B2 -> AND2.in2;
+    CONNECT AND2.out -> Out2;
+
+    CONNECT A3 -> AND3.in1;
+    CONNECT B3 -> AND3.in2;
+    CONNECT AND3.out -> Out3;
+}

@@ -148,32 +148,30 @@ impl Circuit {
 }
 
 
-// --- Helper Functions for 4-Bit Mux 2-to-1 Tests ---
+// --- Helper Functions for 4-Bit AND Tests ---
 
-/// Sets the inputs for the 4-bit mux.
-fn set_mux4b2to1_inputs(mux: &Circuit, a: u8, b: u8, s: bool) {
-    assert!(a < 16, "Input 'a' must be < 16 for 4-bit mux");
-    assert!(b < 16, "Input 'b' must be < 16 for 4-bit mux");
+/// Sets the inputs for the 4-bit AND unit.
+fn set_and4b_inputs(and_unit: &Circuit, a: u8, b: u8) {
+    assert!(a < 16, "Input 'a' must be < 16 for 4-bit AND");
+    assert!(b < 16, "Input 'b' must be < 16 for 4-bit AND");
 
-    mux.set_input("A0", (a & 0b0001) != 0);
-    mux.set_input("A1", (a & 0b0010) != 0);
-    mux.set_input("A2", (a & 0b0100) != 0);
-    mux.set_input("A3", (a & 0b1000) != 0);
+    and_unit.set_input("A0", (a & 0b0001) != 0);
+    and_unit.set_input("A1", (a & 0b0010) != 0);
+    and_unit.set_input("A2", (a & 0b0100) != 0);
+    and_unit.set_input("A3", (a & 0b1000) != 0);
 
-    mux.set_input("B0", (b & 0b0001) != 0);
-    mux.set_input("B1", (b & 0b0010) != 0);
-    mux.set_input("B2", (b & 0b0100) != 0);
-    mux.set_input("B3", (b & 0b1000) != 0);
-
-    mux.set_input("S", s);
+    and_unit.set_input("B0", (b & 0b0001) != 0);
+    and_unit.set_input("B1", (b & 0b0010) != 0);
+    and_unit.set_input("B2", (b & 0b0100) != 0);
+    and_unit.set_input("B3", (b & 0b1000) != 0);
 }
 
-/// Gets the 4-bit output from the mux.
-fn get_mux4b2to1_output(mux: &Circuit) -> u8 {
-    let out0 = mux.get_output_unwrapped("Out0");
-    let out1 = mux.get_output_unwrapped("Out1");
-    let out2 = mux.get_output_unwrapped("Out2");
-    let out3 = mux.get_output_unwrapped("Out3");
+/// Gets the 4-bit output from the AND unit.
+fn get_and4b_output(and_unit: &Circuit) -> u8 {
+    let out0 = and_unit.get_output_unwrapped("Out0");
+    let out1 = and_unit.get_output_unwrapped("Out1");
+    let out2 = and_unit.get_output_unwrapped("Out2");
+    let out3 = and_unit.get_output_unwrapped("Out3");
 
     (out0 as u8) | ((out1 as u8) << 1) | ((out2 as u8) << 2) | ((out3 as u8) << 3)
 }
@@ -183,23 +181,23 @@ fn format_u4(n: u8) -> String {
     format!("{:04b}", n)
 }
 
-/// Runs a single test case for the 4-bit mux.
-fn test_mux4b2to1_case(mux: &Circuit, a: u8, b: u8, s: bool) {
-    set_mux4b2to1_inputs(mux, a, b, s);
-    mux.evaluate_stable();
-    let out = get_mux4b2to1_output(mux);
+/// Runs a single test case for the 4-bit AND unit.
+fn test_and4b_case(and_unit: &Circuit, a: u8, b: u8) {
+    set_and4b_inputs(and_unit, a, b);
+    and_unit.evaluate_stable();
+    let out = get_and4b_output(and_unit);
 
-    // Calculate expected result
-    let expected_out = if s { b } else { a };
+    // Calculate expected result using Rust's bitwise AND
+    let expected_out = a & b;
 
     println!(
-        "  Mux4(A={}, B={}, S={}) -> Out={} [Expected: {}] {}",
-        format_u4(a), format_u4(b), s as u8,
+        "  {} AND {} = {} [Expected: {}] {}",
+        format_u4(a), format_u4(b),
         format_u4(out),
         format_u4(expected_out),
         if out == expected_out { "✅" } else { "❌ ERROR" }
     );
-    assert_eq!(out, expected_out, "Mux4 output mismatch for A={}, B={}, S={}", a, b, s);
+    assert_eq!(out, expected_out, "AND4B output mismatch for A={}, B={}", a, b);
 }
 // --- End Helper Functions ---
 
@@ -216,22 +214,19 @@ fn main() {
         }
     }
 
-    // --- Mux 4-Bit 2-to-1 Test ---
-    println!("\nTesting 4-Bit 2-to-1 Multiplexer:");
-    let mux4b = builder.build("MUX_4B_2_1");
+    // --- 4-Bit AND Unit Test ---
+    println!("\nTesting 4-Bit Bitwise AND Unit:");
+    let and4b = builder.build("AND_4B");
 
-    // Test cases (A, B, S)
-    println!("Testing S=0 (Select A):");
-    test_mux4b2to1_case(&mux4b, 0b0000, 0b1111, false); // S=0, A=0, B=15 -> Out=0
-    test_mux4b2to1_case(&mux4b, 0b0101, 0b1010, false); // S=0, A=5, B=10 -> Out=5
-    test_mux4b2to1_case(&mux4b, 0b1111, 0b0000, false); // S=0, A=15, B=0 -> Out=15
-    test_mux4b2to1_case(&mux4b, 0b1001, 0b0110, false); // S=0, A=9, B=6 -> Out=9
+    // Test cases (A, B)
+    test_and4b_case(&and4b, 0b0000, 0b0000); // 0 & 0 = 0
+    test_and4b_case(&and4b, 0b1111, 0b0000); // 15 & 0 = 0
+    test_and4b_case(&and4b, 0b0000, 0b1111); // 0 & 15 = 0
+    test_and4b_case(&and4b, 0b1111, 0b1111); // 15 & 15 = 15
+    test_and4b_case(&and4b, 0b0101, 0b1010); // 5 & 10 = 0 (0000)
+    test_and4b_case(&and4b, 0b1100, 0b1010); // 12 & 10 = 8 (1000)
+    test_and4b_case(&and4b, 0b0111, 0b1110); // 7 & 14 = 6 (0110)
+    test_and4b_case(&and4b, 0b1011, 0b1101); // 11 & 13 = 9 (1001)
 
-    println!("Testing S=1 (Select B):");
-    test_mux4b2to1_case(&mux4b, 0b1111, 0b0000, true);  // S=1, A=15, B=0 -> Out=0
-    test_mux4b2to1_case(&mux4b, 0b1010, 0b0101, true);  // S=1, A=10, B=5 -> Out=5
-    test_mux4b2to1_case(&mux4b, 0b0000, 0b1111, true);  // S=1, A=0, B=15 -> Out=15
-    test_mux4b2to1_case(&mux4b, 0b0110, 0b1001, true);  // S=1, A=6, B=9 -> Out=9
-
-    println!("\nMux4Bit tests passed! ✅");
+    println!("\nAND_4B tests passed! ✅");
 }
