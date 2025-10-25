@@ -148,30 +148,30 @@ impl Circuit {
 }
 
 
-// --- Helper Functions for 4-Bit AND Tests ---
+// --- Helper Functions for 4-Bit OR Tests ---
 
-/// Sets the inputs for the 4-bit AND unit.
-fn set_and4b_inputs(and_unit: &Circuit, a: u8, b: u8) {
-    assert!(a < 16, "Input 'a' must be < 16 for 4-bit AND");
-    assert!(b < 16, "Input 'b' must be < 16 for 4-bit AND");
+/// Sets the inputs for the 4-bit OR unit.
+fn set_or4b_inputs(or_unit: &Circuit, a: u8, b: u8) {
+    assert!(a < 16, "Input 'a' must be < 16 for 4-bit OR");
+    assert!(b < 16, "Input 'b' must be < 16 for 4-bit OR");
 
-    and_unit.set_input("A0", (a & 0b0001) != 0);
-    and_unit.set_input("A1", (a & 0b0010) != 0);
-    and_unit.set_input("A2", (a & 0b0100) != 0);
-    and_unit.set_input("A3", (a & 0b1000) != 0);
+    or_unit.set_input("A0", (a & 0b0001) != 0);
+    or_unit.set_input("A1", (a & 0b0010) != 0);
+    or_unit.set_input("A2", (a & 0b0100) != 0);
+    or_unit.set_input("A3", (a & 0b1000) != 0);
 
-    and_unit.set_input("B0", (b & 0b0001) != 0);
-    and_unit.set_input("B1", (b & 0b0010) != 0);
-    and_unit.set_input("B2", (b & 0b0100) != 0);
-    and_unit.set_input("B3", (b & 0b1000) != 0);
+    or_unit.set_input("B0", (b & 0b0001) != 0);
+    or_unit.set_input("B1", (b & 0b0010) != 0);
+    or_unit.set_input("B2", (b & 0b0100) != 0);
+    or_unit.set_input("B3", (b & 0b1000) != 0);
 }
 
-/// Gets the 4-bit output from the AND unit.
-fn get_and4b_output(and_unit: &Circuit) -> u8 {
-    let out0 = and_unit.get_output_unwrapped("Out0");
-    let out1 = and_unit.get_output_unwrapped("Out1");
-    let out2 = and_unit.get_output_unwrapped("Out2");
-    let out3 = and_unit.get_output_unwrapped("Out3");
+/// Gets the 4-bit output from the OR unit.
+fn get_or4b_output(or_unit: &Circuit) -> u8 {
+    let out0 = or_unit.get_output_unwrapped("Out0");
+    let out1 = or_unit.get_output_unwrapped("Out1");
+    let out2 = or_unit.get_output_unwrapped("Out2");
+    let out3 = or_unit.get_output_unwrapped("Out3");
 
     (out0 as u8) | ((out1 as u8) << 1) | ((out2 as u8) << 2) | ((out3 as u8) << 3)
 }
@@ -181,23 +181,23 @@ fn format_u4(n: u8) -> String {
     format!("{:04b}", n)
 }
 
-/// Runs a single test case for the 4-bit AND unit.
-fn test_and4b_case(and_unit: &Circuit, a: u8, b: u8) {
-    set_and4b_inputs(and_unit, a, b);
-    and_unit.evaluate_stable();
-    let out = get_and4b_output(and_unit);
+/// Runs a single test case for the 4-bit OR unit.
+fn test_or4b_case(or_unit: &Circuit, a: u8, b: u8) {
+    set_or4b_inputs(or_unit, a, b);
+    or_unit.evaluate_stable();
+    let out = get_or4b_output(or_unit);
 
-    // Calculate expected result using Rust's bitwise AND
-    let expected_out = a & b;
+    // Calculate expected result using Rust's bitwise OR
+    let expected_out = a | b;
 
     println!(
-        "  {} AND {} = {} [Expected: {}] {}",
+        "  {} OR {} = {} [Expected: {}] {}",
         format_u4(a), format_u4(b),
         format_u4(out),
         format_u4(expected_out),
         if out == expected_out { "✅" } else { "❌ ERROR" }
     );
-    assert_eq!(out, expected_out, "AND4B output mismatch for A={}, B={}", a, b);
+    assert_eq!(out, expected_out, "OR4B output mismatch for A={}, B={}", a, b);
 }
 // --- End Helper Functions ---
 
@@ -214,19 +214,22 @@ fn main() {
         }
     }
 
-    // --- 4-Bit AND Unit Test ---
-    println!("\nTesting 4-Bit Bitwise AND Unit:");
-    let and4b = builder.build("AND_4B");
+    // --- 4-Bit OR Unit Test ---
+    println!("\nTesting 4-Bit Bitwise OR Unit:");
+    let or4b = builder.build("OR_4B");
 
     // Test cases (A, B)
-    test_and4b_case(&and4b, 0b0000, 0b0000); // 0 & 0 = 0
-    test_and4b_case(&and4b, 0b1111, 0b0000); // 15 & 0 = 0
-    test_and4b_case(&and4b, 0b0000, 0b1111); // 0 & 15 = 0
-    test_and4b_case(&and4b, 0b1111, 0b1111); // 15 & 15 = 15
-    test_and4b_case(&and4b, 0b0101, 0b1010); // 5 & 10 = 0 (0000)
-    test_and4b_case(&and4b, 0b1100, 0b1010); // 12 & 10 = 8 (1000)
-    test_and4b_case(&and4b, 0b0111, 0b1110); // 7 & 14 = 6 (0110)
-    test_and4b_case(&and4b, 0b1011, 0b1101); // 11 & 13 = 9 (1001)
+    test_or4b_case(&or4b, 0b0000, 0b0000); // 0 | 0 = 0
+    test_or4b_case(&or4b, 0b1111, 0b0000); // 15 | 0 = 15
+    test_or4b_case(&or4b, 0b0000, 0b1111); // 0 | 15 = 15
+    test_or4b_case(&or4b, 0b1111, 0b1111); // 15 | 15 = 15
+    test_or4b_case(&or4b, 0b0101, 0b1010); // 5 | 10 = 15 (1111)
+    test_or4b_case(&or4b, 0b1100, 0b1010); // 12 | 10 = 14 (1110)
+    test_or4b_case(&or4b, 0b0111, 0b1110); // 7 | 14 = 15 (1111)
+    test_or4b_case(&or4b, 0b1011, 0b1101); // 11 | 13 = 15 (1111)
+    test_or4b_case(&or4b, 0b1000, 0b0100); // 8 | 4 = 12 (1100)
+    test_or4b_case(&or4b, 0b0010, 0b0001); // 2 | 1 = 3 (0011)
 
-    println!("\nAND_4B tests passed! ✅");
+
+    println!("\nOR_4B tests passed! ✅");
 }
