@@ -4,44 +4,52 @@ COMMENT    = _{ ("#" | "//") ~ (!("\r" | "\n") ~ ANY)* }
 // --- Basic Tokens ---
 // Identifier: Starts with letter/underscore, followed by letters/numbers/underscore
 ident = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
-// Pin Identifier: Can be simple "a" or namespaced "G1.in1"
-pin   = @{ ident ~ ("." ~ ident)* }
+// --- Number for bus widths/indices ---
+number = @{ ASCII_DIGIT+ }
+// --- Optional bus specifier like [4] ---
+bus_specifier = { "[" ~ number ~ "]" }
+
+// --- Pin Definitions ---
+// A single part of a pin path, can be indexed or simple
+// e.g., "A", "A[0]", "G1"
+pin_part = { ident ~ bus_specifier? }
+// Full pin path: simple "a", indexed "A[0]", namespaced "G1.in", namespaced indexed "G1.A[0]"
+// Note: We only allow indexing on the *last* part of the pin name for simplicity now.
+// A.B[0] is allowed, A[0].B is not (could be added later if needed).
+pin = @{ ident ~ ("." ~ ident)* ~ bus_specifier? }
+
 // Value: Simple 0 or 1
 value = @{ "0" | "1" }
 
-// --- Definitions ---
-// INPUT a, b;
-input_def = { "INPUT" ~ ident ~ ("," ~ ident)* ~ ";" }
-// OUTPUT sum, cout;
-output_def = { "OUTPUT" ~ ident ~ ("," ~ ident)* ~ ";" }
+// --- I/O Definitions ---
+// An identifier in an I/O list can now optionally specify a width
+// e.g., "a", "BusA[4]"
+io_ident = { ident ~ bus_specifier? }
+// INPUT a, BusA[4];
+input_def = { "INPUT" ~ io_ident ~ ("," ~ io_ident)* ~ ";" }
+// OUTPUT sum, BusOut[8];
+output_def = { "OUTPUT" ~ io_ident ~ ("," ~ io_ident)* ~ ";" }
+
+// --- Other Definitions (Unchanged) ---
 // PART G1: NAND;
 part_def = { "PART" ~ ident ~ ":" ~ ident ~ ";" }
-// CONNECT a -> G1.in1;
+// CONNECT a -> G1.in1; or CONNECT BusA[0] -> G1.in1; or CONNECT G1.out -> BusOut[0];
 connect_def = { "CONNECT" ~ pin ~ "->" ~ pin ~ ";" }
 
 // --- Initialization Block ---
-// INIT { SET ...; EVAL; SEQ ...; }
 init_block = { "INIT" ~ "{" ~ init_command* ~ "}" }
-
-// An initialization command can be SET, EVAL, or SEQ
 init_command = { set_command | eval_command | seq_command }
-
-// SET D 0, CLK 0;
+// SET D 0, CLK 0; or SET BusA[0] 1;
 set_command = { "SET" ~ pin_value ~ ("," ~ pin_value)* ~ ";" }
-
-// EVAL;
 eval_command = { "EVAL" ~ ";" }
-
-// SEQ D 0, CLK 0 -> CLK 1 -> CLK 0;
+// SEQ CLK 0 -> CLK 1; or SEQ BusA[0] 1 -> BusA[1] 0;
 seq_command = { "SEQ" ~ step ~ ("->" ~ step)* ~ ";" }
 
 // A single step within a SEQ command: one or more pin assignments
 // e.g., "D 0, CLK 0" or just "CLK 1"
 step = { pin_value ~ ("," ~ pin_value)* }
-
-// A single pin assignment: "D 0" or "CLK 1"
-pin_value = { ident ~ value }
-// --- End Initialization Block ---
+// Pin assignment: "D 0" or "BusA[0] 1"
+pin_value = { pin ~ value }
 
 // --- Structure ---
 // The main body of a circuit definition
@@ -54,3 +62,4 @@ circuit = { "CIRCUIT" ~ ident ~ "{" ~ circuit_body ~ "}" }
 
 // A file contains exactly one circuit definition
 file = { SOI ~ circuit ~ EOI }
+

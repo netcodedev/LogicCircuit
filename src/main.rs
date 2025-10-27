@@ -155,23 +155,23 @@ fn set_xor4b_inputs(xor_unit: &Circuit, a: u8, b: u8) {
     assert!(a < 16, "Input 'a' must be < 16 for 4-bit XOR");
     assert!(b < 16, "Input 'b' must be < 16 for 4-bit XOR");
 
-    xor_unit.set_input("A0", (a & 0b0001) != 0);
-    xor_unit.set_input("A1", (a & 0b0010) != 0);
-    xor_unit.set_input("A2", (a & 0b0100) != 0);
-    xor_unit.set_input("A3", (a & 0b1000) != 0);
+    xor_unit.set_input("A.0", (a & 0b0001) != 0);
+    xor_unit.set_input("A.1", (a & 0b0010) != 0);
+    xor_unit.set_input("A.2", (a & 0b0100) != 0);
+    xor_unit.set_input("A.3", (a & 0b1000) != 0);
 
-    xor_unit.set_input("B0", (b & 0b0001) != 0);
-    xor_unit.set_input("B1", (b & 0b0010) != 0);
-    xor_unit.set_input("B2", (b & 0b0100) != 0);
-    xor_unit.set_input("B3", (b & 0b1000) != 0);
+    xor_unit.set_input("B.0", (b & 0b0001) != 0);
+    xor_unit.set_input("B.1", (b & 0b0010) != 0);
+    xor_unit.set_input("B.2", (b & 0b0100) != 0);
+    xor_unit.set_input("B.3", (b & 0b1000) != 0);
 }
 
 /// Gets the 4-bit output from the XOR unit.
 fn get_xor4b_output(xor_unit: &Circuit) -> u8 {
-    let out0 = xor_unit.get_output_unwrapped("Out0");
-    let out1 = xor_unit.get_output_unwrapped("Out1");
-    let out2 = xor_unit.get_output_unwrapped("Out2");
-    let out3 = xor_unit.get_output_unwrapped("Out3");
+    let out0 = xor_unit.get_output_unwrapped("Out.0");
+    let out1 = xor_unit.get_output_unwrapped("Out.1");
+    let out2 = xor_unit.get_output_unwrapped("Out.2");
+    let out3 = xor_unit.get_output_unwrapped("Out.3");
 
     (out0 as u8) | ((out1 as u8) << 1) | ((out2 as u8) << 2) | ((out3 as u8) << 3)
 }

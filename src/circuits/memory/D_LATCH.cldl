@@ -1,4 +1,4 @@
-CIRCUIT DLatch {
+CIRCUIT D_LATCH {
     INPUT Data, Store;
     OUTPUT Q, nQ;
     
@@ -6,7 +6,7 @@ CIRCUIT DLatch {
     PART G_S: AND;   // Set = AND(D, E)
     PART G_R: AND;   // Reset = AND(NOT D, E)
     
-    PART SRLatch: SRLatch;
+    PART SRLatch: SR_LATCH;
 
     CONNECT Data -> G_NOT.in;
     

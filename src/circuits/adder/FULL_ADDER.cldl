@@ -1,9 +1,9 @@
-CIRCUIT FullAdder {
+CIRCUIT FULL_ADDER {
     INPUT a, b, cin;
     OUTPUT sum, cout;
 
-    PART HA1: HalfAdder;
-    PART HA2: HalfAdder;
+    PART HA1: HALF_ADDER;
+    PART HA2: HALF_ADDER;
     PART G_OR: OR;
 
     CONNECT a -> HA1.a;

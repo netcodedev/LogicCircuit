@@ -1,4 +1,4 @@
-CIRCUIT HalfAdder {
+CIRCUIT HALF_ADDER {
     INPUT a, b;
     OUTPUT sum, carry;
     

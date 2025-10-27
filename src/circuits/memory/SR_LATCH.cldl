@@ -1,4 +1,4 @@
-CIRCUIT SRLatch {
+CIRCUIT SR_LATCH {
     INPUT Set, Reset;
     OUTPUT Q, nQ;
 

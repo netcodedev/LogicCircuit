@@ -1,29 +1,29 @@
 CIRCUIT XOR_4B {
-    // Inputs: Two 4-bit data buses (A0-A3, B0-B3)
-    INPUT A0, A1, A2, A3;
-    INPUT B0, B1, B2, B3;
+    // Inputs: Two 4-bit data buses
+    INPUT A[4];
+    INPUT B[4];
 
-    // Output: 4-bit result of bitwise XOR (Out0-Out3)
-    OUTPUT Out0, Out1, Out2, Out3;
+    // Output: 4-bit result of bitwise XOR
+    OUTPUT Out[4];
 
     PART XOR0: XOR; // For bit 0
     PART XOR1: XOR; // For bit 1
     PART XOR2: XOR; // For bit 2
     PART XOR3: XOR; // For bit 3
 
-    CONNECT A0 -> XOR0.in1;
-    CONNECT B0 -> XOR0.in2;
-    CONNECT XOR0.out -> Out0;
+    CONNECT A[0] -> XOR0.in1;
+    CONNECT B[0] -> XOR0.in2;
+    CONNECT XOR0.out -> Out[0];
 
-    CONNECT A1 -> XOR1.in1;
-    CONNECT B1 -> XOR1.in2;
-    CONNECT XOR1.out -> Out1;
+    CONNECT A[1] -> XOR1.in1;
+    CONNECT B[1] -> XOR1.in2;
+    CONNECT XOR1.out -> Out[1];
 
-    CONNECT A2 -> XOR2.in1;
-    CONNECT B2 -> XOR2.in2;
-    CONNECT XOR2.out -> Out2;
+    CONNECT A[2] -> XOR2.in1;
+    CONNECT B[2] -> XOR2.in2;
+    CONNECT XOR2.out -> Out[2];
 
-    CONNECT A3 -> XOR3.in1;
-    CONNECT B3 -> XOR3.in2;
-    CONNECT XOR3.out -> Out3;
+    CONNECT A[3] -> XOR3.in1;
+    CONNECT B[3] -> XOR3.in2;
+    CONNECT XOR3.out -> Out[3];
 }

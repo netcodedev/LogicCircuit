@@ -1,12 +1,12 @@
-CIRCUIT DFlipFlop {
+CIRCUIT DFLIP_FLOP {
     // D: The Data to store
     // CLK: The Clock signal
     INPUT D, CLK;
     OUTPUT Q, nQ;
 
     PART G_NOT: NOT;
-    PART LATCH_M: DLatch;
-    PART LATCH_S: DLatch;
+    PART LATCH_M: D_LATCH;
+    PART LATCH_S: D_LATCH;
 
     CONNECT CLK -> G_NOT.in;
     CONNECT G_NOT.out -> LATCH_M.Store;
