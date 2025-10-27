@@ -83,3 +83,10 @@ pub struct CltParser;
 
 /// This struct handles testing circuits
 pub struct CircuitTester {}
+
+// Simple struct to hold test results
+#[derive(Debug, Default)]
+pub struct TestSummary {
+    pub passed: u32,
+    pub failed: u32,
+}

@@ -1,0 +1,17 @@
+CIRCUIT AND3 {
+    // Inputs: Three single bits
+    INPUT A, B, C;
+    // Output: Single bit result AND(A,B,C)
+    OUTPUT Out;
+
+    PART AND_AB: AND;   // Calculate A AND B
+    PART AND_ABC: AND; // AND the result with C
+
+    CONNECT A -> AND_AB.in1;
+    CONNECT B -> AND_AB.in2;
+
+    CONNECT AND_AB.out -> AND_ABC.in1;
+    CONNECT C -> AND_ABC.in2;
+
+    CONNECT AND_ABC.out -> Out;
+}

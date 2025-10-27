@@ -1,0 +1,84 @@
+// Test suite for the 4-Bit 4-to-1 Multiplexer circuit
+
+TESTS FOR MUX_4B_4_1 {
+    TEST "Select In0 (S1=0, S0=0)" {
+        // Set Select lines
+        SET S1 0, S0 0;
+
+        // Set distinct values for inputs
+        // In0 = 1 (0001)
+        SET In0[0] 1, In0[1] 0, In0[2] 0, In0[3] 0;
+        // In1 = 2 (0010)
+        SET In1[0] 0, In1[1] 1, In1[2] 0, In1[3] 0;
+        // In2 = 4 (0100)
+        SET In2[0] 0, In2[1] 0, In2[2] 1, In2[3] 0;
+        // In3 = 8 (1000)
+        SET In3[0] 0, In3[1] 0, In3[2] 0, In3[3] 1;
+
+        EVAL;
+
+        // Assert Output matches In0
+        ASSERT Out[0] 1;
+        ASSERT Out[1] 0;
+        ASSERT Out[2] 0;
+        ASSERT Out[3] 0;
+    }
+
+    TEST "Select In1 (S1=0, S0=1)" {
+        // Set Select lines
+        SET S1 0, S0 1;
+
+        // Set distinct values for inputs (reuse or change if needed)
+        SET In0[0] 1, In0[1] 0, In0[2] 0, In0[3] 0; // In0 = 1
+        SET In1[0] 0, In1[1] 1, In1[2] 0, In1[3] 0; // In1 = 2
+        SET In2[0] 0, In2[1] 0, In2[2] 1, In2[3] 0; // In2 = 4
+        SET In3[0] 0, In3[1] 0, In3[2] 0, In3[3] 1; // In3 = 8
+
+        EVAL;
+
+        // Assert Output matches In1
+        ASSERT Out[0] 0;
+        ASSERT Out[1] 1;
+        ASSERT Out[2] 0;
+        ASSERT Out[3] 0;
+    }
+
+    TEST "Select In2 (S1=1, S0=0)" {
+        // Set Select lines
+        SET S1 1, S0 0;
+
+        // Set distinct values for inputs
+        SET In0[0] 1, In0[1] 0, In0[2] 0, In0[3] 0; // In0 = 1
+        SET In1[0] 0, In1[1] 1, In1[2] 0, In1[3] 0; // In1 = 2
+        SET In2[0] 0, In2[1] 0, In2[2] 1, In2[3] 0; // In2 = 4
+        SET In3[0] 0, In3[1] 0, In3[2] 0, In3[3] 1; // In3 = 8
+
+        EVAL;
+
+        // Assert Output matches In2
+        ASSERT Out[0] 0;
+        ASSERT Out[1] 0;
+        ASSERT Out[2] 1;
+        ASSERT Out[3] 0;
+    }
+
+    TEST "Select In3 (S1=1, S0=1)" {
+        // Set Select lines
+        SET S1 1, S0 1;
+
+        // Set distinct values for inputs
+        SET In0[0] 1, In0[1] 0, In0[2] 0, In0[3] 0; // In0 = 1
+        SET In1[0] 0, In1[1] 1, In1[2] 0, In1[3] 0; // In1 = 2
+        SET In2[0] 0, In2[1] 0, In2[2] 1, In2[3] 0; // In2 = 4
+        SET In3[0] 0, In3[1] 0, In3[2] 0, In3[3] 1; // In3 = 8
+
+        EVAL;
+
+        // Assert Output matches In3
+        ASSERT Out[0] 0;
+        ASSERT Out[1] 0;
+        ASSERT Out[2] 0;
+        ASSERT Out[3] 1;
+    }
+
+}

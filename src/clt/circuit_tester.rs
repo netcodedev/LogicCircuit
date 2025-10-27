@@ -9,7 +9,8 @@ use super::{
 };
 // --- Import items from other modules ---
 use crate::cldl::CircuitBuilder; // To build circuits
-use crate::circuit::Circuit; // The circuit object itself
+use crate::circuit::Circuit;
+use crate::clt::TestSummary; // The circuit object itself
 
 // --- Parsing Helper Functions ---
 
@@ -291,13 +292,6 @@ impl CircuitTester {
         }
         Ok(()) // If all commands executed without assertion error
     }
-}
-
-// Simple struct to hold test results
-#[derive(Debug, Default)]
-pub struct TestSummary {
-    pub passed: u32,
-    pub failed: u32,
 }
 
 impl TestSummary {

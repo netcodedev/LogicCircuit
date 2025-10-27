@@ -1,0 +1,29 @@
+CIRCUIT NOR4 {
+    // Inputs: Four single bits
+    INPUT A, B, C, D;
+    // Output: Single bit result NOR(A,B,C,D)
+    OUTPUT Out;
+
+    // Implementation: NOT( OR( OR(A, B), OR(C, D) ) )
+    PART OR_AB: OR;     // Calculate A OR B
+    PART OR_CD: OR;     // Calculate C OR D
+    PART OR_ABCD: OR;   // Calculate (A OR B) OR (C OR D)
+    PART NOT_Final: NOT; // Invert the final OR result
+
+    // Connect inputs to first level OR gates
+    CONNECT A -> OR_AB.in1;
+    CONNECT B -> OR_AB.in2;
+    CONNECT C -> OR_CD.in1;
+    CONNECT D -> OR_CD.in2;
+
+    // Connect outputs of first level to second level OR gate
+    CONNECT OR_AB.out -> OR_ABCD.in1;
+    CONNECT OR_CD.out -> OR_ABCD.in2;
+
+    // Connect the final OR output to the NOT gate
+    CONNECT OR_ABCD.out -> NOT_Final.in;
+
+    // Connect the NOT gate's output to the final output
+    CONNECT NOT_Final.out -> Out;
+}
+
