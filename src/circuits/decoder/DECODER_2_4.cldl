@@ -1,0 +1,49 @@
+CIRCUIT DECODER_2_4 {
+    // Inputs: 2-bit Address, 1-bit Enable
+    INPUT A[2];
+    INPUT Enable;
+
+    // Outputs: 4-bit decoded output
+    OUTPUT O[4];
+
+    // --- Parts ---
+    // Invert address lines
+    PART NotA0: NOT;
+    PART NotA1: NOT;
+
+    // Output AND gates (one for each output line)
+    // We use AND3 to combine the Enable signal with the address bits.
+    PART AndO0: AND3;
+    PART AndO1: AND3;
+    PART AndO2: AND3;
+    PART AndO3: AND3;
+
+    // --- Connections ---
+    // Connect address lines to inverters
+    CONNECT A[0] -> NotA0.in;
+    CONNECT A[1] -> NotA1.in;
+
+    // O[0] = Enable AND NotA1 AND NotA0 (Address 00)
+    CONNECT Enable -> AndO0.A;
+    CONNECT NotA1.out -> AndO0.B;
+    CONNECT NotA0.out -> AndO0.C;
+    CONNECT AndO0.Out -> O[0];
+
+    // O[1] = Enable AND NotA1 AND A0   (Address 01)
+    CONNECT Enable -> AndO1.A;
+    CONNECT NotA1.out -> AndO1.B;
+    CONNECT A[0] -> AndO1.C;
+    CONNECT AndO1.Out -> O[1];
+
+    // O[2] = Enable AND A1 AND NotA0   (Address 10)
+    CONNECT Enable -> AndO2.A;
+    CONNECT A[1] -> AndO2.B;
+    CONNECT NotA0.out -> AndO2.C;
+    CONNECT AndO2.Out -> O[2];
+
+    // O[3] = Enable AND A1 AND A0      (Address 11)
+    CONNECT Enable -> AndO3.A;
+    CONNECT A[1] -> AndO3.B;
+    CONNECT A[0] -> AndO3.C;
+    CONNECT AndO3.Out -> O[3];
+}

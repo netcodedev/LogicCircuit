@@ -1,0 +1,134 @@
+// Test suite for the REG_FILE_4x4 circuit (Synchronous version)
+
+TESTS FOR REG_FILE_4x4 {
+    TEST "Write R0, Read R0 (Port A)" {
+        // Set up write data and address for R0 = 5 (0101)
+        SET WriteEnable 1, WriteAddr[1] 0, WriteAddr[0] 0;
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 1, DataIn[3] 0;
+        // Pulse clock to write
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        
+        // Disable write and read R0 from Port A
+        SET WriteEnable 0;
+        SET ReadAddrA[1] 0, ReadAddrA[0] 0;
+        EVAL;
+        
+        ASSERT DataOutA[0] 1;
+        ASSERT DataOutA[1] 0;
+        ASSERT DataOutA[2] 1;
+        ASSERT DataOutA[3] 0;
+    }
+
+    TEST "Write R1, Read R1 (Port B)" {
+        // Set up write data and address for R1 = 10 (1010)
+        SET WriteEnable 1, WriteAddr[1] 0, WriteAddr[0] 1;
+        SET DataIn[0] 0, DataIn[1] 1, DataIn[2] 0, DataIn[3] 1;
+        // Pulse clock to write
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        
+        // Disable write and read R1 from Port B
+        SET WriteEnable 0;
+        SET ReadAddrB[1] 0, ReadAddrB[0] 1;
+        EVAL;
+        
+        ASSERT DataOutB[0] 0;
+        ASSERT DataOutB[1] 1;
+        ASSERT DataOutB[2] 0;
+        ASSERT DataOutB[3] 1;
+    }
+
+    TEST "Write Disable (Attempt R2 write)" {
+        // Ensure R2 is 0 (from its own INIT) by reading it
+        SET WriteEnable 0;
+        SET ReadAddrA[1] 1, ReadAddrA[0] 0;
+        EVAL;
+        ASSERT DataOutA[0] 0;
+        ASSERT DataOutA[1] 0;
+        ASSERT DataOutA[2] 0;
+        ASSERT DataOutA[3] 0;
+        
+        // Attempt to write 15 (1111) to R2 (Addr 10) with WriteEnable=0
+        SET WriteEnable 0;
+        SET WriteAddr[1] 1, WriteAddr[0] 0;
+        SET DataIn[0] 1, DataIn[1] 1, DataIn[2] 1, DataIn[3] 1;
+        // Pulse clock (write should be blocked by WriteEnable=0)
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        
+        // Read R2 again, it should still be 0
+        SET ReadAddrA[1] 1, ReadAddrA[0] 0;
+        EVAL;
+        ASSERT DataOutA[0] 0;
+        ASSERT DataOutA[1] 0;
+        ASSERT DataOutA[2] 0;
+        ASSERT DataOutA[3] 0;
+    }
+
+    TEST "Independent Read Ports (A=R3, B=R0)" {
+        // Write 13 (1101) to R3 (Addr 11)
+        SET WriteEnable 1, WriteAddr[1] 1, WriteAddr[0] 1;
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 1, DataIn[3] 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+
+        // Write 3 (0011) to R0 (Addr 00)
+        SET WriteEnable 1, WriteAddr[1] 0, WriteAddr[0] 0;
+        SET DataIn[0] 1, DataIn[1] 1, DataIn[2] 0, DataIn[3] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+
+        // Disable write
+        SET WriteEnable 0;
+        
+        // Read R3 from Port A
+        SET ReadAddrA[1] 1, ReadAddrA[0] 1;
+        // Read R0 from Port B
+        SET ReadAddrB[1] 0, ReadAddrB[0] 0;
+        EVAL;
+        
+        // Assert Port A (R3) = 13 (1101)
+        ASSERT DataOutA[0] 1;
+        ASSERT DataOutA[1] 0;
+        ASSERT DataOutA[2] 1;
+        ASSERT DataOutA[3] 1;
+        
+        // Assert Port B (R0) = 3 (0011)
+        ASSERT DataOutB[0] 1;
+        ASSERT DataOutB[1] 1;
+        ASSERT DataOutB[2] 0;
+        ASSERT DataOutB[3] 0;
+    }
+
+    TEST "Write R0, check R1 not affected" {
+        // Write 9 (1001) to R0 (Addr 00)
+        SET WriteEnable 1, WriteAddr[1] 0, WriteAddr[0] 0;
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 0, DataIn[3] 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+
+        // Write 2 (0010) to R1 (Addr 01)
+        SET WriteEnable 1, WriteAddr[1] 0, WriteAddr[0] 1;
+        SET DataIn[0] 0, DataIn[1] 1, DataIn[2] 0, DataIn[3] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        
+        // Now, re-write R0 with 1 (0001)
+        SET WriteEnable 1, WriteAddr[1] 0, WriteAddr[0] 0;
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+
+        // Disable write
+        SET WriteEnable 0;
+        
+        // Read R0 from Port A (should be 1)
+        SET ReadAddrA[1] 0, ReadAddrA[0] 0;
+        EVAL;
+        ASSERT DataOutA[0] 1;
+        ASSERT DataOutA[1] 0;
+        ASSERT DataOutA[2] 0;
+        ASSERT DataOutA[3] 0;
+
+        // Read R1 from Port B (should still be 2)
+        SET ReadAddrB[1] 0, ReadAddrB[0] 1;
+        EVAL;
+        ASSERT DataOutB[0] 0;
+        ASSERT DataOutB[1] 1;
+        ASSERT DataOutB[2] 0;
+        ASSERT DataOutB[3] 0;
+    }
+}

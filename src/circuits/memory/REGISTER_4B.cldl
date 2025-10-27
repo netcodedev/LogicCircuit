@@ -1,39 +1,68 @@
 CIRCUIT REGISTER_4B {
-    // Inputs: 4 Data bits bus (D) and 1 Clock signal (CLK)
-    INPUT D[4];
+    // Inputs: 4 Data bits bus (D), Clock (CLK), and Load Enable (Load)
+    INPUT Data[4];
     INPUT CLK;
+    INPUT Load; // Load Enable signal (active high)
 
     // Outputs: 4 Stored bits bus (Q) and their complements bus (nQ)
     OUTPUT Q[4];
-    OUTPUT nQ[4]; 
+    OUTPUT nQ[4];
 
-    PART DFF0: DFLIP_FLOP; // Stores bit 0
-    PART DFF1: DFLIP_FLOP; // Stores bit 1
-    PART DFF2: DFLIP_FLOP; // Stores bit 2
-    PART DFF3: DFLIP_FLOP; // Stores bit 3
+    // Instantiate four D Flip-Flops
+    PART DFF0: DFLIP_FLOP;
+    PART DFF1: DFLIP_FLOP;
+    PART DFF2: DFLIP_FLOP;
+    PART DFF3: DFLIP_FLOP;
 
+    PART MUX_D0: MUX_2_1;
+    PART MUX_D1: MUX_2_1;
+    PART MUX_D2: MUX_2_1;
+    PART MUX_D3: MUX_2_1;
+
+    // Connect the common clock signal to all flip-flops
     CONNECT CLK -> DFF0.CLK;
     CONNECT CLK -> DFF1.CLK;
     CONNECT CLK -> DFF2.CLK;
     CONNECT CLK -> DFF3.CLK;
 
-    CONNECT D[0] -> DFF0.D;
-    CONNECT D[1] -> DFF1.D;
-    CONNECT D[2] -> DFF2.D;
-    CONNECT D[3] -> DFF3.D;
+    CONNECT Data[0] -> MUX_D0.B; // Data input goes to 'B' (selected when Load=1)
+    CONNECT Q[0] -> MUX_D0.A; // Current Q output goes to 'A' (selected when Load=0)
+    CONNECT Load -> MUX_D0.S; // Load signal controls the MUX
+    CONNECT MUX_D0.Out -> DFF0.D; // MUX output feeds the flip-flop's D input
 
+    CONNECT Data[1] -> MUX_D1.B;
+    CONNECT Q[1] -> MUX_D1.A; // Feedback from Q[1]
+    CONNECT Load -> MUX_D1.S;
+    CONNECT MUX_D1.Out -> DFF1.D;
+
+    CONNECT Data[2] -> MUX_D2.B;
+    CONNECT Q[2] -> MUX_D2.A; // Feedback from Q[2]
+    CONNECT Load -> MUX_D2.S;
+    CONNECT MUX_D2.Out -> DFF2.D;
+
+    CONNECT Data[3] -> MUX_D3.B;
+    CONNECT Q[3] -> MUX_D3.A; // Feedback from Q[3]
+    CONNECT Load -> MUX_D3.S;
+    CONNECT MUX_D3.Out -> DFF3.D;
+
+    // Connect the flip-flop Q outputs to the register Q outputs
     CONNECT DFF0.Q -> Q[0];
     CONNECT DFF1.Q -> Q[1];
     CONNECT DFF2.Q -> Q[2];
     CONNECT DFF3.Q -> Q[3];
 
+    // Connect nQ outputs
     CONNECT DFF0.nQ -> nQ[0];
     CONNECT DFF1.nQ -> nQ[1];
     CONNECT DFF2.nQ -> nQ[2];
     CONNECT DFF3.nQ -> nQ[3];
 
+    // Initialize the register to all zeros (Load=1 initially might be needed)
     INIT {
-        // Set all data inputs low, pulse the clock once (0->1->0)
-        SEQ D[0] 0, D[1] 0, D[2] 0, D[3] 0, CLK 0 -> CLK 1 -> CLK 0;
+        // Force initial state to 0: Set D=0, Load=1, pulse CLK
+        SEQ Data[0] 0, Data[1] 0, Data[2] 0, Data[3] 0, Load 1, CLK 0 -> CLK 1 -> CLK 0;
+        SET Load 0;
+        EVAL;
     }
 }
+

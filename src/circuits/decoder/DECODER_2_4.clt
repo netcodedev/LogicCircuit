@@ -1,0 +1,65 @@
+TESTS FOR DECODER_2_4 {
+    TEST "Disabled: All outputs should be 0" {
+        // Inputs: A=X, Enable=0
+        SET A[0] 0, A[1] 0, Enable 0;
+        EVAL;
+        // Expected: O=0000
+        ASSERT O[0] 0;
+        ASSERT O[1] 0;
+        ASSERT O[2] 0;
+        ASSERT O[3] 0;
+        
+        // Check another address
+        SET A[0] 1, A[1] 1, Enable 0;
+        EVAL;
+        // Expected: O=0000
+        ASSERT O[0] 0;
+        ASSERT O[1] 0;
+        ASSERT O[2] 0;
+        ASSERT O[3] 0;
+    }
+
+    TEST "Address 0 (00), Enabled" {
+        // Inputs: A=00, Enable=1
+        SET A[0] 0, A[1] 0, Enable 1;
+        EVAL;
+        // Expected: O=0001
+        ASSERT O[0] 1;
+        ASSERT O[1] 0;
+        ASSERT O[2] 0;
+        ASSERT O[3] 0;
+    }
+
+    TEST "Address 1 (01), Enabled" {
+        // Inputs: A=01, Enable=1
+        SET A[0] 1, A[1] 0, Enable 1;
+        EVAL;
+        // Expected: O=0010
+        ASSERT O[0] 0;
+        ASSERT O[1] 1;
+        ASSERT O[2] 0;
+        ASSERT O[3] 0;
+    }
+
+    TEST "Address 2 (10), Enabled" {
+        // Inputs: A=10, Enable=1
+        SET A[0] 0, A[1] 1, Enable 1;
+        EVAL;
+        // Expected: O=0100
+        ASSERT O[0] 0;
+        ASSERT O[1] 0;
+        ASSERT O[2] 1;
+        ASSERT O[3] 0;
+    }
+
+    TEST "Address 3 (11), Enabled" {
+        // Inputs: A=11, Enable=1
+        SET A[0] 1, A[1] 1, Enable 1;
+        EVAL;
+        // Expected: O=1000
+        ASSERT O[0] 0;
+        ASSERT O[1] 0;
+        ASSERT O[2] 0;
+        ASSERT O[3] 1;
+    }
+}

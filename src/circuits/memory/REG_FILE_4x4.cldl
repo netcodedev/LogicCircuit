@@ -1,0 +1,107 @@
+CIRCUIT REG_FILE_4x4 {
+    // A 4-register file, each register is 4 bits wide.
+    // Features two read ports (A and B) and one write port.
+
+    // --- Inputs ---
+    INPUT DataIn[4];     // Data to write
+    INPUT WriteAddr[2];  // Address (0-3) to write to
+    INPUT WriteEnable;   // 1 to write, 0 to hold
+    INPUT ReadAddrA[2];  // Address (0-3) for read port A
+    INPUT ReadAddrB[2];  // Address (0-3) for read port B
+    INPUT CLK;           // Clock signal
+
+    // --- Outputs ---
+    OUTPUT DataOutA[4];   // Data from read port A
+    OUTPUT DataOutB[4];   // Data from read port B
+
+    // --- Storage Parts ---
+    PART R0: REGISTER_4B;
+    PART R1: REGISTER_4B;
+    PART R2: REGISTER_4B;
+    PART R3: REGISTER_4B;
+
+    // --- Write Logic Parts ---
+    PART WriteDecoder: DECODER_2_4;
+
+    // --- Read Logic Parts ---
+    PART ReadMuxA: MUX_4B_4_1;
+    PART ReadMuxB: MUX_4B_4_1;
+
+    // --- Connections ---
+
+    // 1. Write Logic:
+    // Connect the decoder to the Write Address and Enable.
+    CONNECT WriteAddr[0] -> WriteDecoder.A[0];
+    CONNECT WriteAddr[1] -> WriteDecoder.A[1];
+    CONNECT WriteEnable -> WriteDecoder.Enable;
+
+    // Connect the decoder outputs to the Load pin of each register.
+    CONNECT WriteDecoder.O[0] -> R0.Load;
+    CONNECT WriteDecoder.O[1] -> R1.Load;
+    CONNECT WriteDecoder.O[2] -> R2.Load;
+    CONNECT WriteDecoder.O[3] -> R3.Load;
+
+    // Fan-out the DataIn bus to all four registers.
+    // R0 Data Input
+    CONNECT DataIn[0] -> R0.Data[0];
+    CONNECT DataIn[1] -> R0.Data[1];
+    CONNECT DataIn[2] -> R0.Data[2];
+    CONNECT DataIn[3] -> R0.Data[3];
+    // R1 Data Input
+    CONNECT DataIn[0] -> R1.Data[0];
+    CONNECT DataIn[1] -> R1.Data[1];
+    CONNECT DataIn[2] -> R1.Data[2];
+    CONNECT DataIn[3] -> R1.Data[3];
+    // R2 Data Input
+    CONNECT DataIn[0] -> R2.Data[0];
+    CONNECT DataIn[1] -> R2.Data[1];
+    CONNECT DataIn[2] -> R2.Data[2];
+    CONNECT DataIn[3] -> R2.Data[3];
+    // R3 Data Input
+    CONNECT DataIn[0] -> R3.Data[0];
+    CONNECT DataIn[1] -> R3.Data[1];
+    CONNECT DataIn[2] -> R3.Data[2];
+    CONNECT DataIn[3] -> R3.Data[3];
+
+    // 2. Read Logic (Port A):
+    // Connect register outputs (Q bus) to Mux A inputs.
+    CONNECT R0.Q[0] -> ReadMuxA.In0[0]; CONNECT R0.Q[1] -> ReadMuxA.In0[1]; CONNECT R0.Q[2] -> ReadMuxA.In0[2]; CONNECT R0.Q[3] -> ReadMuxA.In0[3];
+    CONNECT R1.Q[0] -> ReadMuxA.In1[0]; CONNECT R1.Q[1] -> ReadMuxA.In1[1]; CONNECT R1.Q[2] -> ReadMuxA.In1[2]; CONNECT R1.Q[3] -> ReadMuxA.In1[3];
+    CONNECT R2.Q[0] -> ReadMuxA.In2[0]; CONNECT R2.Q[1] -> ReadMuxA.In2[1]; CONNECT R2.Q[2] -> ReadMuxA.In2[2]; CONNECT R2.Q[3] -> ReadMuxA.In2[3];
+    CONNECT R3.Q[0] -> ReadMuxA.In3[0]; CONNECT R3.Q[1] -> ReadMuxA.In3[1]; CONNECT R3.Q[2] -> ReadMuxA.In3[2]; CONNECT R3.Q[3] -> ReadMuxA.In3[3];
+    
+    // Connect Read Address A to Mux A Select.
+    CONNECT ReadAddrA[0] -> ReadMuxA.S[0];
+    CONNECT ReadAddrA[1] -> ReadMuxA.S[1];
+    
+    // Connect Mux A Output to DataOutA.
+    CONNECT ReadMuxA.Out[0] -> DataOutA[0];
+    CONNECT ReadMuxA.Out[1] -> DataOutA[1];
+    CONNECT ReadMuxA.Out[2] -> DataOutA[2];
+    CONNECT ReadMuxA.Out[3] -> DataOutA[3];
+
+    // 3. Read Logic (Port B):
+    // Connect register outputs (Q bus) to Mux B inputs.
+    CONNECT R0.Q[0] -> ReadMuxB.In0[0]; CONNECT R0.Q[1] -> ReadMuxB.In0[1]; CONNECT R0.Q[2] -> ReadMuxB.In0[2]; CONNECT R0.Q[3] -> ReadMuxB.In0[3];
+    CONNECT R1.Q[0] -> ReadMuxB.In1[0]; CONNECT R1.Q[1] -> ReadMuxB.In1[1]; CONNECT R1.Q[2] -> ReadMuxB.In1[2]; CONNECT R1.Q[3] -> ReadMuxB.In1[3];
+    CONNECT R2.Q[0] -> ReadMuxB.In2[0]; CONNECT R2.Q[1] -> ReadMuxB.In2[1]; CONNECT R2.Q[2] -> ReadMuxB.In2[2]; CONNECT R2.Q[3] -> ReadMuxB.In2[3];
+    CONNECT R3.Q[0] -> ReadMuxB.In3[0]; CONNECT R3.Q[1] -> ReadMuxB.In3[1]; CONNECT R3.Q[2] -> ReadMuxB.In3[2]; CONNECT R3.Q[3] -> ReadMuxB.In3[3];
+
+    // Connect Read Address B to Mux B Select.
+    CONNECT ReadAddrB[0] -> ReadMuxB.S[0];
+    CONNECT ReadAddrB[1] -> ReadMuxB.S[1];
+
+    // Connect Mux B Output to DataOutB.
+    CONNECT ReadMuxB.Out[0] -> DataOutB[0];
+    CONNECT ReadMuxB.Out[1] -> DataOutB[1];
+    CONNECT ReadMuxB.Out[2] -> DataOutB[2];
+    CONNECT ReadMuxB.Out[3] -> DataOutB[3];
+
+    // 4. Clock Connection:
+    // Fan-out the master clock to all four registers.
+    CONNECT CLK -> R0.CLK;
+    CONNECT CLK -> R1.CLK;
+    CONNECT CLK -> R2.CLK;
+    CONNECT CLK -> R3.CLK;
+}
+

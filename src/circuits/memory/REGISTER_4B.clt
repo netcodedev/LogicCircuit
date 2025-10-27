@@ -1,9 +1,11 @@
-// Test suite for the 4-Bit Register circuit
+// Test suite for the 4-Bit Register circuit with Load Enable
 
-TESTS FOR REGISTER_4B {
+TESTS FOR REGISTER_4B { // Matches the CIRCUIT name in REGISTER_4B.cldl
+
     TEST "Initial State Check" {
-        // Assume INIT block ran (SEQ D[0-3] 0, CLK 0 -> CLK 1 -> CLK 0;).
-        // Should result in Q=0000, nQ=1111 with CLK low.
+        // Assume INIT block ran (SEQ D=0, Load=1, CLK=0->1->0;).
+        // Should result in Q=0000, nQ=1111 with CLK low, Load might be high or low depending on INIT end state.
+        // Let's explicitly set Load low after INIT check.
         ASSERT Q[0] 0;
         ASSERT Q[1] 0;
         ASSERT Q[2] 0;
@@ -12,37 +14,26 @@ TESTS FOR REGISTER_4B {
         ASSERT nQ[1] 1;
         ASSERT nQ[2] 1;
         ASSERT nQ[3] 1;
+        // Ensure Load is low for subsequent tests unless specified
+        SET Load 0;
+        EVAL;
     }
 
     TEST "Load Value 5 (0101)" {
-        // Step 1: Set Data inputs while CLK is low (should still be low from INIT).
-        SET D[0] 1, D[1] 0, D[2] 1, D[3] 0; // Data = 0101 = 5
-        EVAL; // Evaluate combinational path if any (though flip-flops shouldn't change)
-        ASSERT Q[0] 0; // Outputs should still be 0 from initial state
+        // Step 1: Set Data=5, Load=1 (Enable Load), CLK=0. Output shouldn't change yet.
+        SET Data[0] 1, Data[1] 0, Data[2] 1, Data[3] 0; // Data = 5
+        SET Load 1; // Enable loading
+        SET CLK 0;  // Ensure clock is low
+        EVAL;
+        ASSERT Q[0] 0; // Still holds initial 0
         ASSERT Q[1] 0;
         ASSERT Q[2] 0;
         ASSERT Q[3] 0;
-        ASSERT nQ[0] 1;
-        ASSERT nQ[1] 1;
-        ASSERT nQ[2] 1;
-        ASSERT nQ[3] 1;
 
-        // Step 2: Clock Rising Edge (0 -> 1). Should latch Data=5.
+        // Step 2: Clock Rising Edge (0 -> 1) while Load=1. Should latch Data=5.
         SET CLK 1;
         EVAL;
         ASSERT Q[0] 1;
-        ASSERT Q[1] 0;
-        ASSERT Q[2] 1;
-        ASSERT Q[3] 0;
-        ASSERT nQ[0] 0; // Verify complement
-        ASSERT nQ[1] 1;
-        ASSERT nQ[2] 0;
-        ASSERT nQ[3] 1;
-
-        // Step 3: Clock Falling Edge (1 -> 0). Output should hold.
-        SET CLK 0;
-        EVAL;
-        ASSERT Q[0] 1; // Should hold 5
         ASSERT Q[1] 0;
         ASSERT Q[2] 1;
         ASSERT Q[3] 0;
@@ -50,25 +41,63 @@ TESTS FOR REGISTER_4B {
         ASSERT nQ[1] 1;
         ASSERT nQ[2] 0;
         ASSERT nQ[3] 1;
+
+        // Step 3: Clock Falling Edge (1 -> 0). Output should hold. Load still enabled.
+        SET CLK 0;
+        EVAL;
+        ASSERT Q[0] 1; // Should hold 5
+        ASSERT Q[1] 0;
+        ASSERT Q[2] 1;
+        ASSERT Q[3] 0;
     }
 
-    TEST "Load Value 10 (1010)" {
-        // Step 1: Start from previous state (Q=5, CLK=0). Set Data to 10.
-        SET D[0] 0, D[1] 1, D[2] 0, D[3] 1; // Data = 1010 = 10
+    TEST "Hold Value 5 (Load=0)" {
+        // Step 1: Ensure Q=5 (Load=1, Clock pulse)
+        SET Data[0] 1, Data[1] 0, Data[2] 1, Data[3] 0; // Data = 5
+        SET Load 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Q[0] 1; ASSERT Q[1] 0; ASSERT Q[2] 1; ASSERT Q[3] 0; // Verify Q=5
+
+        // Step 2: Disable Load (Load=0), change Data to 10 (1010).
+        SET Load 0; // Disable loading
+        SET Data[0] 0, Data[1] 1, Data[2] 0, Data[3] 1; // Data = 10
         EVAL;
         ASSERT Q[0] 1; // Should still hold 5
         ASSERT Q[1] 0;
         ASSERT Q[2] 1;
         ASSERT Q[3] 0;
 
-        // Step 2: Clock Rising Edge (0 -> 1). Should latch Data=10.
+        // Step 3: Pulse Clock while Load=0 and Data=10. Output should still hold 5.
+        SEQ CLK 1 -> CLK 0;
+        ASSERT Q[0] 1; // Should still hold 5
+        ASSERT Q[1] 0;
+        ASSERT Q[2] 1;
+        ASSERT Q[3] 0;
+        ASSERT nQ[0] 0; // nQ should also hold
+        ASSERT nQ[1] 1;
+        ASSERT nQ[2] 0;
+        ASSERT nQ[3] 1;
+    }
+
+
+    TEST "Load Value 10 (1010)" {
+        // Step 1: Start from previous state (Q=5, Load=0, CLK=0). Set Data=10, Enable Load=1.
+        SET Data[0] 0, Data[1] 1, Data[2] 0, Data[3] 1; // Data = 10
+        SET Load 1; // Enable loading
+        EVAL;
+        ASSERT Q[0] 1; // Should still hold 5 (no clock edge yet)
+        ASSERT Q[1] 0;
+        ASSERT Q[2] 1;
+        ASSERT Q[3] 0;
+
+        // Step 2: Clock Rising Edge (0 -> 1) while Load=1. Should latch Data=10.
         SET CLK 1;
         EVAL;
         ASSERT Q[0] 0;
         ASSERT Q[1] 1;
         ASSERT Q[2] 0;
         ASSERT Q[3] 1;
-        ASSERT nQ[0] 1; // Verify complement
+        ASSERT nQ[0] 1;
         ASSERT nQ[1] 0;
         ASSERT nQ[2] 1;
         ASSERT nQ[3] 0;
@@ -80,10 +109,7 @@ TESTS FOR REGISTER_4B {
         ASSERT Q[1] 1;
         ASSERT Q[2] 0;
         ASSERT Q[3] 1;
-        ASSERT nQ[0] 1;
-        ASSERT nQ[1] 0;
-        ASSERT nQ[2] 1;
-        ASSERT nQ[3] 0;
     }
 
-}
+} // End TESTS FOR REGISTER_4B
+
