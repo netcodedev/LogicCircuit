@@ -1,0 +1,49 @@
+// Test suite for the D Flip-Flop circuit
+
+TESTS FOR DFLIP_FLOP {
+    TEST "Edge Trigger Behavior" {
+        // Step 0: Initial state check (after INIT block runs automatically)
+        // INIT block should have set D=0, CLK=0->1->0, resulting in Q=0.
+        // We assume CLK is low (0) at the start of the test.
+        ASSERT Q 0;
+        ASSERT nQ 1;
+
+        // Step 1: Set D=1 while CLK is low. Output should not change.
+        SET D 1;
+        EVAL;
+        ASSERT Q 0; // Should still hold 0
+        ASSERT nQ 1;
+
+        // Step 2: Clock Rising Edge (0 -> 1). Should latch D=1.
+        SET CLK 1;
+        EVAL;
+        ASSERT Q 1;
+        ASSERT nQ 0;
+
+        // Step 3: Change D=0 while CLK is high. Output should not change.
+        SET D 0;
+        EVAL; // Allow combinational logic inside to potentially settle, though output shouldn't change
+        ASSERT Q 1; // Should still hold 1
+        ASSERT nQ 0;
+
+        // Step 4: Clock Falling Edge (1 -> 0). Output should hold.
+        // Master latch becomes transparent and captures D=0. Slave latch closes, holding Q=1.
+        SET CLK 0;
+        EVAL;
+        ASSERT Q 1; // Should still hold 1
+        ASSERT nQ 0;
+
+        // Step 5: Next Rising Edge (0 -> 1).
+        // Slave latch opens and captures the Q=0 output from the Master.
+        SET CLK 1;
+        EVAL;
+        ASSERT Q 0;
+        ASSERT nQ 1;
+
+        // Step 6: Hold final state on falling edge
+        SET CLK 0;
+        EVAL;
+        ASSERT Q 0;
+        ASSERT nQ 1;
+    }
+}

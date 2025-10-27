@@ -1,0 +1,88 @@
+// Test suite for the SR Latch circuit (NOR-based, active-high)
+
+TESTS FOR SR_LATCH {
+    TEST "Initial State Check" {
+        // Assume INIT block ran (Reset=1, EVAL, Reset=0, EVAL), should be Q=0, nQ=1
+        // Verify the state after automated initialization
+        ASSERT Q 0;
+        ASSERT nQ 1;
+    }
+
+    TEST "Set Latch" {
+        // Start from Reset state (or assume initial)
+        SET Set 0, Reset 0; // Ensure Hold state initially if needed
+        EVAL;
+        ASSERT Q 0;
+        ASSERT nQ 1;
+
+        // Apply Set pulse (Set=1)
+        SET Set 1;
+        EVAL;
+        ASSERT Q 1; // Q should become 1
+        ASSERT nQ 0; // nQ should become 0
+
+        // De-assert Set (go back to Hold)
+        SET Set 0;
+        EVAL;
+        ASSERT Q 1; // Should hold Q=1
+        ASSERT nQ 0;
+    }
+
+    TEST "Reset Latch" {
+        // Start from Set state
+        SET Set 1, Reset 0;
+        EVAL;
+        ASSERT Q 1;
+        ASSERT nQ 0;
+
+        SET Set 0; // Go to Hold state
+        EVAL;
+        ASSERT Q 1; // Verify it holds Q=1
+        ASSERT nQ 0;
+
+        // Now apply Reset pulse (Reset=1) while Set is 0
+        SET Reset 1;
+        EVAL;
+        ASSERT Q 0; // Q should become 0
+        ASSERT nQ 1; // nQ should become 1 <-- Should pass now
+
+        // De-assert Reset (go back to Hold)
+        SET Reset 0;
+        EVAL;
+        ASSERT Q 0; // Should hold Q=0
+        ASSERT nQ 1;
+    }
+
+    TEST "Hold State after Set" {
+        // 1. Set the latch
+        SET Set 1, Reset 0;
+        EVAL;
+        // 2. Go to Hold state
+        SET Set 0;
+        EVAL;
+        // 3. Assert Hold state
+        ASSERT Q 1;
+        ASSERT nQ 0;
+    }
+
+     TEST "Hold State after Reset" {
+        // 1. Reset the latch
+        SET Set 0, Reset 1;
+        EVAL;
+        // 2. Go to Hold state
+        SET Reset 0;
+        EVAL;
+        // 3. Assert Hold state
+        ASSERT Q 0;
+        ASSERT nQ 1;
+    }
+
+    TEST "Invalid State (Set=1, Reset=1)" {
+        // Apply the invalid input condition for NOR latch
+        SET Set 1, Reset 1;
+        EVAL;
+        ASSERT Q 0; // Both outputs should go low
+        ASSERT nQ 0;
+    }
+
+}

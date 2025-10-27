@@ -1,0 +1,33 @@
+// Test suite for the Half Adder circuit
+
+TESTS FOR HALF_ADDER {
+
+    TEST "Truth Table 0 + 0" {
+        SET a 0, b 0;
+        EVAL;
+        ASSERT sum 0;
+        ASSERT carry 0;
+    }
+
+    TEST "Truth Table 0 + 1" {
+        SET a 0, b 1;
+        EVAL;
+        ASSERT sum 1;
+        ASSERT carry 0;
+    }
+
+    TEST "Truth Table 1 + 0" {
+        SET a 1, b 0;
+        EVAL;
+        ASSERT sum 1;
+        ASSERT carry 0;
+    }
+
+    TEST "Truth Table 1 + 1" {
+        SET a 1, b 1;
+        EVAL;
+        ASSERT sum 0;
+        ASSERT carry 1;
+    }
+
+}

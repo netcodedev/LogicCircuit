@@ -1,0 +1,89 @@
+// Test suite for the 4-Bit Register circuit
+
+TESTS FOR REGISTER_4B {
+    TEST "Initial State Check" {
+        // Assume INIT block ran (SEQ D[0-3] 0, CLK 0 -> CLK 1 -> CLK 0;).
+        // Should result in Q=0000, nQ=1111 with CLK low.
+        ASSERT Q[0] 0;
+        ASSERT Q[1] 0;
+        ASSERT Q[2] 0;
+        ASSERT Q[3] 0;
+        ASSERT nQ[0] 1;
+        ASSERT nQ[1] 1;
+        ASSERT nQ[2] 1;
+        ASSERT nQ[3] 1;
+    }
+
+    TEST "Load Value 5 (0101)" {
+        // Step 1: Set Data inputs while CLK is low (should still be low from INIT).
+        SET D[0] 1, D[1] 0, D[2] 1, D[3] 0; // Data = 0101 = 5
+        EVAL; // Evaluate combinational path if any (though flip-flops shouldn't change)
+        ASSERT Q[0] 0; // Outputs should still be 0 from initial state
+        ASSERT Q[1] 0;
+        ASSERT Q[2] 0;
+        ASSERT Q[3] 0;
+        ASSERT nQ[0] 1;
+        ASSERT nQ[1] 1;
+        ASSERT nQ[2] 1;
+        ASSERT nQ[3] 1;
+
+        // Step 2: Clock Rising Edge (0 -> 1). Should latch Data=5.
+        SET CLK 1;
+        EVAL;
+        ASSERT Q[0] 1;
+        ASSERT Q[1] 0;
+        ASSERT Q[2] 1;
+        ASSERT Q[3] 0;
+        ASSERT nQ[0] 0; // Verify complement
+        ASSERT nQ[1] 1;
+        ASSERT nQ[2] 0;
+        ASSERT nQ[3] 1;
+
+        // Step 3: Clock Falling Edge (1 -> 0). Output should hold.
+        SET CLK 0;
+        EVAL;
+        ASSERT Q[0] 1; // Should hold 5
+        ASSERT Q[1] 0;
+        ASSERT Q[2] 1;
+        ASSERT Q[3] 0;
+        ASSERT nQ[0] 0;
+        ASSERT nQ[1] 1;
+        ASSERT nQ[2] 0;
+        ASSERT nQ[3] 1;
+    }
+
+    TEST "Load Value 10 (1010)" {
+        // Step 1: Start from previous state (Q=5, CLK=0). Set Data to 10.
+        SET D[0] 0, D[1] 1, D[2] 0, D[3] 1; // Data = 1010 = 10
+        EVAL;
+        ASSERT Q[0] 1; // Should still hold 5
+        ASSERT Q[1] 0;
+        ASSERT Q[2] 1;
+        ASSERT Q[3] 0;
+
+        // Step 2: Clock Rising Edge (0 -> 1). Should latch Data=10.
+        SET CLK 1;
+        EVAL;
+        ASSERT Q[0] 0;
+        ASSERT Q[1] 1;
+        ASSERT Q[2] 0;
+        ASSERT Q[3] 1;
+        ASSERT nQ[0] 1; // Verify complement
+        ASSERT nQ[1] 0;
+        ASSERT nQ[2] 1;
+        ASSERT nQ[3] 0;
+
+        // Step 3: Clock Falling Edge (1 -> 0). Output should hold.
+        SET CLK 0;
+        EVAL;
+        ASSERT Q[0] 0; // Should hold 10
+        ASSERT Q[1] 1;
+        ASSERT Q[2] 0;
+        ASSERT Q[3] 1;
+        ASSERT nQ[0] 1;
+        ASSERT nQ[1] 0;
+        ASSERT nQ[2] 1;
+        ASSERT nQ[3] 0;
+    }
+
+}

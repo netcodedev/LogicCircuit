@@ -1,0 +1,52 @@
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+COMMENT    = _{ ("#" | "//") ~ (!("\r" | "\n") ~ ANY)* }
+
+// --- Basic Tokens (mostly reuse from cldl.pest) ---
+ident = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
+number = @{ ASCII_DIGIT+ }
+bus_specifier = { "[" ~ number ~ "]" }
+// Pin reference: A, A[0], G1.out, G1.Q[1]
+pin = @{ ident ~ ("." ~ ident)* ~ bus_specifier? }
+// Value: 0 or 1
+value = @{ "0" | "1" }
+// String literal for test names
+string_literal = @{ "\"" ~ (!("\"") ~ ANY)* ~ "\"" }
+
+// --- Test Commands ---
+
+// Pin assignment: "D 0" or "BusA[0] 1"
+pin_value = { pin ~ value }
+
+// SET D 0, CLK 0;
+set_command = { "SET" ~ pin_value ~ ("," ~ pin_value)* ~ ";" }
+
+// EVAL;
+eval_command = { "EVAL" ~ ";" }
+
+// ASSERT Q[0] 1; (Only single bit for now)
+assert_command = { "ASSERT" ~ pin_value ~ ";" }
+
+// A step in a SEQ: one or more pin assignments
+// e.g., "D 0, CLK 0" or just "CLK 1"
+seq_step = { pin_value ~ ("," ~ pin_value)* }
+// SEQ D 0, CLK 0 -> CLK 1 -> CLK 0;
+seq_command = { "SEQ" ~ seq_step ~ ("->" ~ seq_step)* ~ ";" }
+
+// --- Test Structure ---
+
+// A command within a test block
+test_command = { set_command | eval_command | assert_command | seq_command }
+
+// The body of a test case
+test_body = { test_command* }
+
+// A single named test case for a circuit
+// TEST "Scenario Name" { ... }
+test_case = { "TEST" ~ string_literal ~ "{" ~ test_body ~ "}" }
+
+// Top-level block defining tests for one circuit
+// TESTS FOR CIRCUIT_NAME { test_case* }
+test_suite = { "TESTS" ~ "FOR" ~ ident ~ "{" ~ test_case* ~ "}" }
+
+// A file can contain multiple test suites
+file = { SOI ~ test_suite* ~ EOI }

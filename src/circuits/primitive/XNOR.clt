@@ -1,0 +1,27 @@
+// Test suite for the XNOR primitive circuit
+
+TESTS FOR XNOR {
+    TEST "Truth Table 0 XNOR 0" {
+        SET in1 0, in2 0;
+        EVAL;
+        ASSERT out 1;
+    }
+
+    TEST "Truth Table 0 XNOR 1" {
+        SET in1 0, in2 1;
+        EVAL;
+        ASSERT out 0;
+    }
+
+    TEST "Truth Table 1 XNOR 0" {
+        SET in1 1, in2 0;
+        EVAL;
+        ASSERT out 0;
+    }
+
+    TEST "Truth Table 1 XNOR 1" {
+        SET in1 1, in2 1;
+        EVAL;
+        ASSERT out 1;
+    }
+}

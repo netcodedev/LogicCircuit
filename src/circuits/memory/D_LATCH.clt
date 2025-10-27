@@ -1,0 +1,52 @@
+// Test suite for the D Latch circuit (AND-steered, NOR-SRLatch based)
+
+TESTS FOR D_LATCH {
+
+    TEST "Enable and Set" {
+        // Assume INIT block in D_LATCH.cldl has run, Q should start low.
+        // Step 1: Enable the latch and set Data high.
+        SET Data 1, Store 1; // Store=1 makes latch transparent
+        EVAL;
+        ASSERT Q 1;
+        ASSERT nQ 0;
+    }
+
+    TEST "Hold Set State" {
+        // Step 1: Start with latch set (previous test state or force it)
+        SET Data 1, Store 1;
+        EVAL; // Ensure Q=1
+        ASSERT Q 1;
+        ASSERT nQ 0;
+
+        // Step 2: Disable latch (Store=0), change Data. Q should hold.
+        SET Store 0; // Go into Hold mode
+        SET Data 0;  // Change Data while holding
+        EVAL;
+        ASSERT Q 1;  // Should remain 1
+        ASSERT nQ 0; // Should remain 0
+    }
+
+    TEST "Enable and Reset" {
+        // Step 1: Start with latch potentially set, enable and set Data low.
+        SET Data 0, Store 1; // Store=1 makes latch transparent
+        EVAL;
+        ASSERT Q 0;
+        ASSERT nQ 1;
+    }
+
+    TEST "Hold Reset State" {
+         // Step 1: Start with latch reset (previous test state or force it)
+        SET Data 0, Store 1;
+        EVAL; // Ensure Q=0
+        ASSERT Q 0;
+        ASSERT nQ 1;
+
+        // Step 2: Disable latch (Store=0), change Data. Q should hold.
+        SET Store 0; // Go into Hold mode
+        SET Data 1;  // Change Data while holding
+        EVAL;
+        ASSERT Q 0;  // Should remain 0
+        ASSERT nQ 1; // Should remain 1
+    }
+
+}
