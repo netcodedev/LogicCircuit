@@ -1,0 +1,154 @@
+// Test suite for the 4-Bit Datapath
+
+TESTS FOR DATAPATH_4B {
+    // --- Part 1: Register-Register Operations (ALUSrc = 0) ---
+    TEST "REG-REG ADD: 8 + 8 (Z=1, Cout=1)" {
+        // --- Setup ---
+        // Write 8 (1000) to R0
+        SET MemDataIn[0] 0, MemDataIn[1] 0, MemDataIn[2] 0, MemDataIn[3] 1;
+        SET WriteAddr[0] 0, WriteAddr[1] 0; // R0
+        SET WriteEnable 1;
+        SET MemToReg 1; // Select external MemDataIn
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+
+        // Write 8 (1000) to R1
+        SET MemDataIn[0] 0, MemDataIn[1] 0, MemDataIn[2] 0, MemDataIn[3] 1;
+        SET WriteAddr[0] 1, WriteAddr[1] 0; // R1
+        SET WriteEnable 1;
+        SET MemToReg 1; 
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        
+        SET WriteEnable 0; // Disable writes
+        SET MemToReg 0;    // Select ALU.Result for subsequent ops
+
+        // --- Test ---
+        // Perform ADD: R0 + R1.
+        SET ReadAddrA[0] 0, ReadAddrA[1] 0; // Read R0
+        SET ReadAddrB[0] 1, ReadAddrB[1] 0; // Read R1
+        SET ALUSel[0] 0, ALUSel[1] 0; // 00 = ADD
+        SET ALUCin 0;
+        SET ALUSrc 0; // Select RegFile.DataOutB
+        EVAL;
+
+        // --- Assert ---
+        // Result is 0 (0000) with a carry
+        ASSERT ALU_Z 1;
+        ASSERT ALU_Cout 1;
+    }
+
+    TEST "REG-REG AND: 5 & 10 (Z=1)" {
+        // --- Setup ---
+        // Write 5 (0101) to R2
+        SET MemDataIn[0] 1, MemDataIn[1] 0, MemDataIn[2] 1, MemDataIn[3] 0;
+        SET WriteAddr[0] 0, WriteAddr[1] 1; // R2
+        SET WriteEnable 1;
+        SET MemToReg 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+
+        // Write 10 (1010) to R3
+        SET MemDataIn[0] 0, MemDataIn[1] 1, MemDataIn[2] 0, MemDataIn[3] 1;
+        SET WriteAddr[0] 1, WriteAddr[1] 1; // R3
+        SET WriteEnable 1;
+        SET MemToReg 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        
+        SET WriteEnable 0;
+        SET MemToReg 0;
+
+        // --- Test ---
+        // Perform AND: R2 & R3.
+        SET ReadAddrA[0] 0, ReadAddrA[1] 1; // Read R2
+        SET ReadAddrB[0] 1, ReadAddrB[1] 1; // Read R3
+        SET ALUSel[0] 1, ALUSel[1] 0; // 01 = AND
+        SET ALUSrc 0; // Select RegFile.DataOutB
+        EVAL;
+
+        // --- Assert ---
+        // Result is 0 (0000)
+        ASSERT ALU_Z 1;
+        ASSERT ALU_Cout 0;
+    }
+
+    // --- Part 2: Register-Immediate Operations (ALUSrc = 1) ---
+
+    TEST "REG-IMM ADDI: 5 + 3 (Z=0, Cout=0)" {
+        // --- Setup ---
+        // Write 5 (0101) to R0
+        SET MemDataIn[0] 1, MemDataIn[1] 0, MemDataIn[2] 1, MemDataIn[3] 0;
+        SET WriteAddr[0] 0, WriteAddr[1] 0; // R0
+        SET WriteEnable 1;
+        SET MemToReg 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        
+        SET WriteEnable 0;
+        SET MemToReg 0;
+
+        // --- Test ---
+        // Perform ADDI: R0 + 3
+        SET ReadAddrA[0] 0, ReadAddrA[1] 0; // Read R0
+        // ReadAddrB is ignored
+        SET Immediate[0] 1, Immediate[1] 1, Immediate[2] 0, Immediate[3] 0; // Imm = 3
+        SET ALUSel[0] 0, ALUSel[1] 0; // 00 = ADD
+        SET ALUCin 0;
+        SET ALUSrc 1; // Select Immediate
+        EVAL;
+
+        // --- Assert ---
+        // Result is 8 (1000)
+        ASSERT ALU_Z 0;
+        ASSERT ALU_Cout 0;
+    }
+
+    TEST "REG-IMM ADDI: 15 + 1 (Z=1, Cout=1)" {
+        // --- Setup ---
+        // Write 15 (1111) to R1
+        SET MemDataIn[0] 1, MemDataIn[1] 1, MemDataIn[2] 1, MemDataIn[3] 1;
+        SET WriteAddr[0] 1, WriteAddr[1] 0; // R1
+        SET WriteEnable 1;
+        SET MemToReg 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        
+        SET WriteEnable 0;
+        SET MemToReg 0;
+
+        // --- Test ---
+        // Perform ADDI: R1 + 1
+        SET ReadAddrA[0] 1, ReadAddrA[1] 0; // Read R1
+        SET Immediate[0] 1, Immediate[1] 0, Immediate[2] 0, Immediate[3] 0; // Imm = 1
+        SET ALUSel[0] 0, ALUSel[1] 0; // 00 = ADD
+        SET ALUCin 0;
+        SET ALUSrc 1; // Select Immediate
+        EVAL;
+
+        // --- Assert ---
+        // Result is 0 (0000) with a carry
+        ASSERT ALU_Z 1;
+        ASSERT ALU_Cout 1;
+    }
+
+    TEST "REG-IMM XORI: 9 ^ 9 (Z=1)" {
+        // --- Setup ---
+        // Write 9 (1001) to R2
+        SET MemDataIn[0] 1, MemDataIn[1] 0, MemDataIn[2] 0, MemDataIn[3] 1;
+        SET WriteAddr[0] 0, WriteAddr[1] 1; // R2
+        SET WriteEnable 1;
+        SET MemToReg 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        
+        SET WriteEnable 0;
+        SET MemToReg 0;
+
+        // --- Test ---
+        // Perform XORI: R2 ^ 9
+        SET ReadAddrA[0] 0, ReadAddrA[1] 1; // Read R2
+        SET Immediate[0] 1, Immediate[1] 0, Immediate[2] 0, Immediate[3] 1; // Imm = 9
+        SET ALUSel[0] 1, ALUSel[1] 1; // 11 = XOR
+        SET ALUSrc 1; // Select Immediate
+        EVAL;
+
+        // --- Assert ---
+        // Result is 0 (0000)
+        ASSERT ALU_Z 1;
+        ASSERT ALU_Cout 0;
+    }
+}

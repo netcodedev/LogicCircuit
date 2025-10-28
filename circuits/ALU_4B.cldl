@@ -1,0 +1,99 @@
+CIRCUIT ALU_4B {
+    // Inputs: Operands A & B (4-bit), Carry In (1-bit), OpCode Select (2-bit)
+    INPUT A[4];
+    INPUT B[4];
+    INPUT Cin;
+    INPUT S[2]; // S1=S[1], S0=S[0]
+
+    // Outputs: Result (4-bit), Carry Out (1-bit), Zero Flag (1-bit)
+    OUTPUT Result[4];
+    OUTPUT Cout;
+    OUTPUT Z; // Zero flag: 1 if Result is 0000, 0 otherwise
+
+    // --- Functional Units ---
+    PART Adder: ADDER_4B;
+    PART LogicAND: AND_4B;
+    PART LogicOR: OR_4B;
+    PART LogicXOR: XOR_4B;
+
+    // --- Output Multiplexer ---
+    // Assuming MUX_4B_4_1 has inputs In0[4], In1[4], In2[4], In3[4], S0, S1 and output Out[4]
+    PART ResultMux: MUX_4B_4_1;
+
+    // --- Zero Flag Logic ---
+    PART ZeroNOR: NOR4;
+
+    // --- Cout Gating Logic ---
+    PART NotS0: NOT;
+    PART NotS1: NOT;
+    PART CoutAND: AND3;
+
+
+    // --- Connect Inputs to Functional Units ---
+    // Connect A, B, and Cin to Adder
+    CONNECT A[0] -> Adder.A[0]; CONNECT A[1] -> Adder.A[1]; CONNECT A[2] -> Adder.A[2]; CONNECT A[3] -> Adder.A[3];
+    CONNECT B[0] -> Adder.B[0]; CONNECT B[1] -> Adder.B[1]; CONNECT B[2] -> Adder.B[2]; CONNECT B[3] -> Adder.B[3];
+    CONNECT Cin -> Adder.Cin;
+
+    // Connect A, B to Logic Units
+    CONNECT A[0] -> LogicAND.A[0]; CONNECT A[1] -> LogicAND.A[1]; CONNECT A[2] -> LogicAND.A[2]; CONNECT A[3] -> LogicAND.A[3];
+    CONNECT B[0] -> LogicAND.B[0]; CONNECT B[1] -> LogicAND.B[1]; CONNECT B[2] -> LogicAND.B[2]; CONNECT B[3] -> LogicAND.B[3];
+
+    CONNECT A[0] -> LogicOR.A[0]; CONNECT A[1] -> LogicOR.A[1]; CONNECT A[2] -> LogicOR.A[2]; CONNECT A[3] -> LogicOR.A[3];
+    CONNECT B[0] -> LogicOR.B[0]; CONNECT B[1] -> LogicOR.B[1]; CONNECT B[2] -> LogicOR.B[2]; CONNECT B[3] -> LogicOR.B[3];
+
+    CONNECT A[0] -> LogicXOR.A[0]; CONNECT A[1] -> LogicXOR.A[1]; CONNECT A[2] -> LogicXOR.A[2]; CONNECT A[3] -> LogicXOR.A[3];
+    CONNECT B[0] -> LogicXOR.B[0]; CONNECT B[1] -> LogicXOR.B[1]; CONNECT B[2] -> LogicXOR.B[2]; CONNECT B[3] -> LogicXOR.B[3];
+
+    // --- Connect Functional Unit Outputs to Mux Inputs ---
+    // In0 = Adder Result (S1 S0 = 00)
+    CONNECT Adder.S[0] -> ResultMux.In0[0];
+    CONNECT Adder.S[1] -> ResultMux.In0[1];
+    CONNECT Adder.S[2] -> ResultMux.In0[2];
+    CONNECT Adder.S[3] -> ResultMux.In0[3];
+
+    // In1 = AND Result (S1 S0 = 01)
+    CONNECT LogicAND.Out[0] -> ResultMux.In1[0];
+    CONNECT LogicAND.Out[1] -> ResultMux.In1[1];
+    CONNECT LogicAND.Out[2] -> ResultMux.In1[2];
+    CONNECT LogicAND.Out[3] -> ResultMux.In1[3];
+
+    // In2 = OR Result (S1 S0 = 10)
+    CONNECT LogicOR.Out[0] -> ResultMux.In2[0];
+    CONNECT LogicOR.Out[1] -> ResultMux.In2[1];
+    CONNECT LogicOR.Out[2] -> ResultMux.In2[2];
+    CONNECT LogicOR.Out[3] -> ResultMux.In2[3];
+
+    // In3 = XOR Result (S1 S0 = 11)
+    CONNECT LogicXOR.Out[0] -> ResultMux.In3[0];
+    CONNECT LogicXOR.Out[1] -> ResultMux.In3[1];
+    CONNECT LogicXOR.Out[2] -> ResultMux.In3[2];
+    CONNECT LogicXOR.Out[3] -> ResultMux.In3[3];
+
+    // --- Connect Select Lines to Mux ---
+    CONNECT S[0] -> ResultMux.S[0]; // OpCode bit 0
+    CONNECT S[1] -> ResultMux.S[1]; // OpCode bit 1
+
+    // --- Connect Mux Output to Final Result ---
+    CONNECT ResultMux.Out[0] -> Result[0];
+    CONNECT ResultMux.Out[1] -> Result[1];
+    CONNECT ResultMux.Out[2] -> Result[2];
+    CONNECT ResultMux.Out[3] -> Result[3];
+
+    // --- Connect Gated Carry Out ---
+    CONNECT S[0] -> NotS0.in;
+    CONNECT S[1] -> NotS1.in;
+    CONNECT Adder.Cout -> CoutAND.A;
+    CONNECT NotS0.out -> CoutAND.B;
+    CONNECT NotS1.out -> CoutAND.C;
+    CONNECT CoutAND.Out -> Cout;
+
+    // --- Connect Zero Flag Logic ---
+    CONNECT Result[0] -> ZeroNOR.A;
+    CONNECT Result[1] -> ZeroNOR.B;
+    CONNECT Result[2] -> ZeroNOR.C;
+    CONNECT Result[3] -> ZeroNOR.D;
+    CONNECT ZeroNOR.Out -> Z;
+
+}
+

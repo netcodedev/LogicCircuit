@@ -1,0 +1,147 @@
+// Test suite for the 4-Bit ALU circuit
+
+TESTS FOR ALU_4B {
+    // --- Operation 00: ADD ---
+    TEST "ADD: 1 + 2 + 0" {
+        // Inputs: A=1 (0001), B=2 (0010), Cin=0, S=00
+        SET A[0] 1, A[1] 0, A[2] 0, A[3] 0;
+        SET B[0] 0, B[1] 1, B[2] 0, B[3] 0;
+        SET Cin 0;
+        SET S[0] 0, S[1] 0;
+        EVAL;
+        // Expected: Result=3 (0011), Cout=0, Z=0
+        ASSERT Result[0] 1;
+        ASSERT Result[1] 1;
+        ASSERT Result[2] 0;
+        ASSERT Result[3] 0;
+        ASSERT Cout 0;
+        ASSERT Z 0;
+    }
+
+    TEST "ADD: 8 + 8 + 0 (Carry Out, Zero)" {
+        // Inputs: A=8 (1000), B=8 (1000), Cin=0, S=00
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 1;
+        SET B[0] 0, B[1] 0, B[2] 0, B[3] 1;
+        SET Cin 0;
+        SET S[0] 0, S[1] 0;
+        EVAL;
+        // Expected: Result=0 (0000), Cout=1, Z=1
+        ASSERT Result[0] 0;
+        ASSERT Result[1] 0;
+        ASSERT Result[2] 0;
+        ASSERT Result[3] 0;
+        ASSERT Cout 1;
+        ASSERT Z 1;
+    }
+
+     TEST "ADD: 15 + 0 + 1 (Carry In -> Carry Out, Zero)" {
+        // Inputs: A=15 (1111), B=0 (0000), Cin=1, S=00
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1;
+        SET B[0] 0, B[1] 0, B[2] 0, B[3] 0;
+        SET Cin 1;
+        SET S[0] 0, S[1] 0;
+        EVAL;
+        // Expected: Result=0 (0000), Cout=1, Z=1
+        ASSERT Result[0] 0;
+        ASSERT Result[1] 0;
+        ASSERT Result[2] 0;
+        ASSERT Result[3] 0;
+        ASSERT Cout 1;
+        ASSERT Z 1;
+    }
+
+    // --- Operation 01: AND ---
+    TEST "AND: 5 & 10 (Zero)" {
+        // Inputs: A=5 (0101), B=10 (1010), Cin=X (don't care), S=01
+        SET A[0] 1, A[1] 0, A[2] 1, A[3] 0;
+        SET B[0] 0, B[1] 1, B[2] 0, B[3] 1;
+        // SET Cin 0; // Cin doesn't affect AND
+        SET S[0] 1, S[1] 0; // Select AND
+        EVAL;
+        // Expected: Result=0 (0000), Cout=0 (from adder), Z=1
+        ASSERT Result[0] 0;
+        ASSERT Result[1] 0;
+        ASSERT Result[2] 0;
+        ASSERT Result[3] 0;
+        ASSERT Cout 0; // Check Cout defaults to 0 from adder even if unused
+        ASSERT Z 1;
+    }
+
+    TEST "AND: 12 & 10" {
+        // Inputs: A=12 (1100), B=10 (1010), S=01
+        SET A[0] 0, A[1] 0, A[2] 1, A[3] 1;
+        SET B[0] 0, B[1] 1, B[2] 0, B[3] 1;
+        SET S[0] 1, S[1] 0;
+        EVAL;
+        // Expected: Result=8 (1000), Cout=0, Z=0
+        ASSERT Result[0] 0;
+        ASSERT Result[1] 0;
+        ASSERT Result[2] 0;
+        ASSERT Result[3] 1;
+        ASSERT Cout 0;
+        ASSERT Z 0;
+    }
+
+    // --- Operation 10: OR ---
+    TEST "OR: 5 | 10" {
+        // Inputs: A=5 (0101), B=10 (1010), S=10
+        SET A[0] 1, A[1] 0, A[2] 1, A[3] 0;
+        SET B[0] 0, B[1] 1, B[2] 0, B[3] 1;
+        SET S[0] 0, S[1] 1; // Select OR
+        EVAL;
+        // Expected: Result=15 (1111), Cout=0, Z=0
+        ASSERT Result[0] 1;
+        ASSERT Result[1] 1;
+        ASSERT Result[2] 1;
+        ASSERT Result[3] 1;
+        ASSERT Cout 0;
+        ASSERT Z 0;
+    }
+
+     TEST "OR: 9 | 0" {
+        // Inputs: A=9 (1001), B=0 (0000), S=10
+        SET A[0] 1, A[1] 0, A[2] 0, A[3] 1;
+        SET B[0] 0, B[1] 0, B[2] 0, B[3] 0;
+        SET S[0] 0, S[1] 1;
+        EVAL;
+        // Expected: Result=9 (1001), Cout=0, Z=0
+        ASSERT Result[0] 1;
+        ASSERT Result[1] 0;
+        ASSERT Result[2] 0;
+        ASSERT Result[3] 1;
+        ASSERT Cout 0;
+        ASSERT Z 0;
+    }
+
+    // --- Operation 11: XOR ---
+    TEST "XOR: 5 ^ 10" {
+        // Inputs: A=5 (0101), B=10 (1010), S=11
+        SET A[0] 1, A[1] 0, A[2] 1, A[3] 0;
+        SET B[0] 0, B[1] 1, B[2] 0, B[3] 1;
+        SET S[0] 1, S[1] 1; // Select XOR
+        EVAL;
+        // Expected: Result=15 (1111), Cout=0, Z=0
+        ASSERT Result[0] 1;
+        ASSERT Result[1] 1;
+        ASSERT Result[2] 1;
+        ASSERT Result[3] 1;
+        ASSERT Cout 0;
+        ASSERT Z 0;
+    }
+
+    TEST "XOR: 9 ^ 9 (Zero)" {
+        // Inputs: A=9 (1001), B=9 (1001), S=11
+        SET A[0] 1, A[1] 0, A[2] 0, A[3] 1;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 1;
+        SET S[0] 1, S[1] 1;
+        EVAL;
+        // Expected: Result=0 (0000), Cout=0, Z=1
+        ASSERT Result[0] 0;
+        ASSERT Result[1] 0;
+        ASSERT Result[2] 0;
+        ASSERT Result[3] 0;
+        ASSERT Cout 0;
+        ASSERT Z 1;
+    }
+
+}
