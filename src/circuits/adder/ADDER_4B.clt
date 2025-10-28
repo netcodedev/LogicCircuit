@@ -50,6 +50,18 @@ TESTS FOR ADDER_4B {
         ASSERT Cout 1; // Sum = 0 (0000), Cout = 1
     }
 
+    TEST "Test Case 0 + 0 + 1 (Carry In)" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0; // A = 0
+        SET B[0] 0, B[1] 0, B[2] 0, B[3] 0; // B = 0
+        SET Cin 1; // Start with Carry In = 1
+        EVAL;
+        ASSERT S[0] 1;
+        ASSERT S[1] 0;
+        ASSERT S[2] 0;
+        ASSERT S[3] 0;
+        ASSERT Cout 0; // Sum = 1 (0001)
+    }
+
     TEST "Test Case 5 + 5 + 1 (Carry In)" {
         SET A[0] 1, A[1] 0, A[2] 1, A[3] 0; // A = 5 (0101)
         SET B[0] 1, B[1] 0, B[2] 1, B[3] 0; // B = 5 (0101)
