@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::circuit::{wire, Circuit, LogicGate, Wire};
+use crate::circuit::{Circuit, LogicGate, Wire, wire};
 
 impl Circuit {
     /// Creates a new, empty circuit with a name.
@@ -42,9 +42,12 @@ impl Circuit {
     pub fn get_output(&self, name: &str) -> Option<bool> {
         self.outputs.get(name).map(|wire| wire.borrow().value)
     }
-    
+
     pub fn get_output_unwrapped(&self, name: &str) -> bool {
-        self.get_output(name).expect(&format!("Output '{}' not found in circuit '{}'", name, self.name))
+        self.get_output(name).expect(&format!(
+            "Output '{}' not found in circuit '{}'",
+            name, self.name
+        ))
     }
 
     pub fn evaluate_all(&self) -> bool {

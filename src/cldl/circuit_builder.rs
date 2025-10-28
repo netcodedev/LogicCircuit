@@ -3,7 +3,13 @@ use std::{collections::HashMap, fs, path::Path};
 use include_dir::{Dir, DirEntry};
 use pest::{Parser, iterators::Pair};
 
-use crate::{circuit::{wire, Circuit, NandGate, Wire}, cldl::{CldlDefinition, CldlParser, ConnectionDef, InitCommand, InitValue, IoPinDef, PartDef, PinRef, PinValue, SeqStep, CIRCUIT_DIR}};
+use crate::{
+    circuit::{Circuit, NandGate, Wire, wire},
+    cldl::{
+        CIRCUIT_DIR, CldlDefinition, CldlParser, ConnectionDef, InitCommand, InitValue, IoPinDef,
+        PartDef, PinRef, PinValue, SeqStep,
+    },
+};
 
 use super::{CircuitBuilder, Rule};
 
@@ -13,7 +19,10 @@ impl CircuitBuilder {
         let mut definitions = HashMap::new();
         println!("Loading embedded circuit definitions recursively...");
 
-        fn load_recursive(dir: &'static Dir<'static>, definitions: &mut HashMap<String, CldlDefinition>) {
+        fn load_recursive(
+            dir: &'static Dir<'static>,
+            definitions: &mut HashMap<String, CldlDefinition>,
+        ) {
             for entry in dir.entries() {
                 match entry {
                     DirEntry::Dir(sub_dir) => {
@@ -21,15 +30,23 @@ impl CircuitBuilder {
                     }
                     DirEntry::File(file) => {
                         if file.path().extension().map_or(false, |s| s == "cldl") {
-                            let cldl_string = file.contents_utf8().expect("Circuit file not valid UTF-8");
+                            let cldl_string =
+                                file.contents_utf8().expect("Circuit file not valid UTF-8");
                             match parse_cldl(cldl_string.trim()) {
                                 Ok(def) => {
                                     if definitions.contains_key(&def.name) {
-                                        eprintln!("Warning: Duplicate circuit definition found for '{}'. Overwriting.", def.name);
+                                        eprintln!(
+                                            "Warning: Duplicate circuit definition found for '{}'. Overwriting.",
+                                            def.name
+                                        );
                                     }
                                     definitions.insert(def.name.clone(), def);
-                                },
-                                Err(e) => panic!("Failed to parse embedded CLDL from {:?}:\n{}", file.path(), e),
+                                }
+                                Err(e) => panic!(
+                                    "Failed to parse embedded CLDL from {:?}:\n{}",
+                                    file.path(),
+                                    e
+                                ),
                             }
                         }
                     }
@@ -56,16 +73,20 @@ impl CircuitBuilder {
 
         println!("Loading circuits from path: {:?}", path);
         for entry in fs::read_dir(path)? {
-            let entry = entry?; let path = entry.path();
+            let entry = entry?;
+            let path = entry.path();
             if path.is_file() && path.extension().map_or(false, |s| s == "cldl") {
                 let cldl_string = fs::read_to_string(&path)?;
                 match parse_cldl(cldl_string.trim()) {
                     Ok(def) => {
-                         if self.definitions.contains_key(&def.name) {
-                             eprintln!("Warning: Overwriting definition for '{}' from file.", def.name);
-                         }
-                         self.definitions.insert(def.name.clone(), def);
-                    },
+                        if self.definitions.contains_key(&def.name) {
+                            eprintln!(
+                                "Warning: Overwriting definition for '{}' from file.",
+                                def.name
+                            );
+                        }
+                        self.definitions.insert(def.name.clone(), def);
+                    }
                     Err(e) => eprintln!("Failed to parse CLDL from file {:?}:\n{}", path, e),
                 }
             } else if path.is_dir() {
@@ -79,8 +100,12 @@ impl CircuitBuilder {
     pub fn build(&self, top_level_name: &str) -> Circuit {
         let mut circuit = Circuit::new(top_level_name.to_string());
         let mut wire_map: HashMap<String, Wire> = HashMap::new();
-        let top_def = self.definitions.get(top_level_name)
-            .unwrap_or_else(|| panic!("Top-level circuit definition '{}' not found", top_level_name));
+        let top_def = self.definitions.get(top_level_name).unwrap_or_else(|| {
+            panic!(
+                "Top-level circuit definition '{}' not found",
+                top_level_name
+            )
+        });
 
         // --- Pass 1: Handle bus inputs ---
         for input_def in &top_def.inputs {
@@ -116,21 +141,33 @@ impl CircuitBuilder {
 
         //Pass 4: Handle bus outputs
         for output_def in &top_def.outputs {
-             match output_def.width {
+            match output_def.width {
                 Some(width) => {
                     // Connect wires for each bit of the bus
                     for i in 0..width {
                         let wire_name = format!("{}.{}", output_def.name, i);
-                        let w = wire_map.get(&wire_name)
-                           .unwrap_or_else(|| panic!("Output wire bit '{}' not found after build in {}", wire_name, top_level_name))
-                           .clone();
+                        let w = wire_map
+                            .get(&wire_name)
+                            .unwrap_or_else(|| {
+                                panic!(
+                                    "Output wire bit '{}' not found after build in {}",
+                                    wire_name, top_level_name
+                                )
+                            })
+                            .clone();
                         circuit.add_output(&wire_name, w); // Add individual outputs to circuit
                     }
                 }
                 None => {
                     // Single wire output
-                    let w = wire_map.get(&output_def.name)
-                        .unwrap_or_else(|| panic!("Output wire '{}' not found after build in {}", output_def.name, top_level_name))
+                    let w = wire_map
+                        .get(&output_def.name)
+                        .unwrap_or_else(|| {
+                            panic!(
+                                "Output wire '{}' not found after build in {}",
+                                output_def.name, top_level_name
+                            )
+                        })
                         .clone();
                     circuit.add_output(&output_def.name, w);
                 }
@@ -164,10 +201,11 @@ impl CircuitBuilder {
             let out = self.get_or_create_wire(&out_wire_name, wire_map);
             let gate = NandGate {
                 id: instance_name.to_string(),
-                in1, in2, out
+                in1,
+                in2,
+                out,
             };
             circuit.add_gate(Box::new(gate));
-
         } else if let Some(def) = self.definitions.get(part_type) {
             // Apply internal connections for the sub-circuit first
             self.apply_connections(&def.connections, instance_name, wire_map);
@@ -185,7 +223,10 @@ impl CircuitBuilder {
                 execute_initialization(circuit, wire_map, &def.initialization, instance_name);
             }
         } else {
-            panic!("Unknown part type '{}' requested by part '{}'", part_type, instance_name);
+            panic!(
+                "Unknown part type '{}' requested by part '{}'",
+                part_type, instance_name
+            );
         }
     }
 
@@ -216,8 +257,14 @@ impl CircuitBuilder {
     }
 
     /// Helper to get a wire from the map or create it if it doesn't exist, using canonical key.
-    fn get_or_create_wire(&self, canonical_wire_name: &str, map: &mut HashMap<String, Wire>) -> Wire {
-        map.entry(canonical_wire_name.to_string()).or_insert_with(wire).clone()
+    fn get_or_create_wire(
+        &self,
+        canonical_wire_name: &str,
+        map: &mut HashMap<String, Wire>,
+    ) -> Wire {
+        map.entry(canonical_wire_name.to_string())
+            .or_insert_with(wire)
+            .clone()
     }
 }
 
@@ -239,8 +286,7 @@ fn parse_pin_ref(pair: Pair<Rule>) -> PinRef {
                 }
                 base_name.push_str(inner_pair.as_str().trim());
             }
-            Rule::bus_specifier => {
-            }
+            Rule::bus_specifier => {}
             _ => unreachable!("Unexpected rule inside pin: {:?}", inner_pair.as_rule()),
         }
     }
@@ -248,22 +294,26 @@ fn parse_pin_ref(pair: Pair<Rule>) -> PinRef {
     let mut index = None; // Reset
 
     if let Some(bracket_pos) = full_pin_str.find('[') {
-         if full_pin_str.ends_with(']') {
-            let num_str = &full_pin_str[bracket_pos + 1 .. full_pin_str.len() - 1];
-             index = Some(num_str.parse::<usize>().expect("Grammar ensures valid number in specifier"));
-             base_name = full_pin_str[..bracket_pos].trim().to_string();
+        if full_pin_str.ends_with(']') {
+            let num_str = &full_pin_str[bracket_pos + 1..full_pin_str.len() - 1];
+            index = Some(
+                num_str
+                    .parse::<usize>()
+                    .expect("Grammar ensures valid number in specifier"),
+            );
+            base_name = full_pin_str[..bracket_pos].trim().to_string();
         } else {
-             // Malformed (e.g., "A[0.B")? Assume bracket is part of the name for now.
-             base_name = full_pin_str.to_string();
+            // Malformed (e.g., "A[0.B")? Assume bracket is part of the name for now.
+            base_name = full_pin_str.to_string();
         }
     } else {
-         // No brackets found, it's just a base name
-         base_name = full_pin_str.to_string();
+        // No brackets found, it's just a base name
+        base_name = full_pin_str.to_string();
     }
 
     // Final check for empty base_name
     if base_name.is_empty() {
-         panic!("Failed to parse pin, empty base_name for: {}", full_pin_str);
+        panic!("Failed to parse pin, empty base_name for: {}", full_pin_str);
     }
 
     PinRef { base_name, index }
@@ -304,9 +354,16 @@ fn parse_io_ident(pair: Pair<Rule>) -> IoPinDef {
             }
             Rule::bus_specifier => {
                 let num_str = inner_pair.into_inner().next().unwrap().as_str();
-                width = Some(num_str.parse::<usize>().expect("Grammar ensures valid number"));
+                width = Some(
+                    num_str
+                        .parse::<usize>()
+                        .expect("Grammar ensures valid number"),
+                );
             }
-            _ => unreachable!("Unexpected rule inside io_ident: {:?}", inner_pair.as_rule()),
+            _ => unreachable!(
+                "Unexpected rule inside io_ident: {:?}",
+                inner_pair.as_rule()
+            ),
         }
     }
     IoPinDef { name, width }
@@ -319,7 +376,12 @@ fn parse_cldl(cldl_string: &str) -> Result<CldlDefinition, pest::error::Error<Ru
     assert_eq!(circuit_pair.as_rule(), Rule::circuit);
 
     let mut circuit_inner_rules = circuit_pair.into_inner();
-    let name = circuit_inner_rules.next().unwrap().as_str().trim().to_string();
+    let name = circuit_inner_rules
+        .next()
+        .unwrap()
+        .as_str()
+        .trim()
+        .to_string();
 
     let circuit_body_pair = circuit_inner_rules.next().unwrap();
     assert_eq!(circuit_body_pair.as_rule(), Rule::circuit_body);
@@ -337,16 +399,16 @@ fn parse_cldl(cldl_string: &str) -> Result<CldlDefinition, pest::error::Error<Ru
                 // Iterate over io_ident pairs
                 for io_ident_pair in pair.into_inner() {
                     if io_ident_pair.as_rule() == Rule::io_ident {
-                         inputs.push(parse_io_ident(io_ident_pair));
+                        inputs.push(parse_io_ident(io_ident_pair));
                     }
                 }
             }
             Rule::output_def => {
                 // output_def = "OUTPUT" ~ io_ident ~ ("," ~ io_ident)* ~ ";"
                 for io_ident_pair in pair.into_inner() {
-                     if io_ident_pair.as_rule() == Rule::io_ident {
+                    if io_ident_pair.as_rule() == Rule::io_ident {
                         outputs.push(parse_io_ident(io_ident_pair));
-                     }
+                    }
                 }
             }
             Rule::part_def => {
@@ -444,7 +506,8 @@ fn execute_initialization(
                         InitValue::One => true,
                     };
                     // Apply prefix to the PinRef before converting to key
-                    let full_pin_name = namespace_pin_ref(&pv.pin_ref, instance_prefix).to_wire_map_key();
+                    let full_pin_name =
+                        namespace_pin_ref(&pv.pin_ref, instance_prefix).to_wire_map_key();
 
                     if let Some(wire_to_set) = wire_map.get(&full_pin_name) {
                         wire_to_set.borrow_mut().value = value;
@@ -466,15 +529,16 @@ fn execute_initialization(
                             InitValue::Zero => false,
                             InitValue::One => true,
                         };
-                        let full_pin_name = namespace_pin_ref(&pv.pin_ref, instance_prefix).to_wire_map_key();
-                         if let Some(wire_to_set) = wire_map.get(&full_pin_name) {
+                        let full_pin_name =
+                            namespace_pin_ref(&pv.pin_ref, instance_prefix).to_wire_map_key();
+                        if let Some(wire_to_set) = wire_map.get(&full_pin_name) {
                             wire_to_set.borrow_mut().value = value;
-                         } else {
-                             eprintln!(
+                        } else {
+                            eprintln!(
                                 "Warning: [Init Seq] Wire '{}' not found in wire_map during initialization of {}.",
                                 full_pin_name, component_name
                             );
-                         }
+                        }
                     }
                     circuit.evaluate_stable();
                 }

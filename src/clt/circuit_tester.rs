@@ -1,15 +1,24 @@
+use pest::{Parser, iterators::Pair};
 use std::fs;
 use std::path::Path;
-use pest::{Parser, iterators::Pair};
 
 // --- Use super to access items in src/clt/mod.rs ---
 use super::{
-    CltCommand, CltFile, CltParser, CltPinRef, CltPinValue, CltSeqStep, CltTestCase, CltTestSuite,
-    CltValue, CircuitTester, Rule, // Assuming Rule is imported or defined
+    CircuitTester,
+    CltCommand,
+    CltFile,
+    CltParser,
+    CltPinRef,
+    CltPinValue,
+    CltSeqStep,
+    CltTestCase,
+    CltTestSuite,
+    CltValue,
+    Rule, // Assuming Rule is imported or defined
 };
 // --- Import items from other modules ---
-use crate::cldl::CircuitBuilder; // To build circuits
 use crate::circuit::Circuit;
+use crate::cldl::CircuitBuilder; // To build circuits
 use crate::clt::TestSummary; // The circuit object itself
 
 // --- Parsing Helper Functions ---
@@ -24,7 +33,11 @@ fn parse_clt_pin_ref(pair: Pair<Rule>) -> CltPinRef {
     if let Some(bracket_pos) = full_pin_str.find('[') {
         if full_pin_str.ends_with(']') {
             let num_str = &full_pin_str[bracket_pos + 1..full_pin_str.len() - 1];
-            index = Some(num_str.parse::<usize>().expect("CLT Grammar ensures valid number in specifier"));
+            index = Some(
+                num_str
+                    .parse::<usize>()
+                    .expect("CLT Grammar ensures valid number in specifier"),
+            );
             _base_name = full_pin_str[..bracket_pos].trim().to_string();
         } else {
             _base_name = full_pin_str.to_string(); // Malformed, treat as name
@@ -34,9 +47,15 @@ fn parse_clt_pin_ref(pair: Pair<Rule>) -> CltPinRef {
     }
 
     if _base_name.is_empty() {
-        panic!("Failed to parse CLT pin, empty base_name for: {}", full_pin_str);
+        panic!(
+            "Failed to parse CLT pin, empty base_name for: {}",
+            full_pin_str
+        );
     }
-    CltPinRef { base_name: _base_name, index }
+    CltPinRef {
+        base_name: _base_name,
+        index,
+    }
 }
 
 /// Parses a pest 'pin_value' rule from CLT grammar into CltPinValue
@@ -62,9 +81,9 @@ fn parse_clt_seq_step(pair: Pair<Rule>) -> CltSeqStep {
 
 /// Parses a pest 'test_command' rule into a CltCommand enum variant
 fn parse_clt_command(pair: Pair<Rule>) -> CltCommand {
-     assert_eq!(pair.as_rule(), Rule::test_command);
-     let command_pair = pair.into_inner().next().unwrap(); // Get the specific command (set, eval, etc.)
-     match command_pair.as_rule() {
+    assert_eq!(pair.as_rule(), Rule::test_command);
+    let command_pair = pair.into_inner().next().unwrap(); // Get the specific command (set, eval, etc.)
+    match command_pair.as_rule() {
         Rule::set_command => {
             let assignments = command_pair
                 .into_inner()
@@ -77,9 +96,10 @@ fn parse_clt_command(pair: Pair<Rule>) -> CltCommand {
         Rule::assert_command => {
             // assert_command = "ASSERT" ~ pin_value ~ ";"
             let pin_value = parse_clt_pin_value(
-                command_pair.into_inner()
-                            .find(|p| p.as_rule() == Rule::pin_value)
-                            .unwrap()
+                command_pair
+                    .into_inner()
+                    .find(|p| p.as_rule() == Rule::pin_value)
+                    .unwrap(),
             );
             CltCommand::Assert(pin_value)
         }
@@ -91,8 +111,11 @@ fn parse_clt_command(pair: Pair<Rule>) -> CltCommand {
                 .collect();
             CltCommand::Seq(steps)
         }
-        _ => unreachable!("Unexpected rule inside test_command: {:?}", command_pair.as_rule()),
-     }
+        _ => unreachable!(
+            "Unexpected rule inside test_command: {:?}",
+            command_pair.as_rule()
+        ),
+    }
 }
 
 /// Parses a pest 'test_case' rule into a CltTestCase struct
@@ -102,7 +125,7 @@ fn parse_clt_test_case(pair: Pair<Rule>) -> CltTestCase {
     // TEST "Name" { body }
     let name_str_literal = inner.next().unwrap().as_str();
     // Remove surrounding quotes from the string literal
-    let name = name_str_literal[1..name_str_literal.len()-1].to_string();
+    let name = name_str_literal[1..name_str_literal.len() - 1].to_string();
     let body_pair = inner.next().unwrap();
     assert_eq!(body_pair.as_rule(), Rule::test_body);
     let body = body_pair.into_inner().map(parse_clt_command).collect();
@@ -116,20 +139,23 @@ fn parse_clt_test_suite(pair: Pair<Rule>) -> CltTestSuite {
     // TESTS FOR CircuitName { test_case* }
     let circuit_name = inner.next().unwrap().as_str().trim().to_string();
     let test_cases = inner.map(parse_clt_test_case).collect();
-    CltTestSuite { circuit_name, test_cases }
+    CltTestSuite {
+        circuit_name,
+        test_cases,
+    }
 }
 
 /// Parses the entire content of a .clt file string into a CltFile struct
 fn parse_clt_file(file_content: &str) -> Result<CltFile, pest::error::Error<Rule>> {
     let mut file_pairs = CltParser::parse(Rule::file, file_content.trim())?;
     let file_pair = file_pairs.next().unwrap(); // Rule::file
-    let suites = file_pair.into_inner()
+    let suites = file_pair
+        .into_inner()
         .filter(|p| p.as_rule() == Rule::test_suite) // Filter out EOI etc.
         .map(parse_clt_test_suite)
         .collect();
     Ok(CltFile { suites })
 }
-
 
 // --- Test Execution Logic ---
 
@@ -158,9 +184,9 @@ impl CircuitTester {
                 println!("--- Test Summary ---");
                 println!("  Passed: {}", summary.passed);
                 println!("  Failed: {}", summary.failed);
-                 Ok(summary)
+                Ok(summary)
             }
-            Err(e) => Err(e)
+            Err(e) => Err(e),
         }
     }
 
@@ -169,7 +195,7 @@ impl CircuitTester {
         &self,
         dir_path: &Path,
         builder: &CircuitBuilder,
-        summary: &mut TestSummary
+        summary: &mut TestSummary,
     ) -> Result<(), String> {
         for entry in fs::read_dir(dir_path)
             .map_err(|e| format!("Failed to read directory {:?}: {}", dir_path, e))?
@@ -184,18 +210,17 @@ impl CircuitTester {
                     .map_err(|e| format!("Failed to read test file {:?}: {}", path, e))?;
 
                 match self.run_test_file_content(&content, builder, summary) {
-                     Ok(_) => {} // Success recorded in summary
-                     Err(e) => {
-                         eprintln!("  ERROR processing file {:?}: {}", path, e);
-                         // Decide if a file-level error counts as a test failure
-                         // summary.failed += 1; // Or maybe just report error and continue
-                     }
+                    Ok(_) => {} // Success recorded in summary
+                    Err(e) => {
+                        eprintln!("  ERROR processing file {:?}: {}", path, e);
+                        // Decide if a file-level error counts as a test failure
+                        // summary.failed += 1; // Or maybe just report error and continue
+                    }
                 }
             }
         }
         Ok(())
     }
-
 
     /// Parses and runs tests defined in a single .clt file content string.
     pub fn run_test_file_content(
@@ -204,8 +229,8 @@ impl CircuitTester {
         builder: &CircuitBuilder,
         summary: &mut TestSummary,
     ) -> Result<(), String> {
-        let clt_file = parse_clt_file(file_content)
-            .map_err(|e| format!("CLT parsing error: {}", e))?;
+        let clt_file =
+            parse_clt_file(file_content).map_err(|e| format!("CLT parsing error: {}", e))?;
 
         for suite in clt_file.suites {
             println!("  Testing Circuit: {}", suite.circuit_name);
@@ -232,11 +257,7 @@ impl CircuitTester {
     }
 
     /// Executes the commands within a single test case.
-    fn execute_test_case(
-        &self,
-        circuit: &Circuit,
-        test_case: &CltTestCase,
-    ) -> Result<(), String> {
+    fn execute_test_case(&self, circuit: &Circuit, test_case: &CltTestCase) -> Result<(), String> {
         for (cmd_index, command) in test_case.body.iter().enumerate() {
             match command {
                 CltCommand::Set(assignments) => {

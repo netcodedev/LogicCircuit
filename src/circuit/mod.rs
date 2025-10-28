@@ -1,8 +1,8 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
-use uuid::Uuid;
 use std::rc::Rc;
+use uuid::Uuid;
 
 mod circuit;
 

@@ -1,8 +1,7 @@
-use std::collections::HashMap;
 use include_dir::{Dir, include_dir};
+use std::collections::HashMap;
 
 mod circuit_builder;
-
 
 #[cfg(debug_assertions)]
 const _GRAMMAR: &str = include_str!("cldl.pest");
@@ -42,7 +41,6 @@ impl PinRef {
         }
     }
 }
-
 
 /// e.g., "PART G1: NAND"
 #[derive(Debug, Clone)]

@@ -24,7 +24,6 @@ impl CltPinRef {
     }
 }
 
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CltValue {
     Zero,
@@ -73,7 +72,6 @@ pub struct CltTestSuite {
 pub struct CltFile {
     pub suites: Vec<CltTestSuite>,
 }
-
 
 // --- CLT Parser ---
 

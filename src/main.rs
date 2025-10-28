@@ -1,5 +1,5 @@
-use std::path::{Path, PathBuf};
 use clap::Parser;
+use std::path::{Path, PathBuf};
 
 mod circuit;
 mod cldl;
@@ -20,7 +20,7 @@ struct Args {
     /// If provided, definitions augment/override embedded ones, and
     /// the 'test' command ONLY runs tests from this directory.
     /// If not provided, 'test' command runs tests from src/circuits/.
-    #[arg(short='d', long, value_name = "DIR")]
+    #[arg(short = 'd', long, value_name = "DIR")]
     directory: Option<PathBuf>,
 }
 
@@ -44,10 +44,16 @@ fn main() {
     if let Some(dir_path) = args.directory.as_deref() {
         if !dir_path.exists() || !dir_path.is_dir() {
             // Make this a fatal error as the user explicitly provided a path
-            eprintln!("Error: Specified directory does not exist or is not a directory: {:?}", dir_path);
+            eprintln!(
+                "Error: Specified directory does not exist or is not a directory: {:?}",
+                dir_path
+            );
             std::process::exit(1);
         } else {
-            println!("Loading additional/override circuits from specified directory: {:?}", dir_path);
+            println!(
+                "Loading additional/override circuits from specified directory: {:?}",
+                dir_path
+            );
             if let Err(e) = builder.load_circuits_from_path(dir_path) {
                 eprintln!("Error loading circuits from {:?}: {}", dir_path, e);
                 std::process::exit(1); // Make it fatal
@@ -78,8 +84,11 @@ fn main() {
 
             // Ensure the chosen test directory exists
             if !test_dir_path.exists() || !test_dir_path.is_dir() {
-                 eprintln!("Error: Test directory does not exist or is not a directory: {:?}", test_dir_path);
-                 std::process::exit(1);
+                eprintln!(
+                    "Error: Test directory does not exist or is not a directory: {:?}",
+                    test_dir_path
+                );
+                std::process::exit(1);
             }
 
             // Run tests using the determined path and the populated builder
@@ -93,7 +102,10 @@ fn main() {
             }
 
             // Report final summary
-            println!("\nTest run finished: {} passed, {} failed.", summary.passed, summary.failed);
+            println!(
+                "\nTest run finished: {} passed, {} failed.",
+                summary.passed, summary.failed
+            );
             if summary.failed > 0 || test_run_error {
                 std::process::exit(1); // Exit with error code if tests failed or runner errored
             } else {
@@ -108,4 +120,3 @@ fn main() {
         }
     }
 }
-
