@@ -10,6 +10,7 @@ impl Circuit {
             gates: Vec::new(),
             inputs: HashMap::new(),
             outputs: HashMap::new(),
+            wire_map: HashMap::new(),
         }
     }
 
@@ -50,6 +51,14 @@ impl Circuit {
         ))
     }
 
+    pub fn set_wire_map(&mut self, wire_map: HashMap<String, Wire>) {
+        self.wire_map = wire_map;
+    }
+
+    pub fn get_wire_map(&self) -> &HashMap<String, Wire> {
+        &self.wire_map
+    }
+
     pub fn evaluate_all(&self) -> bool {
         let mut changed = false;
         for gate in &self.gates {
@@ -74,5 +83,25 @@ impl Circuit {
                 break;
             }
         }
+    }
+
+    // --- Debugging Helper (similar to Simulator's) ---
+    pub fn print_io_state(&self) {
+        println!("[Circuit] IO State for {}:", self.name);
+        let mut inputs_sorted: Vec<_> = self.inputs.iter().collect();
+        inputs_sorted.sort_by_key(|(name, _)| *name);
+        println!("  Inputs: ");
+        for (name, wire) in inputs_sorted {
+            println!("    {}={:?} ", name, wire);
+        }
+        println!();
+
+        let mut outputs_sorted: Vec<_> = self.outputs.iter().collect();
+        outputs_sorted.sort_by_key(|(name, _)| *name);
+        println!("  Outputs: ");
+        for (name, wire) in outputs_sorted {
+            println!("    {}={:?} ", name, wire);
+        }
+        println!();
     }
 }

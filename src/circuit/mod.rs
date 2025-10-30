@@ -31,6 +31,7 @@ pub struct Circuit {
     gates: Vec<Box<dyn LogicGate>>,
     inputs: HashMap<String, Wire>,
     outputs: HashMap<String, Wire>,
+    wire_map: HashMap<String, Wire>,
 }
 
 /// Creates a new, unique wire with a v4 UUID.

@@ -182,6 +182,7 @@ impl CircuitBuilder {
         if !top_def.initialization.is_empty() {
             execute_initialization(&circuit, &wire_map, &top_def.initialization, "");
         }
+        circuit.set_wire_map(wire_map);
         circuit
     }
 
@@ -270,8 +271,6 @@ impl CircuitBuilder {
             .or_insert_with(wire)
             .clone()
     }
-
-    // --- DOT Export Functions ---
 
     /// Exports the hierarchical definition of a circuit to the DOT graph language.
     pub fn export_to_dot(&self, top_level_name: &str) -> String {

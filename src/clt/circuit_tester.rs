@@ -286,6 +286,7 @@ impl CircuitTester {
                     let actual_value = circuit.get_output_unwrapped(&pin_key);
 
                     if actual_value != expected_value {
+                        circuit.print_io_state();
                         return Err(format!(
                             "Assertion failed at command index {}: Expected output '{}' to be {}, but was {}",
                             cmd_index, pin_key, expected_value as u8, actual_value as u8
