@@ -1,6 +1,6 @@
 // Test suite for the 4-Bit Program Counter
 
-TESTS FOR PC_REGISTER {
+TESTS FOR PC_REGISTER_4B {
     TEST "Initial State: Should be 0" {
         // The PC_Reg component should initialize itself to 0.
         EVAL;

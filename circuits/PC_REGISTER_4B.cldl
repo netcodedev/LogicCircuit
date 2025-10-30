@@ -1,4 +1,4 @@
-CIRCUIT PC_REGISTER {
+CIRCUIT PC_REGISTER_4B {
     // 4-Bit Program Counter
     // Holds the address of the next instruction.
     // Can Hold, Increment, or Load (Jump).
