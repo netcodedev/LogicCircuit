@@ -30,6 +30,10 @@ enum Commands {
     /// Runs tests either from the directory specified by -d
     /// or from src/circuits/ if -d is not provided.
     Test,
+    Export {
+        #[arg(value_name = "COMPONENT_NAME")]
+        component_name: String,
+    }
 }
 // --- End Command Line Args ---
 
@@ -111,6 +115,22 @@ fn main() {
             } else {
                 println!("All specified tests passed! ✅");
                 std::process::exit(0); // Exit successfully
+            }
+        }
+        Some(Commands::Export { component_name }) => {
+            println!("Exporting '{}' to DOT format...", component_name);
+            
+            // Generate the .dot string using the provided component name
+            // Note: builder.export_to_dot will panic if the name is not found,
+            // which is acceptable for this command-line tool.
+            let dot_string = builder.export_to_dot(&component_name);
+            
+            // Create a dynamic filename, e.g., "ALU_4B.dot"
+            let output_filename = format!("{}.dot", component_name);
+            
+            match std::fs::write(&output_filename, dot_string) {
+                Ok(_) => println!("Successfully saved graph to '{}'", output_filename),
+                Err(e) => eprintln!("Error saving .dot file: {}", e),
             }
         }
         None => {
