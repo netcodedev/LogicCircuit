@@ -1,0 +1,89 @@
+CIRCUIT DECODER_4_16 {
+    // Inputs: 4-bit Address, 1-bit Enable
+    INPUT A[4];
+    INPUT Enable;
+
+    // Outputs: 16-bit decoded output
+    OUTPUT O[16];
+
+    // --- Parts ---
+    // Two 2-to-4 decoders. One for the low 2 bits (A0, A1), one for the high 2 bits (A2, A3).
+    PART Dec_Low: DECODER_2_4;
+    PART Dec_High: DECODER_2_4;
+
+    // We need 16 AND gates, one for each unique combination of low/high decoder outputs.
+    // Group 0 (High=00)
+    PART And00: AND; // Low=00 (A1A0=00), High=00 (A3A2=00) -> O[0]
+    PART And01: AND; // Low=01 (A1A0=01), High=00 (A3A2=00) -> O[1]
+    PART And02: AND; // Low=10 (A1A0=10), High=00 (A3A2=00) -> O[2]
+    PART And03: AND; // Low=11 (A1A0=11), High=00 (A3A2=00) -> O[3]
+    
+    // Group 1 (High=01)
+    PART And04: AND; // Low=00, High=01 -> O[4]
+    PART And05: AND; // Low=01, High=01 -> O[5]
+    PART And06: AND; // Low=10, High=01 -> O[6]
+    PART And07: AND; // Low=11, High=01 -> O[7]
+
+    // Group 2 (High=10)
+    PART And08: AND; // Low=00, High=10 -> O[8]
+    PART And09: AND; // Low=01, High=10 -> O[9]
+    PART And10: AND; // Low=10, High=10 -> O[10]
+    PART And11: AND; // Low=11, High=10 -> O[11]
+
+    // Group 3 (High=11)
+    PART And12: AND; // Low=00, High=11 -> O[12]
+    PART And13: AND; // Low=01, High=11 -> O[13]
+    PART And14: AND; // Low=10, High=11 -> O[14]
+    PART And15: AND; // Low=11, High=11 -> O[15]
+
+    // --- Connections ---
+    
+    // Connect address bits to the decoders
+    CONNECT A[0] -> Dec_Low.A[0];
+    CONNECT A[1] -> Dec_Low.A[1];
+    CONNECT A[2] -> Dec_High.A[0]; // High bits A[2] and A[3]
+    CONNECT A[3] -> Dec_High.A[1]; // go to the 'A' inputs of Dec_High
+
+    // Pass the main Enable signal to both decoders.
+    // If Enable is low, all outputs from both decoders will be 0,
+    // which forces all 16 AND gate outputs to 0.
+    CONNECT Enable -> Dec_Low.Enable;
+    CONNECT Enable -> Dec_High.Enable;
+
+    // --- Output Gating Logic ---
+    // O[0] = Dec_Low.O[0] AND Dec_High.O[0]
+    CONNECT Dec_Low.O[0] -> And00.in1; CONNECT Dec_High.O[0] -> And00.in2; CONNECT And00.out -> O[0];
+    // O[1] = Dec_Low.O[1] AND Dec_High.O[0]
+    CONNECT Dec_Low.O[1] -> And01.in1; CONNECT Dec_High.O[0] -> And01.in2; CONNECT And01.out -> O[1];
+    // O[2] = Dec_Low.O[2] AND Dec_High.O[0]
+    CONNECT Dec_Low.O[2] -> And02.in1; CONNECT Dec_High.O[0] -> And02.in2; CONNECT And02.out -> O[2];
+    // O[3] = Dec_Low.O[3] AND Dec_High.O[0]
+    CONNECT Dec_Low.O[3] -> And03.in1; CONNECT Dec_High.O[0] -> And03.in2; CONNECT And03.out -> O[3];
+
+    // O[4] = Dec_Low.O[0] AND Dec_High.O[1]
+    CONNECT Dec_Low.O[0] -> And04.in1; CONNECT Dec_High.O[1] -> And04.in2; CONNECT And04.out -> O[4];
+    // O[5] = Dec_Low.O[1] AND Dec_High.O[1]
+    CONNECT Dec_Low.O[1] -> And05.in1; CONNECT Dec_High.O[1] -> And05.in2; CONNECT And05.out -> O[5];
+    // O[6] = Dec_Low.O[2] AND Dec_High.O[1]
+    CONNECT Dec_Low.O[2] -> And06.in1; CONNECT Dec_High.O[1] -> And06.in2; CONNECT And06.out -> O[6];
+    // O[7] = Dec_Low.O[3] AND Dec_High.O[1]
+    CONNECT Dec_Low.O[3] -> And07.in1; CONNECT Dec_High.O[1] -> And07.in2; CONNECT And07.out -> O[7];
+
+    // O[8] = Dec_Low.O[0] AND Dec_High.O[2]
+    CONNECT Dec_Low.O[0] -> And08.in1; CONNECT Dec_High.O[2] -> And08.in2; CONNECT And08.out -> O[8];
+    // O[9] = Dec_Low.O[1] AND Dec_High.O[2]
+    CONNECT Dec_Low.O[1] -> And09.in1; CONNECT Dec_High.O[2] -> And09.in2; CONNECT And09.out -> O[9];
+    // O[10] = Dec_Low.O[2] AND Dec_High.O[2]
+    CONNECT Dec_Low.O[2] -> And10.in1; CONNECT Dec_High.O[2] -> And10.in2; CONNECT And10.out -> O[10];
+    // O[11] = Dec_Low.O[3] AND Dec_High.O[2]
+    CONNECT Dec_Low.O[3] -> And11.in1; CONNECT Dec_High.O[2] -> And11.in2; CONNECT And11.out -> O[11];
+
+    // O[12] = Dec_Low.O[0] AND Dec_High.O[3]
+    CONNECT Dec_Low.O[0] -> And12.in1; CONNECT Dec_High.O[3] -> And12.in2; CONNECT And12.out -> O[12];
+    // O[13] = Dec_Low.O[1] AND Dec_High.O[3]
+    CONNECT Dec_Low.O[1] -> And13.in1; CONNECT Dec_High.O[3] -> And13.in2; CONNECT And13.out -> O[13];
+    // O[14] = Dec_Low.O[2] AND Dec_High.O[3]
+    CONNECT Dec_Low.O[2] -> And14.in1; CONNECT Dec_High.O[3] -> And14.in2; CONNECT And14.out -> O[14];
+    // O[15] = Dec_Low.O[3] AND Dec_High.O[3]
+    CONNECT Dec_Low.O[3] -> And15.in1; CONNECT Dec_High.O[3] -> And15.in2; CONNECT And15.out -> O[15];
+}

@@ -1,0 +1,135 @@
+// Test suite for the 4-to-16 Decoder
+
+TESTS FOR DECODER_4_16 {
+    TEST "Disabled: All outputs should be 0" {
+        // Set Enable low, all outputs should be 0 regardless of address
+        SET Enable 0;
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1; // Set address to 15
+        EVAL;
+        
+        ASSERT O[0] 0;
+        ASSERT O[1] 0;
+        ASSERT O[2] 0;
+        ASSERT O[3] 0;
+        ASSERT O[4] 0;
+        ASSERT O[5] 0;
+        ASSERT O[6] 0;
+        ASSERT O[7] 0;
+        ASSERT O[8] 0;
+        ASSERT O[9] 0;
+        ASSERT O[10] 0;
+        ASSERT O[11] 0;
+        ASSERT O[12] 0;
+        ASSERT O[13] 0;
+        ASSERT O[14] 0;
+        ASSERT O[15] 0;
+    }
+
+    TEST "Address 0 (0000), Enabled" {
+        SET Enable 1;
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0;
+        EVAL;
+        
+        ASSERT O[0] 1; // Correct output
+        // Assert all others are 0
+        ASSERT O[1] 0;
+        ASSERT O[2] 0;
+        ASSERT O[3] 0;
+        ASSERT O[4] 0;
+        ASSERT O[5] 0;
+        ASSERT O[6] 0;
+        ASSERT O[7] 0;
+        ASSERT O[8] 0;
+        ASSERT O[9] 0;
+        ASSERT O[10] 0;
+        ASSERT O[11] 0;
+        ASSERT O[12] 0;
+        ASSERT O[13] 0;
+        ASSERT O[14] 0;
+        ASSERT O[15] 0;
+    }
+
+    TEST "Address 7 (0111), Enabled" {
+        SET Enable 1;
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 0; // 0111
+        EVAL;
+        
+        ASSERT O[0] 0;
+        ASSERT O[1] 0;
+        ASSERT O[2] 0;
+        ASSERT O[3] 0;
+        ASSERT O[4] 0;
+        ASSERT O[5] 0;
+        ASSERT O[6] 0;
+        ASSERT O[7] 1; // Correct output
+        ASSERT O[8] 0;
+        ASSERT O[9] 0;
+        ASSERT O[10] 0;
+        ASSERT O[11] 0;
+        ASSERT O[12] 0;
+        ASSERT O[13] 0;
+        ASSERT O[14] 0;
+        ASSERT O[15] 0;
+    }
+
+    TEST "Address 10 (1010), Enabled" {
+        SET Enable 1;
+        SET A[0] 0, A[1] 1, A[2] 0, A[3] 1; // 1010
+        EVAL;
+        
+        ASSERT O[0] 0;
+        ASSERT O[1] 0;
+        ASSERT O[2] 0;
+        ASSERT O[3] 0;
+        ASSERT O[4] 0;
+        ASSERT O[5] 0;
+        ASSERT O[6] 0;
+        ASSERT O[7] 0;
+        ASSERT O[8] 0;
+        ASSERT O[9] 0;
+        ASSERT O[10] 1; // Correct output
+        ASSERT O[11] 0;
+        ASSERT O[12] 0;
+        ASSERT O[13] 0;
+        ASSERT O[14] 0;
+        ASSERT O[15] 0;
+    }
+
+    TEST "Address 15 (1111), Enabled" {
+        SET Enable 1;
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1; // 1111
+        EVAL;
+        
+        ASSERT O[0] 0;
+        ASSERT O[1] 0;
+        ASSERT O[2] 0;
+        ASSERT O[3] 0;
+        ASSERT O[4] 0;
+        ASSERT O[5] 0;
+        ASSERT O[6] 0;
+        ASSERT O[7] 0;
+        ASSERT O[8] 0;
+        ASSERT O[9] 0;
+        ASSERT O[10] 0;
+        ASSERT O[11] 0;
+        ASSERT O[12] 0;
+        ASSERT O[13] 0;
+        ASSERT O[14] 0;
+        ASSERT O[15] 1; // Correct output
+    }
+
+    TEST "Address change (15 -> 14), Enabled" {
+        // First set to 15
+        SET Enable 1;
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1; // 1111
+        EVAL;
+        ASSERT O[15] 1;
+        
+        // Change address to 14
+        SET A[0] 0, A[1] 1, A[2] 1, A[3] 1; // 1110
+        EVAL;
+        
+        ASSERT O[15] 0; // Old output should go low
+        ASSERT O[14] 1; // New output should go high
+    }
+}
