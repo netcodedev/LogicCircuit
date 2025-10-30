@@ -1,0 +1,70 @@
+CIRCUIT PC_REGISTER {
+    // 4-Bit Program Counter
+    // Holds the address of the next instruction.
+    // Can Hold, Increment, or Load (Jump).
+
+    // --- Inputs ---
+    INPUT DataIn[4];    // Address to load on a jump
+    INPUT L;         // 1 = Load DataIn (Jump)
+    INPUT Incr;         // 1 = Increment PC
+    INPUT CLK;          // Master clock
+
+    // --- Outputs ---
+    OUTPUT AddrOut[4];   // Current PC Address (from the register's Q)
+
+    // --- Components ---
+    PART PC_Reg: REGISTER_4B;
+    PART Incrementer: ADDER_4B;
+    PART MuxD0: MUX_2_1;
+    PART MuxD1: MUX_2_1;
+    PART MuxD2: MUX_2_1;
+    PART MuxD3: MUX_2_1;
+    PART RegLoadOR: OR;
+
+    // --- Connections ---
+
+    // 1. Output Connection
+    CONNECT PC_Reg.Q[0] -> AddrOut[0];
+    CONNECT PC_Reg.Q[1] -> AddrOut[1];
+    CONNECT PC_Reg.Q[2] -> AddrOut[2];
+    CONNECT PC_Reg.Q[3] -> AddrOut[3];
+
+    // 2. Incrementer Logic (Calculates PC + Incr)
+    CONNECT PC_Reg.Q[0] -> Incrementer.A[0];
+    CONNECT PC_Reg.Q[1] -> Incrementer.A[1];
+    CONNECT PC_Reg.Q[2] -> Incrementer.A[2];
+    CONNECT PC_Reg.Q[3] -> Incrementer.A[3];
+    // A = PC_Reg.Q, B = 0, Cin = Incr.
+    // Result = PC + Incr
+    CONNECT Incr -> Incrementer.Cin;
+
+    // 3. Mux Logic (Selects DataIn or PC+Incr)
+    CONNECT L -> MuxD0.S;
+    CONNECT L -> MuxD1.S;
+    CONNECT L -> MuxD2.S;
+    CONNECT L -> MuxD3.S;
+
+    // S=0 (A) -> Adder Output (Hold/Incr)
+    // S=1 (B) -> DataIn (Jump)
+    CONNECT Incrementer.S[0] -> MuxD0.A;
+    CONNECT Incrementer.S[1] -> MuxD1.A;
+    CONNECT Incrementer.S[2] -> MuxD2.A;
+    CONNECT Incrementer.S[3] -> MuxD3.A;
+
+    CONNECT DataIn[0] -> MuxD0.B;
+    CONNECT DataIn[1] -> MuxD1.B;
+    CONNECT DataIn[2] -> MuxD2.B;
+    CONNECT DataIn[3] -> MuxD3.B;
+
+    // 4. PC Register Input Connections
+    CONNECT MuxD0.Out -> PC_Reg.Data[0];
+    CONNECT MuxD1.Out -> PC_Reg.Data[1];
+    CONNECT MuxD2.Out -> PC_Reg.Data[2];
+    CONNECT MuxD3.Out -> PC_Reg.Data[3];
+
+    CONNECT CLK -> PC_Reg.CLK;
+
+    CONNECT Incr -> RegLoadOR.in1;
+    CONNECT L -> RegLoadOR.in2;
+    CONNECT RegLoadOR.out -> PC_Reg.Load;
+}

@@ -1,0 +1,130 @@
+// Test suite for the 4-Bit Program Counter
+
+TESTS FOR PC_REGISTER {
+    TEST "Initial State: Should be 0" {
+        // The PC_Reg component should initialize itself to 0.
+        EVAL;
+        ASSERT AddrOut[0] 0;
+        ASSERT AddrOut[1] 0;
+        ASSERT AddrOut[2] 0;
+        ASSERT AddrOut[3] 0;
+    }
+
+    TEST "Hold State: PC=0" {
+        // Set controls to Hold (Load=0, Incr=0)
+        SET L 0;
+        SET Incr 0;
+        // Pulse the clock
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        EVAL;
+        // Assert PC remains 0
+        ASSERT AddrOut[0] 0;
+        ASSERT AddrOut[1] 0;
+        ASSERT AddrOut[2] 0;
+        ASSERT AddrOut[3] 0;
+    }
+
+    TEST "Increment: 0 -> 1" {
+        // Set controls to Increment (Load=0, Incr=1)
+        SET L 0;
+        SET Incr 1;
+        EVAL;
+        // Pulse the clock
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        EVAL;
+        // Assert PC is now 1 (0001)
+        ASSERT AddrOut[0] 1;
+        ASSERT AddrOut[1] 0;
+        ASSERT AddrOut[2] 0;
+        ASSERT AddrOut[3] 0;
+    }
+
+    TEST "Increment: 1 -> 2" {
+        // PC is already 1 from previous test
+        // Set controls to Increment (Load=0, Incr=1)
+        SET L 0;
+        SET Incr 1;
+        // Pulse the clock
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        EVAL;
+        // Assert PC is now 2 (0010)
+        ASSERT AddrOut[0] 0;
+        ASSERT AddrOut[1] 1;
+        ASSERT AddrOut[2] 0;
+        ASSERT AddrOut[3] 0;
+    }
+
+    TEST "Hold State: PC=2" {
+        // PC is already 2
+        // Set controls to Hold (Load=0, Incr=0)
+        SET L 0;
+        SET Incr 0;
+        // Pulse the clock
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        EVAL;
+        // Assert PC remains 2
+        ASSERT AddrOut[0] 0;
+        ASSERT AddrOut[1] 1;
+        ASSERT AddrOut[2] 0;
+        ASSERT AddrOut[3] 0;
+    }
+
+    TEST "Load (Jump): 2 -> 10" {
+        // PC is 2
+        // Set controls to Load (Load=1, Incr=0)
+        SET DataIn[0] 0, DataIn[1] 1, DataIn[2] 0, DataIn[3] 1; // 10 (1010)
+        SET L 1;
+        SET Incr 0;
+        // Pulse the clock
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        EVAL;
+        // Assert PC is now 10
+        ASSERT AddrOut[0] 0;
+        ASSERT AddrOut[1] 1;
+        ASSERT AddrOut[2] 0;
+        ASSERT AddrOut[3] 1;
+    }
+
+    TEST "Load overrides Increment: 10 -> 5" {
+        // PC is 10
+        // Set controls to Load AND Increment (Load=1, Incr=1)
+        // Load should take priority
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 1, DataIn[3] 0; // 5 (0101)
+        SET L 1;
+        SET Incr 1;
+        // Pulse the clock
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        EVAL;
+        // Assert PC is 5 (not 11)
+        ASSERT AddrOut[0] 1;
+        ASSERT AddrOut[1] 0;
+        ASSERT AddrOut[2] 1;
+        ASSERT AddrOut[3] 0;
+    }
+
+    TEST "Increment Roll-over: 15 -> 0" {
+        // PC is 5
+        // First, load 15 (1111)
+        SET DataIn[0] 1, DataIn[1] 1, DataIn[2] 1, DataIn[3] 1; // 15
+        SET L 1;
+        SET Incr 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        EVAL;
+        ASSERT AddrOut[0] 1; // Verify 15
+        ASSERT AddrOut[1] 1;
+        ASSERT AddrOut[2] 1;
+        ASSERT AddrOut[3] 1;
+        
+        // Now, increment
+        SET L 0;
+        SET Incr 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        EVAL;
+        
+        // Assert PC is now 0 (0000)
+        ASSERT AddrOut[0] 0;
+        ASSERT AddrOut[1] 0;
+        ASSERT AddrOut[2] 0;
+        ASSERT AddrOut[3] 0;
+    }
+}
