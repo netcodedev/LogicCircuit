@@ -1,0 +1,69 @@
+// Test suite for the 16-to-1 4-Bit Multiplexer
+
+TESTS FOR MUX_4B_16_1 {
+    TEST "Select In0 (Address 0, 0000)" {
+        // Set all inputs to different values. In0 = 1 (0001)
+        SET In0[0] 1, In0[1] 0, In0[2] 0, In0[3] 0;
+        SET In1[0] 0, In1[1] 1, In1[2] 0, In1[3] 0; // 2
+        SET In7[0] 1, In7[1] 1, In7[2] 0, In7[3] 0; // 3
+        SET In15[0] 1, In15[1] 1, In15[2] 1, In15[3] 1; // 15
+        
+        // Select In0
+        SET S[0] 0, S[1] 0, S[2] 0, S[3] 0;
+        EVAL;
+        
+        // Output should be 1
+        ASSERT Out[0] 1;
+        ASSERT Out[1] 0;
+        ASSERT Out[2] 0;
+        ASSERT Out[3] 0;
+    }
+
+    TEST "Select In7 (Address 7, 0111)" {
+        SET In0[0] 1, In0[1] 0, In0[2] 0, In0[3] 0; // 1
+        SET In7[0] 1, In7[1] 1, In7[2] 1, In7[3] 0; // 7
+        SET In15[0] 1, In15[1] 1, In15[2] 1, In15[3] 1; // 15
+
+        // Select In7
+        SET S[0] 1, S[1] 1, S[2] 1, S[3] 0; // 0111
+        EVAL;
+        
+        // Output should be 7
+        ASSERT Out[0] 1;
+        ASSERT Out[1] 1;
+        ASSERT Out[2] 1;
+        ASSERT Out[3] 0;
+    }
+
+    TEST "Select In10 (Address 10, 1010)" {
+        SET In0[0] 1, In0[1] 0, In0[2] 0, In0[3] 0; // 1
+        SET In10[0] 0, In10[1] 1, In10[2] 0, In10[3] 1; // 10
+        SET In15[0] 1, In15[1] 1, In15[2] 1, In15[3] 1; // 15
+
+        // Select In10
+        SET S[0] 0, S[1] 1, S[2] 0, S[3] 1; // 1010
+        EVAL;
+        
+        // Output should be 10
+        ASSERT Out[0] 0;
+        ASSERT Out[1] 1;
+        ASSERT Out[2] 0;
+        ASSERT Out[3] 1;
+    }
+
+    TEST "Select In15 (Address 15, 1111)" {
+        SET In0[0] 1, In0[1] 0, In0[2] 0, In0[3] 0; // 1
+        SET In7[0] 1, In7[1] 1, In7[2] 0, In7[3] 0; // 3
+        SET In15[0] 1, In15[1] 1, In15[2] 1, In15[3] 1; // 15
+
+        // Select In15
+        SET S[0] 1, S[1] 1, S[2] 1, S[3] 1; // 1111
+        EVAL;
+        
+        // Output should be 15
+        ASSERT Out[0] 1;
+        ASSERT Out[1] 1;
+        ASSERT Out[2] 1;
+        ASSERT Out[3] 1;
+    }
+}

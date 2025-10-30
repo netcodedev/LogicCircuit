@@ -1,0 +1,72 @@
+CIRCUIT MUX_4B_16_1 {
+    // Inputs: Sixteen 4-bit data buses (In0..In15)
+    INPUT In0[4], In1[4], In2[4], In3[4];
+    INPUT In4[4], In5[4], In6[4], In7[4];
+    INPUT In8[4], In9[4], In10[4], In11[4];
+    INPUT In12[4], In13[4], In14[4], In15[4];
+    
+    // Four Select inputs (S[0]..S[3])
+    INPUT S[4];
+
+    // Output: Selected 4-bit data bus (Out)
+    OUTPUT Out[4];
+
+    // --- Parts ---
+    // Stage 1: Four 4-to-1 MUXes. Selected by S[1:0].
+    PART Mux_S1_0: MUX_4B_4_1; // Selects from In0-In3
+    PART Mux_S1_1: MUX_4B_4_1; // Selects from In4-In7
+    PART Mux_S1_2: MUX_4B_4_1; // Selects from In8-In11
+    PART Mux_S1_3: MUX_4B_4_1; // Selects from In12-In15
+
+    // Stage 2: One 4-to-1 MUX. Selected by S[3:2].
+    PART Mux_S2_Final: MUX_4B_4_1;
+
+    // --- Connections ---
+
+    // Connect S[1:0] to all Stage 1 MUXes
+    CONNECT S[0] -> Mux_S1_0.S[0]; CONNECT S[1] -> Mux_S1_0.S[1];
+    CONNECT S[0] -> Mux_S1_1.S[0]; CONNECT S[1] -> Mux_S1_1.S[1];
+    CONNECT S[0] -> Mux_S1_2.S[0]; CONNECT S[1] -> Mux_S1_2.S[1];
+    CONNECT S[0] -> Mux_S1_3.S[0]; CONNECT S[1] -> Mux_S1_3.S[1];
+
+    // Connect S[3:2] to the Stage 2 MUX
+    CONNECT S[2] -> Mux_S2_Final.S[0];
+    CONNECT S[3] -> Mux_S2_Final.S[1];
+
+    // --- Connect Inputs to Stage 1 MUXes ---
+    // Mux_S1_0 (In0-In3)
+    CONNECT In0[0] -> Mux_S1_0.In0[0]; CONNECT In0[1] -> Mux_S1_0.In0[1]; CONNECT In0[2] -> Mux_S1_0.In0[2]; CONNECT In0[3] -> Mux_S1_0.In0[3];
+    CONNECT In1[0] -> Mux_S1_0.In1[0]; CONNECT In1[1] -> Mux_S1_0.In1[1]; CONNECT In1[2] -> Mux_S1_0.In1[2]; CONNECT In1[3] -> Mux_S1_0.In1[3];
+    CONNECT In2[0] -> Mux_S1_0.In2[0]; CONNECT In2[1] -> Mux_S1_0.In2[1]; CONNECT In2[2] -> Mux_S1_0.In2[2]; CONNECT In2[3] -> Mux_S1_0.In2[3];
+    CONNECT In3[0] -> Mux_S1_0.In3[0]; CONNECT In3[1] -> Mux_S1_0.In3[1]; CONNECT In3[2] -> Mux_S1_0.In3[2]; CONNECT In3[3] -> Mux_S1_0.In3[3];
+
+    // Mux_S1_1 (In4-In7)
+    CONNECT In4[0] -> Mux_S1_1.In0[0]; CONNECT In4[1] -> Mux_S1_1.In0[1]; CONNECT In4[2] -> Mux_S1_1.In0[2]; CONNECT In4[3] -> Mux_S1_1.In0[3];
+    CONNECT In5[0] -> Mux_S1_1.In1[0]; CONNECT In5[1] -> Mux_S1_1.In1[1]; CONNECT In5[2] -> Mux_S1_1.In1[2]; CONNECT In5[3] -> Mux_S1_1.In1[3];
+    CONNECT In6[0] -> Mux_S1_1.In2[0]; CONNECT In6[1] -> Mux_S1_1.In2[1]; CONNECT In6[2] -> Mux_S1_1.In2[2]; CONNECT In6[3] -> Mux_S1_1.In2[3];
+    CONNECT In7[0] -> Mux_S1_1.In3[0]; CONNECT In7[1] -> Mux_S1_1.In3[1]; CONNECT In7[2] -> Mux_S1_1.In3[2]; CONNECT In7[3] -> Mux_S1_1.In3[3];
+
+    // Mux_S1_2 (In8-In11)
+    CONNECT In8[0] -> Mux_S1_2.In0[0]; CONNECT In8[1] -> Mux_S1_2.In0[1]; CONNECT In8[2] -> Mux_S1_2.In0[2]; CONNECT In8[3] -> Mux_S1_2.In0[3];
+    CONNECT In9[0] -> Mux_S1_2.In1[0]; CONNECT In9[1] -> Mux_S1_2.In1[1]; CONNECT In9[2] -> Mux_S1_2.In1[2]; CONNECT In9[3] -> Mux_S1_2.In1[3];
+    CONNECT In10[0] -> Mux_S1_2.In2[0]; CONNECT In10[1] -> Mux_S1_2.In2[1]; CONNECT In10[2] -> Mux_S1_2.In2[2]; CONNECT In10[3] -> Mux_S1_2.In2[3];
+    CONNECT In11[0] -> Mux_S1_2.In3[0]; CONNECT In11[1] -> Mux_S1_2.In3[1]; CONNECT In11[2] -> Mux_S1_2.In3[2]; CONNECT In11[3] -> Mux_S1_2.In3[3];
+
+    // Mux_S1_3 (In12-In15)
+    CONNECT In12[0] -> Mux_S1_3.In0[0]; CONNECT In12[1] -> Mux_S1_3.In0[1]; CONNECT In12[2] -> Mux_S1_3.In0[2]; CONNECT In12[3] -> Mux_S1_3.In0[3];
+    CONNECT In13[0] -> Mux_S1_3.In1[0]; CONNECT In13[1] -> Mux_S1_3.In1[1]; CONNECT In13[2] -> Mux_S1_3.In1[2]; CONNECT In13[3] -> Mux_S1_3.In1[3];
+    CONNECT In14[0] -> Mux_S1_3.In2[0]; CONNECT In14[1] -> Mux_S1_3.In2[1]; CONNECT In14[2] -> Mux_S1_3.In2[2]; CONNECT In14[3] -> Mux_S1_3.In2[3];
+    CONNECT In15[0] -> Mux_S1_3.In3[0]; CONNECT In15[1] -> Mux_S1_3.In3[1]; CONNECT In15[2] -> Mux_S1_3.In3[2]; CONNECT In15[3] -> Mux_S1_3.In3[3];
+
+    // --- Connect Stage 1 Outputs to Stage 2 Inputs ---
+    CONNECT Mux_S1_0.Out[0] -> Mux_S2_Final.In0[0]; CONNECT Mux_S1_0.Out[1] -> Mux_S2_Final.In0[1]; CONNECT Mux_S1_0.Out[2] -> Mux_S2_Final.In0[2]; CONNECT Mux_S1_0.Out[3] -> Mux_S2_Final.In0[3];
+    CONNECT Mux_S1_1.Out[0] -> Mux_S2_Final.In1[0]; CONNECT Mux_S1_1.Out[1] -> Mux_S2_Final.In1[1]; CONNECT Mux_S1_1.Out[2] -> Mux_S2_Final.In1[2]; CONNECT Mux_S1_1.Out[3] -> Mux_S2_Final.In1[3];
+    CONNECT Mux_S1_2.Out[0] -> Mux_S2_Final.In2[0]; CONNECT Mux_S1_2.Out[1] -> Mux_S2_Final.In2[1]; CONNECT Mux_S1_2.Out[2] -> Mux_S2_Final.In2[2]; CONNECT Mux_S1_2.Out[3] -> Mux_S2_Final.In2[3];
+    CONNECT Mux_S1_3.Out[0] -> Mux_S2_Final.In3[0]; CONNECT Mux_S1_3.Out[1] -> Mux_S2_Final.In3[1]; CONNECT Mux_S1_3.Out[2] -> Mux_S2_Final.In3[2]; CONNECT Mux_S1_3.Out[3] -> Mux_S2_Final.In3[3];
+
+    // --- Connect Final Output ---
+    CONNECT Mux_S2_Final.Out[0] -> Out[0];
+    CONNECT Mux_S2_Final.Out[1] -> Out[1];
+    CONNECT Mux_S2_Final.Out[2] -> Out[2];
+    CONNECT Mux_S2_Final.Out[3] -> Out[3];
+}
