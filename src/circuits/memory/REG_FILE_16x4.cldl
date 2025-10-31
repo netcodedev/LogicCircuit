@@ -1,0 +1,156 @@
+CIRCUIT REG_FILE_16x4 {
+    // A 16-register file, each register is 4 bits wide.
+    // R0 is hardwired to 0.
+    // Features two read ports (A and B) and one write port.
+
+    // --- Inputs ---
+    INPUT DataIn[4];       // Data to write
+    INPUT WriteAddr[4];    // Address (0-15) to write to
+    INPUT WriteEnable;     // 1 to write, 0 to hold
+    INPUT ReadAddrA[4];    // Address (0-15) for read port A
+    INPUT ReadAddrB[4];    // Address (0-15) for read port B
+    INPUT CLK;             // Clock signal
+
+    // --- Outputs ---
+    OUTPUT DataOutA[4];     // Data from read port A
+    OUTPUT DataOutB[4];     // Data from read port B
+
+    // --- Storage Parts ---
+    // R0 is hardwired to 0, so we only need 15 registers.
+    // We will tie R0's input on the read muxes to a 0 source.
+    PART R1: REGISTER_4B;
+    PART R2: REGISTER_4B;
+    PART R3: REGISTER_4B;
+    PART R4: REGISTER_4B;
+    PART R5: REGISTER_4B;
+    PART R6: REGISTER_4B;
+    PART R7: REGISTER_4B;
+    PART R8: REGISTER_4B;
+    PART R9: REGISTER_4B;
+    PART R10: REGISTER_4B;
+    PART R11: REGISTER_4B;
+    PART R12: REGISTER_4B;
+    PART R13: REGISTER_4B;
+    PART R14: REGISTER_4B;
+    PART R15: REGISTER_4B;
+
+    // --- Write Logic Parts ---
+    PART WriteDecoder: DECODER_4_16;
+
+    // --- Read Logic Parts ---
+    PART ReadMuxA: MUX_4B_16_1;
+    PART ReadMuxB: MUX_4B_16_1;
+
+    // --- Constant Zero Source (for R0) ---
+    // Unconnected inputs on the MUX (In0) will default to 0.
+    // We must ensure R0.Load (WriteDecoder.O[0]) is never asserted.
+
+    // --- Connections ---
+
+    // 1. Write Logic:
+    // Connect the decoder to the Write Address and Enable.
+    CONNECT WriteAddr -> WriteDecoder.A;
+    CONNECT WriteEnable -> WriteDecoder.Enable;
+
+    // Connect the decoder outputs to the Load pin of each register.
+    // *** IMPORTANT: Skip O[0] to hardwire R0 to zero. ***
+    CONNECT WriteDecoder.O[1] -> R1.Load;
+    CONNECT WriteDecoder.O[2] -> R2.Load;
+    CONNECT WriteDecoder.O[3] -> R3.Load;
+    CONNECT WriteDecoder.O[4] -> R4.Load;
+    CONNECT WriteDecoder.O[5] -> R5.Load;
+    CONNECT WriteDecoder.O[6] -> R6.Load;
+    CONNECT WriteDecoder.O[7] -> R7.Load;
+    CONNECT WriteDecoder.O[8] -> R8.Load;
+    CONNECT WriteDecoder.O[9] -> R9.Load;
+    CONNECT WriteDecoder.O[10] -> R10.Load;
+    CONNECT WriteDecoder.O[11] -> R11.Load;
+    CONNECT WriteDecoder.O[12] -> R12.Load;
+    CONNECT WriteDecoder.O[13] -> R13.Load;
+    CONNECT WriteDecoder.O[14] -> R14.Load;
+    CONNECT WriteDecoder.O[15] -> R15.Load;
+
+    // Fan-out the DataIn bus to all 15 registers.
+    CONNECT DataIn -> R1.Data;
+    CONNECT DataIn -> R2.Data;
+    CONNECT DataIn -> R3.Data;
+    CONNECT DataIn -> R4.Data;
+    CONNECT DataIn -> R5.Data;
+    CONNECT DataIn -> R6.Data;
+    CONNECT DataIn -> R7.Data;
+    CONNECT DataIn -> R8.Data;
+    CONNECT DataIn -> R9.Data;
+    CONNECT DataIn -> R10.Data;
+    CONNECT DataIn -> R11.Data;
+    CONNECT DataIn -> R12.Data;
+    CONNECT DataIn -> R13.Data;
+    CONNECT DataIn -> R14.Data;
+    CONNECT DataIn -> R15.Data;
+
+    // 2. Read Logic (Port A):
+    // Connect register Q outputs to Mux A inputs.
+    // In0 is left unconnected (defaults to 0), representing R0.
+    CONNECT R1.Q -> ReadMuxA.In1;
+    CONNECT R2.Q -> ReadMuxA.In2;
+    CONNECT R3.Q -> ReadMuxA.In3;
+    CONNECT R4.Q -> ReadMuxA.In4;
+    CONNECT R5.Q -> ReadMuxA.In5;
+    CONNECT R6.Q -> ReadMuxA.In6;
+    CONNECT R7.Q -> ReadMuxA.In7;
+    CONNECT R8.Q -> ReadMuxA.In8;
+    CONNECT R9.Q -> ReadMuxA.In9;
+    CONNECT R10.Q -> ReadMuxA.In10;
+    CONNECT R11.Q -> ReadMuxA.In11;
+    CONNECT R12.Q -> ReadMuxA.In12;
+    CONNECT R13.Q -> ReadMuxA.In13;
+    CONNECT R14.Q -> ReadMuxA.In14;
+    CONNECT R15.Q -> ReadMuxA.In15;
+
+    // Connect Read Address A to Mux A Select.
+    CONNECT ReadAddrA -> ReadMuxA.S;
+
+    // Connect Mux A Output to DataOutA.
+    CONNECT ReadMuxA.Out -> DataOutA;
+
+    // 3. Read Logic (Port B):
+    // In0 is left unconnected (defaults to 0), representing R0.
+    CONNECT R1.Q -> ReadMuxB.In1;
+    CONNECT R2.Q -> ReadMuxB.In2;
+    CONNECT R3.Q -> ReadMuxB.In3;
+    CONNECT R4.Q -> ReadMuxB.In4;
+    CONNECT R5.Q -> ReadMuxB.In5;
+    CONNECT R6.Q -> ReadMuxB.In6;
+    CONNECT R7.Q -> ReadMuxB.In7;
+    CONNECT R8.Q -> ReadMuxB.In8;
+    CONNECT R9.Q -> ReadMuxB.In9;
+    CONNECT R10.Q -> ReadMuxB.In10;
+    CONNECT R11.Q -> ReadMuxB.In11;
+    CONNECT R12.Q -> ReadMuxB.In12;
+    CONNECT R13.Q -> ReadMuxB.In13;
+    CONNECT R14.Q -> ReadMuxB.In14;
+    CONNECT R15.Q -> ReadMuxB.In15;
+
+    // Connect Read Address B to Mux B Select.
+    CONNECT ReadAddrB -> ReadMuxB.S;
+
+    // Connect Mux B Output to DataOutB.
+    CONNECT ReadMuxB.Out -> DataOutB;
+
+    // 4. Clock Connection:
+    // Fan-out the master clock to all 15 registers.
+    CONNECT CLK -> R1.CLK;
+    CONNECT CLK -> R2.CLK;
+    CONNECT CLK -> R3.CLK;
+    CONNECT CLK -> R4.CLK;
+    CONNECT CLK -> R5.CLK;
+    CONNECT CLK -> R6.CLK;
+    CONNECT CLK -> R7.CLK;
+    CONNECT CLK -> R8.CLK;
+    CONNECT CLK -> R9.CLK;
+    CONNECT CLK -> R10.CLK;
+    CONNECT CLK -> R11.CLK;
+    CONNECT CLK -> R12.CLK;
+    CONNECT CLK -> R13.CLK;
+    CONNECT CLK -> R14.CLK;
+    CONNECT CLK -> R15.CLK;
+}
