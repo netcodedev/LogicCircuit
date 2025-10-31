@@ -3,41 +3,33 @@ CIRCUIT DATAPATH_4B {
     // It combines the Register File and the ALU.
 
     // --- Control Inputs (from Control Unit) ---
-    INPUT ReadAddrA[2];   // Selects RegFile.DataOutA
-    INPUT ReadAddrB[2];   // Selects RegFile.DataOutB
-    INPUT WriteAddr[2];   // Selects RegFile register to write
-    INPUT WriteEnable;    // Enables writing to the RegFile
-    INPUT ALUSel[2];      // Selects the ALU operation
-    INPUT ALUCin;         // Carry-in for the ALU
-    INPUT CLK;            // Master clock signal
-    
+    INPUT ReadAddrA[4];     // Selects RegFile.DataOutA
+    INPUT ReadAddrB[4];     // Selects RegFile.DataOutB
+    INPUT WriteAddr[4];     // Selects RegFile register to write
+    INPUT WriteEnable;      // Enables writing to the RegFile
+    INPUT ALUSel[2];        // Selects the ALU operation
+    INPUT ALUCin;           // Carry-in for the ALU
+    INPUT CLK;              // Master clock signal
+
     // --- Data Inputs & Controls ---
-    INPUT MemDataIn[4];   // Data from Memory (or test harness)
-    INPUT MemToReg;       // 1 = Write MemDataIn to Reg, 0 = Write ALU.Result to Reg
-    
+    INPUT MemDataIn[4];     // Data from Memory (or test harness)
+    INPUT MemToReg;         // 1 = Write MemDataIn to Reg, 0 = Write ALU.Result to Reg
+
     // --- Immediate Inputs & Control ---
-    INPUT Immediate[4];   // 4-bit immediate value from instruction
-    INPUT ALUSrc;         // 1 = Select Immediate, 0 = Select RegFile.DataOutB
+    INPUT Immediate[4];     // 4-bit immediate value from instruction
+    INPUT ALUSrc;           // 1 = Select Immediate, 0 = Select RegFile.DataOutB
 
     // --- Flag Outputs (to Control Unit) ---
-    OUTPUT ALU_Cout;      // ALU Carry Out flag
-    OUTPUT ALU_Z;         // ALU Zero flag
+    OUTPUT ALU_Cout;        // ALU Carry Out flag
+    OUTPUT ALU_Z;          // ALU Zero flag
 
     // --- Core Components ---
-    PART RegFile: REG_FILE_4x4;
+    PART RegFile: REG_FILE_16x4;
     PART Alu: ALU_4B;
-    
-    // --- Muxes for RegFile DataIn ---
-    PART DataInMux0: MUX_2_1;
-    PART DataInMux1: MUX_2_1;
-    PART DataInMux2: MUX_2_1;
-    PART DataInMux3: MUX_2_1;
 
-    // --- NEW: Muxes for ALU 'B' Input ---
-    PART AluSrcMux0: MUX_2_1;
-    PART AluSrcMux1: MUX_2_1;
-    PART AluSrcMux2: MUX_2_1;
-    PART AluSrcMux3: MUX_2_1;
+    // --- Muxes (Refactored to use 4-bit parts) ---
+    PART DataInMux: MUX_4B_2_1;  // Mux for RegFile DataIn
+    PART AluSrcMux: MUX_4B_2_1;  // Mux for ALU 'B' Input
 
     // --- Connections ---
 
@@ -48,7 +40,7 @@ CIRCUIT DATAPATH_4B {
     CONNECT WriteAddr -> RegFile.WriteAddr;
     CONNECT WriteEnable -> RegFile.WriteEnable;
     CONNECT CLK -> RegFile.CLK;
-    
+
     // ALU control
     CONNECT ALUSel -> Alu.S;
     CONNECT ALUCin -> Alu.Cin;
@@ -57,53 +49,26 @@ CIRCUIT DATAPATH_4B {
     // Connect RegFile Read Port A to ALU Input A
     CONNECT RegFile.DataOutA -> Alu.A;
 
-    // --- MODIFIED: ALU 'B' Input Mux ---
+    // 3. Connect ALU 'B' Input Mux
     // Mux S=0 selects A (RegFile.DataOutB)
-    // Mux S=1 selects B (Immediate)
-    CONNECT ALUSrc -> AluSrcMux0.S;
-    CONNECT RegFile.DataOutB[0] -> AluSrcMux0.A;
-    CONNECT Immediate[0] -> AluSrcMux0.B;
-    CONNECT AluSrcMux0.Out -> Alu.B[0];
+    // Mux S=1 selects B (Immediate[4])
+    CONNECT ALUSrc -> AluSrcMux.S;
+    CONNECT RegFile.DataOutB -> AluSrcMux.A;
 
-    CONNECT ALUSrc -> AluSrcMux1.S;
-    CONNECT RegFile.DataOutB[1] -> AluSrcMux1.A;
-    CONNECT Immediate[1] -> AluSrcMux1.B;
-    CONNECT AluSrcMux1.Out -> Alu.B[1];
+    // Connect 4-bit immediate to the 4-bit Mux input.
+    CONNECT Immediate -> AluSrcMux.B;
 
-    CONNECT ALUSrc -> AluSrcMux2.S;
-    CONNECT RegFile.DataOutB[2] -> AluSrcMux2.A;
-    CONNECT Immediate[2] -> AluSrcMux2.B;
-    CONNECT AluSrcMux2.Out -> Alu.B[2];
+    CONNECT AluSrcMux.Out -> Alu.B; // Connect 4-bit bus
 
-    CONNECT ALUSrc -> AluSrcMux3.S;
-    CONNECT RegFile.DataOutB[3] -> AluSrcMux3.A;
-    CONNECT Immediate[3] -> AluSrcMux3.B;
-    CONNECT AluSrcMux3.Out -> Alu.B[3];
-
-    // 3. Connect Data-In Muxes (ALU.Result or MemDataIn)
+    // 4. Connect Data-In Mux (ALU.Result or MemDataIn)
     // Mux S=0 selects A (ALU Result)
     // Mux S=1 selects B (Memory Data)
-    CONNECT MemToReg -> DataInMux0.S;
-    CONNECT Alu.Result[0] -> DataInMux0.A;
-    CONNECT MemDataIn[0] -> DataInMux0.B;
-    CONNECT DataInMux0.Out -> RegFile.DataIn[0];
+    CONNECT MemToReg -> DataInMux.S;
+    CONNECT Alu.Result -> DataInMux.A; // Connect 4-bit bus
+    CONNECT MemDataIn -> DataInMux.B;  // Connect 4-bit bus
+    CONNECT DataInMux.Out -> RegFile.DataIn; // Connect 4-bit bus
 
-    CONNECT MemToReg -> DataInMux1.S;
-    CONNECT Alu.Result[1] -> DataInMux1.A;
-    CONNECT MemDataIn[1] -> DataInMux1.B;
-    CONNECT DataInMux1.Out -> RegFile.DataIn[1];
-
-    CONNECT MemToReg -> DataInMux2.S;
-    CONNECT Alu.Result[2] -> DataInMux2.A;
-    CONNECT MemDataIn[2] -> DataInMux2.B;
-    CONNECT DataInMux2.Out -> RegFile.DataIn[2];
-
-    CONNECT MemToReg -> DataInMux3.S;
-    CONNECT Alu.Result[3] -> DataInMux3.A;
-    CONNECT MemDataIn[3] -> DataInMux3.B;
-    CONNECT DataInMux3.Out -> RegFile.DataIn[3];
-
-    // 4. Connect Datapath Outputs
+    // 5. Connect Datapath Outputs
     CONNECT Alu.Cout -> ALU_Cout;
     CONNECT Alu.Z -> ALU_Z;
 }
