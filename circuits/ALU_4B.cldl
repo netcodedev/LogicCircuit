@@ -31,54 +31,38 @@ CIRCUIT ALU_4B {
 
     // --- Connect Inputs to Functional Units ---
     // Connect A, B, and Cin to Adder
-    CONNECT A[0] -> Adder.A[0]; CONNECT A[1] -> Adder.A[1]; CONNECT A[2] -> Adder.A[2]; CONNECT A[3] -> Adder.A[3];
-    CONNECT B[0] -> Adder.B[0]; CONNECT B[1] -> Adder.B[1]; CONNECT B[2] -> Adder.B[2]; CONNECT B[3] -> Adder.B[3];
+    CONNECT A -> Adder.A;
+    CONNECT B -> Adder.B;
     CONNECT Cin -> Adder.Cin;
 
     // Connect A, B to Logic Units
-    CONNECT A[0] -> LogicAND.A[0]; CONNECT A[1] -> LogicAND.A[1]; CONNECT A[2] -> LogicAND.A[2]; CONNECT A[3] -> LogicAND.A[3];
-    CONNECT B[0] -> LogicAND.B[0]; CONNECT B[1] -> LogicAND.B[1]; CONNECT B[2] -> LogicAND.B[2]; CONNECT B[3] -> LogicAND.B[3];
+    CONNECT A -> LogicAND.A;
+    CONNECT B -> LogicAND.B;
 
-    CONNECT A[0] -> LogicOR.A[0]; CONNECT A[1] -> LogicOR.A[1]; CONNECT A[2] -> LogicOR.A[2]; CONNECT A[3] -> LogicOR.A[3];
-    CONNECT B[0] -> LogicOR.B[0]; CONNECT B[1] -> LogicOR.B[1]; CONNECT B[2] -> LogicOR.B[2]; CONNECT B[3] -> LogicOR.B[3];
+    CONNECT A -> LogicOR.A;
+    CONNECT B -> LogicOR.B;
 
-    CONNECT A[0] -> LogicXOR.A[0]; CONNECT A[1] -> LogicXOR.A[1]; CONNECT A[2] -> LogicXOR.A[2]; CONNECT A[3] -> LogicXOR.A[3];
-    CONNECT B[0] -> LogicXOR.B[0]; CONNECT B[1] -> LogicXOR.B[1]; CONNECT B[2] -> LogicXOR.B[2]; CONNECT B[3] -> LogicXOR.B[3];
+    CONNECT A -> LogicXOR.A;
+    CONNECT B -> LogicXOR.B;
 
     // --- Connect Functional Unit Outputs to Mux Inputs ---
     // In0 = Adder Result (S1 S0 = 00)
-    CONNECT Adder.S[0] -> ResultMux.In0[0];
-    CONNECT Adder.S[1] -> ResultMux.In0[1];
-    CONNECT Adder.S[2] -> ResultMux.In0[2];
-    CONNECT Adder.S[3] -> ResultMux.In0[3];
+    CONNECT Adder.S -> ResultMux.In0;
 
     // In1 = AND Result (S1 S0 = 01)
-    CONNECT LogicAND.Out[0] -> ResultMux.In1[0];
-    CONNECT LogicAND.Out[1] -> ResultMux.In1[1];
-    CONNECT LogicAND.Out[2] -> ResultMux.In1[2];
-    CONNECT LogicAND.Out[3] -> ResultMux.In1[3];
+    CONNECT LogicAND.Out -> ResultMux.In1;
 
     // In2 = OR Result (S1 S0 = 10)
-    CONNECT LogicOR.Out[0] -> ResultMux.In2[0];
-    CONNECT LogicOR.Out[1] -> ResultMux.In2[1];
-    CONNECT LogicOR.Out[2] -> ResultMux.In2[2];
-    CONNECT LogicOR.Out[3] -> ResultMux.In2[3];
+    CONNECT LogicOR.Out -> ResultMux.In2;
 
     // In3 = XOR Result (S1 S0 = 11)
-    CONNECT LogicXOR.Out[0] -> ResultMux.In3[0];
-    CONNECT LogicXOR.Out[1] -> ResultMux.In3[1];
-    CONNECT LogicXOR.Out[2] -> ResultMux.In3[2];
-    CONNECT LogicXOR.Out[3] -> ResultMux.In3[3];
+    CONNECT LogicXOR.Out -> ResultMux.In3;
 
     // --- Connect Select Lines to Mux ---
-    CONNECT S[0] -> ResultMux.S[0]; // OpCode bit 0
-    CONNECT S[1] -> ResultMux.S[1]; // OpCode bit 1
+    CONNECT S -> ResultMux.S; // OpCode
 
     // --- Connect Mux Output to Final Result ---
-    CONNECT ResultMux.Out[0] -> Result[0];
-    CONNECT ResultMux.Out[1] -> Result[1];
-    CONNECT ResultMux.Out[2] -> Result[2];
-    CONNECT ResultMux.Out[3] -> Result[3];
+    CONNECT ResultMux.Out -> Result;
 
     // --- Connect Gated Carry Out ---
     CONNECT S[0] -> NotS0.in;

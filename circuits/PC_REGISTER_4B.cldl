@@ -24,16 +24,10 @@ CIRCUIT PC_REGISTER_4B {
     // --- Connections ---
 
     // 1. Output Connection
-    CONNECT PC_Reg.Q[0] -> AddrOut[0];
-    CONNECT PC_Reg.Q[1] -> AddrOut[1];
-    CONNECT PC_Reg.Q[2] -> AddrOut[2];
-    CONNECT PC_Reg.Q[3] -> AddrOut[3];
+    CONNECT PC_Reg.Q -> AddrOut;
 
     // 2. Incrementer Logic (Calculates PC + Incr)
-    CONNECT PC_Reg.Q[0] -> Incrementer.A[0];
-    CONNECT PC_Reg.Q[1] -> Incrementer.A[1];
-    CONNECT PC_Reg.Q[2] -> Incrementer.A[2];
-    CONNECT PC_Reg.Q[3] -> Incrementer.A[3];
+    CONNECT PC_Reg.Q -> Incrementer.A;
     // A = PC_Reg.Q, B = 0, Cin = Incr.
     // Result = PC + Incr
     CONNECT Incr -> Incrementer.Cin;

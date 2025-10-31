@@ -14,38 +14,17 @@ CIRCUIT MUX_4B_4_1 {
     PART MUX_B: MUX_4B_2_1; // Selects between In2 and In3 based on S[0]
     PART MUX_C: MUX_4B_2_1; // Selects between MUX_A output and MUX_B output based on S[1]
 
-    CONNECT In0[0] -> MUX_A.A[0];
-    CONNECT In0[1] -> MUX_A.A[1];
-    CONNECT In0[2] -> MUX_A.A[2];
-    CONNECT In0[3] -> MUX_A.A[3];
-    CONNECT In1[0] -> MUX_A.B[0];
-    CONNECT In1[1] -> MUX_A.B[1];
-    CONNECT In1[2] -> MUX_A.B[2];
-    CONNECT In1[3] -> MUX_A.B[3];
+    CONNECT In0 -> MUX_A.A;
+    CONNECT In1 -> MUX_A.B;
     CONNECT S[0] -> MUX_A.S;
 
-    CONNECT In2[0] -> MUX_B.A[0];
-    CONNECT In2[1] -> MUX_B.A[1];
-    CONNECT In2[2] -> MUX_B.A[2];
-    CONNECT In2[3] -> MUX_B.A[3];
-    CONNECT In3[0] -> MUX_B.B[0];
-    CONNECT In3[1] -> MUX_B.B[1];
-    CONNECT In3[2] -> MUX_B.B[2];
-    CONNECT In3[3] -> MUX_B.B[3];
+    CONNECT In2 -> MUX_B.A;
+    CONNECT In3 -> MUX_B.B;
     CONNECT S[0] -> MUX_B.S;
 
-    CONNECT MUX_A.Out[0] -> MUX_C.A[0];
-    CONNECT MUX_A.Out[1] -> MUX_C.A[1];
-    CONNECT MUX_A.Out[2] -> MUX_C.A[2];
-    CONNECT MUX_A.Out[3] -> MUX_C.A[3];
-    CONNECT MUX_B.Out[0] -> MUX_C.B[0];
-    CONNECT MUX_B.Out[1] -> MUX_C.B[1];
-    CONNECT MUX_B.Out[2] -> MUX_C.B[2];
-    CONNECT MUX_B.Out[3] -> MUX_C.B[3];
+    CONNECT MUX_A.Out -> MUX_C.A;
+    CONNECT MUX_B.Out -> MUX_C.B;
     CONNECT S[1] -> MUX_C.S;
 
-    CONNECT MUX_C.Out[0] -> Out[0];
-    CONNECT MUX_C.Out[1] -> Out[1];
-    CONNECT MUX_C.Out[2] -> Out[2];
-    CONNECT MUX_C.Out[3] -> Out[3];
+    CONNECT MUX_C.Out -> Out;
 }

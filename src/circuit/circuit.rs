@@ -55,6 +55,7 @@ impl Circuit {
         self.wire_map = wire_map;
     }
 
+    #[allow(dead_code)]
     pub fn get_wire_map(&self) -> &HashMap<String, Wire> {
         &self.wire_map
     }

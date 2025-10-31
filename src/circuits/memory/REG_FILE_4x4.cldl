@@ -31,8 +31,7 @@ CIRCUIT REG_FILE_4x4 {
 
     // 1. Write Logic:
     // Connect the decoder to the Write Address and Enable.
-    CONNECT WriteAddr[0] -> WriteDecoder.A[0];
-    CONNECT WriteAddr[1] -> WriteDecoder.A[1];
+    CONNECT WriteAddr -> WriteDecoder.A;
     CONNECT WriteEnable -> WriteDecoder.Enable;
 
     // Connect the decoder outputs to the Load pin of each register.
@@ -43,59 +42,39 @@ CIRCUIT REG_FILE_4x4 {
 
     // Fan-out the DataIn bus to all four registers.
     // R0 Data Input
-    CONNECT DataIn[0] -> R0.Data[0];
-    CONNECT DataIn[1] -> R0.Data[1];
-    CONNECT DataIn[2] -> R0.Data[2];
-    CONNECT DataIn[3] -> R0.Data[3];
+    CONNECT DataIn -> R0.Data;
     // R1 Data Input
-    CONNECT DataIn[0] -> R1.Data[0];
-    CONNECT DataIn[1] -> R1.Data[1];
-    CONNECT DataIn[2] -> R1.Data[2];
-    CONNECT DataIn[3] -> R1.Data[3];
+    CONNECT DataIn -> R1.Data;
     // R2 Data Input
-    CONNECT DataIn[0] -> R2.Data[0];
-    CONNECT DataIn[1] -> R2.Data[1];
-    CONNECT DataIn[2] -> R2.Data[2];
-    CONNECT DataIn[3] -> R2.Data[3];
+    CONNECT DataIn -> R2.Data;
     // R3 Data Input
-    CONNECT DataIn[0] -> R3.Data[0];
-    CONNECT DataIn[1] -> R3.Data[1];
-    CONNECT DataIn[2] -> R3.Data[2];
-    CONNECT DataIn[3] -> R3.Data[3];
+    CONNECT DataIn -> R3.Data;
 
     // 2. Read Logic (Port A):
     // Connect register outputs (Q bus) to Mux A inputs.
-    CONNECT R0.Q[0] -> ReadMuxA.In0[0]; CONNECT R0.Q[1] -> ReadMuxA.In0[1]; CONNECT R0.Q[2] -> ReadMuxA.In0[2]; CONNECT R0.Q[3] -> ReadMuxA.In0[3];
-    CONNECT R1.Q[0] -> ReadMuxA.In1[0]; CONNECT R1.Q[1] -> ReadMuxA.In1[1]; CONNECT R1.Q[2] -> ReadMuxA.In1[2]; CONNECT R1.Q[3] -> ReadMuxA.In1[3];
-    CONNECT R2.Q[0] -> ReadMuxA.In2[0]; CONNECT R2.Q[1] -> ReadMuxA.In2[1]; CONNECT R2.Q[2] -> ReadMuxA.In2[2]; CONNECT R2.Q[3] -> ReadMuxA.In2[3];
-    CONNECT R3.Q[0] -> ReadMuxA.In3[0]; CONNECT R3.Q[1] -> ReadMuxA.In3[1]; CONNECT R3.Q[2] -> ReadMuxA.In3[2]; CONNECT R3.Q[3] -> ReadMuxA.In3[3];
+    CONNECT R0.Q -> ReadMuxA.In0;
+    CONNECT R1.Q -> ReadMuxA.In1;
+    CONNECT R2.Q -> ReadMuxA.In2;
+    CONNECT R3.Q -> ReadMuxA.In3;
     
     // Connect Read Address A to Mux A Select.
-    CONNECT ReadAddrA[0] -> ReadMuxA.S[0];
-    CONNECT ReadAddrA[1] -> ReadMuxA.S[1];
+    CONNECT ReadAddrA -> ReadMuxA.S;
     
     // Connect Mux A Output to DataOutA.
-    CONNECT ReadMuxA.Out[0] -> DataOutA[0];
-    CONNECT ReadMuxA.Out[1] -> DataOutA[1];
-    CONNECT ReadMuxA.Out[2] -> DataOutA[2];
-    CONNECT ReadMuxA.Out[3] -> DataOutA[3];
+    CONNECT ReadMuxA.Out -> DataOutA;
 
     // 3. Read Logic (Port B):
     // Connect register outputs (Q bus) to Mux B inputs.
-    CONNECT R0.Q[0] -> ReadMuxB.In0[0]; CONNECT R0.Q[1] -> ReadMuxB.In0[1]; CONNECT R0.Q[2] -> ReadMuxB.In0[2]; CONNECT R0.Q[3] -> ReadMuxB.In0[3];
-    CONNECT R1.Q[0] -> ReadMuxB.In1[0]; CONNECT R1.Q[1] -> ReadMuxB.In1[1]; CONNECT R1.Q[2] -> ReadMuxB.In1[2]; CONNECT R1.Q[3] -> ReadMuxB.In1[3];
-    CONNECT R2.Q[0] -> ReadMuxB.In2[0]; CONNECT R2.Q[1] -> ReadMuxB.In2[1]; CONNECT R2.Q[2] -> ReadMuxB.In2[2]; CONNECT R2.Q[3] -> ReadMuxB.In2[3];
-    CONNECT R3.Q[0] -> ReadMuxB.In3[0]; CONNECT R3.Q[1] -> ReadMuxB.In3[1]; CONNECT R3.Q[2] -> ReadMuxB.In3[2]; CONNECT R3.Q[3] -> ReadMuxB.In3[3];
+    CONNECT R0.Q -> ReadMuxB.In0;
+    CONNECT R1.Q -> ReadMuxB.In1;
+    CONNECT R2.Q -> ReadMuxB.In2;
+    CONNECT R3.Q -> ReadMuxB.In3;
 
     // Connect Read Address B to Mux B Select.
-    CONNECT ReadAddrB[0] -> ReadMuxB.S[0];
-    CONNECT ReadAddrB[1] -> ReadMuxB.S[1];
+    CONNECT ReadAddrB -> ReadMuxB.S;
 
     // Connect Mux B Output to DataOutB.
-    CONNECT ReadMuxB.Out[0] -> DataOutB[0];
-    CONNECT ReadMuxB.Out[1] -> DataOutB[1];
-    CONNECT ReadMuxB.Out[2] -> DataOutB[2];
-    CONNECT ReadMuxB.Out[3] -> DataOutB[3];
+    CONNECT ReadMuxB.Out -> DataOutB;
 
     // 4. Clock Connection:
     // Fan-out the master clock to all four registers.

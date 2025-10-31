@@ -43,26 +43,19 @@ CIRCUIT DATAPATH_4B {
 
     // 1. Connect Control Signals
     // RegFile control
-    CONNECT ReadAddrA[0] -> RegFile.ReadAddrA[0];
-    CONNECT ReadAddrA[1] -> RegFile.ReadAddrA[1];
-    CONNECT ReadAddrB[0] -> RegFile.ReadAddrB[0];
-    CONNECT ReadAddrB[1] -> RegFile.ReadAddrB[1];
-    CONNECT WriteAddr[0] -> RegFile.WriteAddr[0];
-    CONNECT WriteAddr[1] -> RegFile.WriteAddr[1];
+    CONNECT ReadAddrA -> RegFile.ReadAddrA;
+    CONNECT ReadAddrB -> RegFile.ReadAddrB;
+    CONNECT WriteAddr -> RegFile.WriteAddr;
     CONNECT WriteEnable -> RegFile.WriteEnable;
     CONNECT CLK -> RegFile.CLK;
     
     // ALU control
-    CONNECT ALUSel[0] -> Alu.S[0];
-    CONNECT ALUSel[1] -> Alu.S[1];
+    CONNECT ALUSel -> Alu.S;
     CONNECT ALUCin -> Alu.Cin;
 
     // 2. Connect Datapath Loop
     // Connect RegFile Read Port A to ALU Input A
-    CONNECT RegFile.DataOutA[0] -> Alu.A[0];
-    CONNECT RegFile.DataOutA[1] -> Alu.A[1];
-    CONNECT RegFile.DataOutA[2] -> Alu.A[2];
-    CONNECT RegFile.DataOutA[3] -> Alu.A[3];
+    CONNECT RegFile.DataOutA -> Alu.A;
 
     // --- MODIFIED: ALU 'B' Input Mux ---
     // Mux S=0 selects A (RegFile.DataOutB)

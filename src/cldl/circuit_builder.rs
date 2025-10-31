@@ -131,7 +131,7 @@ impl CircuitBuilder {
         }
 
         // Pass 2: Apply top-level Connections
-        self.apply_connections(&top_def.connections, "", &mut wire_map);
+        self.apply_connections(top_def, "", &mut wire_map);
 
         // Pass 3: Instantiate all parts recursively
         for part in &top_def.parts {
@@ -213,7 +213,7 @@ impl CircuitBuilder {
             circuit.add_gate(Box::new(gate));
         } else if let Some(def) = self.definitions.get(part_type) {
             // Apply internal connections for the sub-circuit first
-            self.apply_connections(&def.connections, instance_name, wire_map);
+            self.apply_connections(def, instance_name, wire_map);
             // Instantiate sub-parts recursively
             for sub_part in &def.parts {
                 self.instantiate_part(
@@ -235,28 +235,198 @@ impl CircuitBuilder {
         }
     }
 
-    /// Applies a list of connections, handling potential bus indices.
+    /// Finds the width of a pin *base_name* (e.g., "A" or "G1.in") within the context of `def`.
+    /// Returns `Some(width)` for a bus, `None` for a single-bit pin.
+    fn get_pin_width(&self, base_name: &str, def: &CldlDefinition) -> Option<usize> {
+        // Case 1: Is it an IO pin of the current definition? (e.g., "A")
+        if !base_name.contains('.') {
+            if let Some(pin) = def.inputs.iter().find(|p| p.name == base_name) {
+                return pin.width;
+            }
+            if let Some(pin) = def.outputs.iter().find(|p| p.name == base_name) {
+                return pin.width;
+            }
+            // Not an IO pin, must be an internal single wire
+            return None;
+        }
+
+        // Case 2: It's a pin on a sub-part (e.g., "G1.in")
+        // We need to find the part instance name and the pin name on that part.
+        // `rfind` handles nested names like "Datapath.ALU.A" -> part="Datapath.ALU", pin="A"
+        if let Some(dot_pos) = base_name.rfind('.') {
+            let (part_instance_name, pin_name) = base_name.split_at(dot_pos);
+            let pin_name = &pin_name[1..]; // remove leading '.'
+
+            // Find the PartDef for "Datapath.ALU" in the *current* definition
+            if let Some(part_def) = def.parts.iter().find(|p| p.instance_name == part_instance_name) {
+                // Found PartDef { instance_name: "Datapath.ALU", part_type: "ALU_4B" }
+                // Now find the definition for "ALU_4B"
+                if let Some(sub_def) = self.definitions.get(&part_def.part_type) {
+                    // Search the sub-definition's IO pins
+                    if let Some(pin) = sub_def.inputs.iter().find(|p| p.name == pin_name) {
+                        return pin.width;
+                    }
+                    if let Some(pin) = sub_def.outputs.iter().find(|p| p.name == pin_name) {
+                        return pin.width;
+                    }
+                    // Pin not found on sub-def IO
+                    eprintln!("Warning: Pin '{}' not found on inputs or outputs of part type '{}' (for instance '{}')",
+                        pin_name, part_def.part_type, part_instance_name);
+                    return None;
+                } else {
+                    // No definition found for this part_type.
+                    // Is it "NAND"?
+                    if part_def.part_type == "NAND" {
+                        // "in1", "in2", "out" are all single-bit
+                        return None;
+                    }
+                    // Unknown part type, assume single-bit pins
+                    eprintln!("Warning: No CLDL definition found for part type '{}' (instance '{}'). Assuming single-bit pins.",
+                        part_def.part_type, part_instance_name);
+                    return None;
+                }
+            } else {
+                // Part instance not found in definition
+                eprintln!("Warning: Part instance '{}' (from pin base_name '{}') not found in definition '{}'.",
+                    part_instance_name, base_name, def.name);
+                return None;
+            }
+        }
+
+        // Default: not found or malformed, assume single wire
+        None
+    }
+
+    /// Helper to alias two wires in the map.
+    /// `src_wire_key` will be aliased to `dest_wire_key`.
+    fn alias_wires(
+        &self,
+        wire_map: &mut HashMap<String, Wire>,
+        src_wire_key: &str,
+        dest_wire_key: &str,
+    ) {
+        if let Some(dest_wire) = wire_map.get(dest_wire_key).cloned() {
+            // Dest exists, make Src point to it
+            wire_map.insert(src_wire_key.to_string(), dest_wire);
+        } else {
+            // Dest doesn't exist, get/create Src and make Dest point to it
+            let src_wire = self.get_or_create_wire(src_wire_key, wire_map);
+            wire_map.insert(dest_wire_key.to_string(), src_wire);
+        }
+    }
+
+    /// Applies connections from a definition, handling single-bit, bus-to-bus, and tee connections.
     fn apply_connections(
         &self,
-        connections: &[ConnectionDef],
+        def: &CldlDefinition,
         instance_prefix: &str,
         wire_map: &mut HashMap<String, Wire>,
     ) {
-        for conn in connections {
-            // Apply prefix to base names before generating map keys
+        for conn in &def.connections {
+            // Apply prefix to base names (e.g., "A" -> "MyPart.A")
             let src_pin_ref = namespace_pin_ref(&conn.source_pin, instance_prefix);
             let dest_pin_ref = namespace_pin_ref(&conn.dest_pin, instance_prefix);
 
-            // Convert PinRefs to the canonical wire map key (e.g., "A.0")
-            let src_wire_key = src_pin_ref.to_wire_map_key();
-            let dest_wire_key = dest_pin_ref.to_wire_map_key();
+            match (src_pin_ref.index, dest_pin_ref.index) {
+                (Some(_), Some(_)) => {
+                    // Case 1: Single-bit to Single-bit (e.g., A[0] -> B[1])
+                    let src_wire_key = src_pin_ref.to_wire_map_key();
+                    let dest_wire_key = dest_pin_ref.to_wire_map_key();
+                    self.alias_wires(wire_map, &src_wire_key, &dest_wire_key);
+                }
 
-            // Perform aliasing using the generated keys
-            if let Some(dest_wire) = wire_map.get(&dest_wire_key).cloned() {
-                wire_map.insert(src_wire_key, dest_wire);
-            } else {
-                let src_wire = self.get_or_create_wire(&src_wire_key, wire_map);
-                wire_map.insert(dest_wire_key, src_wire);
+                (None, None) => {
+                    // Case 2: Bus-to-Bus (A -> B) OR Single-to-Single (Clk -> G1.clk)
+                    // Get width using the *local* base names from the connection def
+                    let src_width = self.get_pin_width(&conn.source_pin.base_name, def);
+                    let dest_width = self.get_pin_width(&conn.dest_pin.base_name, def);
+
+                    match (src_width, dest_width) {
+                        (Some(w1), Some(w2)) => {
+                            // Bus-to-Bus (A -> B)
+                            if w1 != w2 {
+                                panic!(
+                                    "Bus width mismatch in '{}': {} (width {}) -> {} (width {})",
+                                    def.name, src_pin_ref.base_name, w1, dest_pin_ref.base_name, w2
+                                );
+                            }
+                            // Connect all bits
+                            for i in 0..w1 {
+                                // Use the *namespaced* base_name for the key
+                                let src_wire_key = format!("{}.{}", src_pin_ref.base_name, i);
+                                let dest_wire_key = format!("{}.{}", dest_pin_ref.base_name, i);
+                                self.alias_wires(wire_map, &src_wire_key, &dest_wire_key);
+                            }
+                        }
+                        (None, None) => {
+                            // Single-to-Single (Clk -> G1.clk)
+                            let src_wire_key = src_pin_ref.to_wire_map_key();
+                            let dest_wire_key = dest_pin_ref.to_wire_map_key();
+                            self.alias_wires(wire_map, &src_wire_key, &dest_wire_key);
+                        }
+                        (Some(w), None) => {
+                            // Bus-to-Single (A -> B) - Error
+                            panic!(
+                                "Cannot connect bus {} (width {}) to single pin {} in {}",
+                                src_pin_ref.base_name, w, dest_pin_ref.base_name, def.name
+                            );
+                        }
+                        (None, Some(w)) => {
+                            // Single-to-Bus (A -> B) - "Tee" connection
+                            // Connect single source (A) to all bits of destination bus (B[0]...B[w-1])
+                            let src_wire_key = src_pin_ref.to_wire_map_key();
+                            for i in 0..w {
+                                // Use the *namespaced* base_name for the key
+                                let dest_wire_key = format!("{}.{}", dest_pin_ref.base_name, i);
+                                self.alias_wires(wire_map, &src_wire_key, &dest_wire_key);
+                            }
+                        }
+                    }
+                }
+
+                (Some(_), None) => {
+                    // Case 3: Single-bit-to-Bus (e.g., A[0] -> B) - "Tee" connection
+                    // OR Single-bit-to-Single-pin (e.g., A[0] -> B)
+                    // Get width using the *local* base name from the connection def
+                    let dest_width = self.get_pin_width(&conn.dest_pin.base_name, def);
+                    let src_wire_key = src_pin_ref.to_wire_map_key(); // e.g., "MyPart.A.0"
+
+                    if let Some(w) = dest_width {
+                        // Tee A[0] to B[0]...B[w-1]
+                        for i in 0..w {
+                            // Use the *namespaced* base_name for the key
+                            let dest_wire_key = format!("{}.{}", dest_pin_ref.base_name, i);
+                            self.alias_wires(wire_map, &src_wire_key, &dest_wire_key);
+                        }
+                    } else {
+                        // Single-bit-to-Single-pin (A[0] -> B)
+                        let dest_wire_key = dest_pin_ref.to_wire_map_key(); // e.g., "MyPart.B"
+                        self.alias_wires(wire_map, &src_wire_key, &dest_wire_key);
+                    }
+                }
+
+                (None, Some(_)) => {
+                    // Case 4: (e.g., A -> B[0])
+                    // Source has no index, Dest has an index.
+                    // Check if source is a bus or a single pin.
+                    // Get width using the *local* base name from the connection def
+                    let src_width = self.get_pin_width(&conn.source_pin.base_name, def);
+                    
+                    if src_width.is_some() {
+                        // Source IS a bus (e.g., BusA -> B[0]) - Error
+                        panic!(
+                            "Cannot connect bus {} to single bit {} in {}",
+                            src_pin_ref.base_name,
+                            dest_pin_ref.to_wire_map_key(),
+                            def.name
+                        );
+                    } else {
+                        // Source is a single pin (e.g., FA0.sum -> S[0]) - OK
+                        let src_wire_key = src_pin_ref.to_wire_map_key(); // "prefix.FA0.sum"
+                        let dest_wire_key = dest_pin_ref.to_wire_map_key(); // "prefix.S.0"
+                        self.alias_wires(wire_map, &src_wire_key, &dest_wire_key);
+                    }
+                }
             }
         }
     }
@@ -409,7 +579,7 @@ impl CircuitBuilder {
                 .map_or("", |p| p.part_type.as_str());
 
             let is_subgraph = self.definitions.contains_key(part_type) 
-                              && !Self::PRIMITIVE_GATES.contains(&part_type);
+                                && !Self::PRIMITIVE_GATES.contains(&part_type);
             // --- END FIX ---
 
             if is_subgraph {
@@ -721,3 +891,5 @@ fn namespace_pin_ref(pin_ref: &PinRef, prefix: &str) -> PinRef {
         }
     }
 }
+
+
