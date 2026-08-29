@@ -1,0 +1,68 @@
+CIRCUIT ALU_8B {
+    // Inputs: Operands A & B (8-bit), Carry In, 2-bit op select
+    INPUT A[8];
+    INPUT B[8];
+    INPUT Cin;
+    INPUT S[2]; // 00=ADD, 01=AND, 10=OR, 11=XOR
+
+    OUTPUT Result[8];
+    OUTPUT Cout;
+    OUTPUT Z; // 1 if Result == 0
+
+    // Functional units
+    PART Adder: ADDER_8B;
+    PART LogicAND: AND_8B;
+    PART LogicOR: OR_8B;
+    PART LogicXOR: XOR_8B;
+    PART ResultMux: MUX_8B_4_1;
+
+    // Zero flag over 8 bits: NOR the low nibble, NOR the high nibble, AND them
+    PART ZeroNOR_Lo: NOR4;
+    PART ZeroNOR_Hi: NOR4;
+    PART ZeroAND: AND;
+
+    // Cout gating (only meaningful in ADD mode, S=00)
+    PART NotS0: NOT;
+    PART NotS1: NOT;
+    PART CoutAND: AND3;
+
+    // Inputs to functional units
+    CONNECT A -> Adder.A;
+    CONNECT B -> Adder.B;
+    CONNECT Cin -> Adder.Cin;
+    CONNECT A -> LogicAND.A;
+    CONNECT B -> LogicAND.B;
+    CONNECT A -> LogicOR.A;
+    CONNECT B -> LogicOR.B;
+    CONNECT A -> LogicXOR.A;
+    CONNECT B -> LogicXOR.B;
+
+    // Result mux: In0=ADD, In1=AND, In2=OR, In3=XOR
+    CONNECT Adder.S -> ResultMux.In0;
+    CONNECT LogicAND.Out -> ResultMux.In1;
+    CONNECT LogicOR.Out -> ResultMux.In2;
+    CONNECT LogicXOR.Out -> ResultMux.In3;
+    CONNECT S -> ResultMux.S;
+    CONNECT ResultMux.Out -> Result;
+
+    // Gated carry out
+    CONNECT S[0] -> NotS0.in;
+    CONNECT S[1] -> NotS1.in;
+    CONNECT Adder.Cout -> CoutAND.A;
+    CONNECT NotS0.out -> CoutAND.B;
+    CONNECT NotS1.out -> CoutAND.C;
+    CONNECT CoutAND.Out -> Cout;
+
+    // Zero flag
+    CONNECT Result[0] -> ZeroNOR_Lo.A;
+    CONNECT Result[1] -> ZeroNOR_Lo.B;
+    CONNECT Result[2] -> ZeroNOR_Lo.C;
+    CONNECT Result[3] -> ZeroNOR_Lo.D;
+    CONNECT Result[4] -> ZeroNOR_Hi.A;
+    CONNECT Result[5] -> ZeroNOR_Hi.B;
+    CONNECT Result[6] -> ZeroNOR_Hi.C;
+    CONNECT Result[7] -> ZeroNOR_Hi.D;
+    CONNECT ZeroNOR_Lo.Out -> ZeroAND.in1;
+    CONNECT ZeroNOR_Hi.Out -> ZeroAND.in2;
+    CONNECT ZeroAND.out -> Z;
+}

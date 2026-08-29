@@ -1,0 +1,68 @@
+CIRCUIT CPU_8B {
+    // Top-level 8-bit CPU: 8-bit DATAPATH_8B + the (width-independent)
+    // CONTROL_UNIT_4B. Instructions remain a 16-bit fixed format with 4-bit
+    // fields; the 4-bit immediate is zero-extended into the 8-bit datapath.
+
+    // --- Inputs ---
+    INPUT Instruction[16]; // 16-bit instruction word
+    INPUT MemDataIn[8];    // 8-bit data from memory (for LW)
+    INPUT CLK;             // Master clock
+
+    // --- Outputs ---
+    OUTPUT ALU_Cout;
+    OUTPUT ALU_Z;
+
+    // --- Parts ---
+    PART Datapath: DATAPATH_8B;
+    // The control unit only decodes the 4-bit opcode into control signals and
+    // is independent of data width, so the existing unit is reused as-is.
+    PART Control: CONTROL_UNIT_4B;
+
+    // --- Connections ---
+
+    // 1. Clock and Memory Data
+    CONNECT CLK -> Datapath.CLK;
+    CONNECT MemDataIn -> Datapath.MemDataIn;
+
+    // 2. Instruction decode: Opcode = Instruction[15..12]
+    CONNECT Instruction[15] -> Control.Opcode[3];
+    CONNECT Instruction[14] -> Control.Opcode[2];
+    CONNECT Instruction[13] -> Control.Opcode[1];
+    CONNECT Instruction[12] -> Control.Opcode[0];
+
+    // WriteAddr (Rd) = Instruction[11..8]
+    CONNECT Instruction[11] -> Datapath.WriteAddr[3];
+    CONNECT Instruction[10] -> Datapath.WriteAddr[2];
+    CONNECT Instruction[9]  -> Datapath.WriteAddr[1];
+    CONNECT Instruction[8]  -> Datapath.WriteAddr[0];
+
+    // ReadAddrA (Ra) = Instruction[7..4]
+    CONNECT Instruction[7] -> Datapath.ReadAddrA[3];
+    CONNECT Instruction[6] -> Datapath.ReadAddrA[2];
+    CONNECT Instruction[5] -> Datapath.ReadAddrA[1];
+    CONNECT Instruction[4] -> Datapath.ReadAddrA[0];
+
+    // ReadAddrB (Rb) = Instruction[3..0]
+    CONNECT Instruction[3] -> Datapath.ReadAddrB[3];
+    CONNECT Instruction[2] -> Datapath.ReadAddrB[2];
+    CONNECT Instruction[1] -> Datapath.ReadAddrB[1];
+    CONNECT Instruction[0] -> Datapath.ReadAddrB[0];
+
+    // Immediate (Imm) = Instruction[3..0], zero-extended into the low 4 bits.
+    // Immediate[7..4] are left unconnected and default to 0.
+    CONNECT Instruction[3] -> Datapath.Immediate[3];
+    CONNECT Instruction[2] -> Datapath.Immediate[2];
+    CONNECT Instruction[1] -> Datapath.Immediate[1];
+    CONNECT Instruction[0] -> Datapath.Immediate[0];
+
+    // 3. Control Unit outputs -> Datapath inputs
+    CONNECT Control.WriteEnable -> Datapath.WriteEnable;
+    CONNECT Control.ALUSrc      -> Datapath.ALUSrc;
+    CONNECT Control.MemToReg    -> Datapath.MemToReg;
+    CONNECT Control.ALUSel      -> Datapath.ALUSel;
+    CONNECT Control.ALUCin      -> Datapath.ALUCin;
+
+    // 4. Datapath flag outputs -> CPU outputs
+    CONNECT Datapath.ALU_Cout -> ALU_Cout;
+    CONNECT Datapath.ALU_Z    -> ALU_Z;
+}

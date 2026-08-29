@@ -1,0 +1,84 @@
+// Test suite for the 8-bit 4:1 multiplexer
+
+TESTS FOR MUX_8B_4_1 {
+    TEST "Select In0 (one-hot)" {
+        SET S[0] 0, S[1] 0;
+        SET In0[0] 1, In0[1] 0, In0[2] 0, In0[3] 0, In0[4] 1, In0[5] 0, In0[6] 0, In0[7] 0; // In0 = 17
+        SET In1[0] 0, In1[1] 1, In1[2] 0, In1[3] 0, In1[4] 0, In1[5] 1, In1[6] 0, In1[7] 0; // In1 = 34
+        SET In2[0] 0, In2[1] 0, In2[2] 1, In2[3] 0, In2[4] 0, In2[5] 0, In2[6] 1, In2[7] 0; // In2 = 68
+        SET In3[0] 0, In3[1] 0, In3[2] 0, In3[3] 1, In3[4] 0, In3[5] 0, In3[6] 0, In3[7] 1; // In3 = 136
+        EVAL;
+        ASSERT Out[0] 1; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 1; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; // Out = In0 = 17
+    }
+
+    TEST "Select In1 (one-hot)" {
+        SET S[0] 1, S[1] 0;
+        SET In0[0] 1, In0[1] 0, In0[2] 0, In0[3] 0, In0[4] 1, In0[5] 0, In0[6] 0, In0[7] 0; // In0 = 17
+        SET In1[0] 0, In1[1] 1, In1[2] 0, In1[3] 0, In1[4] 0, In1[5] 1, In1[6] 0, In1[7] 0; // In1 = 34
+        SET In2[0] 0, In2[1] 0, In2[2] 1, In2[3] 0, In2[4] 0, In2[5] 0, In2[6] 1, In2[7] 0; // In2 = 68
+        SET In3[0] 0, In3[1] 0, In3[2] 0, In3[3] 1, In3[4] 0, In3[5] 0, In3[6] 0, In3[7] 1; // In3 = 136
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 1; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 1; ASSERT Out[6] 0; ASSERT Out[7] 0; // Out = In1 = 34
+    }
+
+    TEST "Select In2 (one-hot)" {
+        SET S[0] 0, S[1] 1;
+        SET In0[0] 1, In0[1] 0, In0[2] 0, In0[3] 0, In0[4] 1, In0[5] 0, In0[6] 0, In0[7] 0; // In0 = 17
+        SET In1[0] 0, In1[1] 1, In1[2] 0, In1[3] 0, In1[4] 0, In1[5] 1, In1[6] 0, In1[7] 0; // In1 = 34
+        SET In2[0] 0, In2[1] 0, In2[2] 1, In2[3] 0, In2[4] 0, In2[5] 0, In2[6] 1, In2[7] 0; // In2 = 68
+        SET In3[0] 0, In3[1] 0, In3[2] 0, In3[3] 1, In3[4] 0, In3[5] 0, In3[6] 0, In3[7] 1; // In3 = 136
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 1; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 1; ASSERT Out[7] 0; // Out = In2 = 68
+    }
+
+    TEST "Select In3 (one-hot)" {
+        SET S[0] 1, S[1] 1;
+        SET In0[0] 1, In0[1] 0, In0[2] 0, In0[3] 0, In0[4] 1, In0[5] 0, In0[6] 0, In0[7] 0; // In0 = 17
+        SET In1[0] 0, In1[1] 1, In1[2] 0, In1[3] 0, In1[4] 0, In1[5] 1, In1[6] 0, In1[7] 0; // In1 = 34
+        SET In2[0] 0, In2[1] 0, In2[2] 1, In2[3] 0, In2[4] 0, In2[5] 0, In2[6] 1, In2[7] 0; // In2 = 68
+        SET In3[0] 0, In3[1] 0, In3[2] 0, In3[3] 1, In3[4] 0, In3[5] 0, In3[6] 0, In3[7] 1; // In3 = 136
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 1; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 1; // Out = In3 = 136
+    }
+
+    TEST "Select In0 (asymmetric)" {
+        SET S[0] 0, S[1] 0;
+        SET In0[0] 0, In0[1] 1, In0[2] 1, In0[3] 1, In0[4] 1, In0[5] 0, In0[6] 0, In0[7] 0; // In0 = 30
+        SET In1[0] 1, In1[1] 0, In1[2] 1, In1[3] 1, In1[4] 0, In1[5] 1, In1[6] 0, In1[7] 0; // In1 = 45
+        SET In2[0] 0, In2[1] 0, In2[2] 1, In2[3] 1, In2[4] 1, In2[5] 1, In2[6] 0, In2[7] 0; // In2 = 60
+        SET In3[0] 1, In3[1] 1, In3[2] 0, In3[3] 1, In3[4] 0, In3[5] 0, In3[6] 1, In3[7] 0; // In3 = 75
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 1; ASSERT Out[2] 1; ASSERT Out[3] 1; ASSERT Out[4] 1; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; // Out = In0 = 30
+    }
+
+    TEST "Select In1 (asymmetric)" {
+        SET S[0] 1, S[1] 0;
+        SET In0[0] 0, In0[1] 1, In0[2] 1, In0[3] 1, In0[4] 1, In0[5] 0, In0[6] 0, In0[7] 0; // In0 = 30
+        SET In1[0] 1, In1[1] 0, In1[2] 1, In1[3] 1, In1[4] 0, In1[5] 1, In1[6] 0, In1[7] 0; // In1 = 45
+        SET In2[0] 0, In2[1] 0, In2[2] 1, In2[3] 1, In2[4] 1, In2[5] 1, In2[6] 0, In2[7] 0; // In2 = 60
+        SET In3[0] 1, In3[1] 1, In3[2] 0, In3[3] 1, In3[4] 0, In3[5] 0, In3[6] 1, In3[7] 0; // In3 = 75
+        EVAL;
+        ASSERT Out[0] 1; ASSERT Out[1] 0; ASSERT Out[2] 1; ASSERT Out[3] 1; ASSERT Out[4] 0; ASSERT Out[5] 1; ASSERT Out[6] 0; ASSERT Out[7] 0; // Out = In1 = 45
+    }
+
+    TEST "Select In2 (asymmetric)" {
+        SET S[0] 0, S[1] 1;
+        SET In0[0] 0, In0[1] 1, In0[2] 1, In0[3] 1, In0[4] 1, In0[5] 0, In0[6] 0, In0[7] 0; // In0 = 30
+        SET In1[0] 1, In1[1] 0, In1[2] 1, In1[3] 1, In1[4] 0, In1[5] 1, In1[6] 0, In1[7] 0; // In1 = 45
+        SET In2[0] 0, In2[1] 0, In2[2] 1, In2[3] 1, In2[4] 1, In2[5] 1, In2[6] 0, In2[7] 0; // In2 = 60
+        SET In3[0] 1, In3[1] 1, In3[2] 0, In3[3] 1, In3[4] 0, In3[5] 0, In3[6] 1, In3[7] 0; // In3 = 75
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 1; ASSERT Out[3] 1; ASSERT Out[4] 1; ASSERT Out[5] 1; ASSERT Out[6] 0; ASSERT Out[7] 0; // Out = In2 = 60
+    }
+
+    TEST "Select In3 (asymmetric)" {
+        SET S[0] 1, S[1] 1;
+        SET In0[0] 0, In0[1] 1, In0[2] 1, In0[3] 1, In0[4] 1, In0[5] 0, In0[6] 0, In0[7] 0; // In0 = 30
+        SET In1[0] 1, In1[1] 0, In1[2] 1, In1[3] 1, In1[4] 0, In1[5] 1, In1[6] 0, In1[7] 0; // In1 = 45
+        SET In2[0] 0, In2[1] 0, In2[2] 1, In2[3] 1, In2[4] 1, In2[5] 1, In2[6] 0, In2[7] 0; // In2 = 60
+        SET In3[0] 1, In3[1] 1, In3[2] 0, In3[3] 1, In3[4] 0, In3[5] 0, In3[6] 1, In3[7] 0; // In3 = 75
+        EVAL;
+        ASSERT Out[0] 1; ASSERT Out[1] 1; ASSERT Out[2] 0; ASSERT Out[3] 1; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 1; ASSERT Out[7] 0; // Out = In3 = 75
+    }
+
+}

@@ -1,0 +1,100 @@
+CIRCUIT REGISTER_8B {
+    // 8-bit register with load-enable. Load=1 loads Data on the clock edge;
+    // Load=0 recirculates Q (hold).
+    INPUT Data[8];
+    INPUT CLK;
+    INPUT Load;
+
+    OUTPUT Q[8];
+    OUTPUT nQ[8];
+
+    PART DFF0: DFLIP_FLOP;
+    PART DFF1: DFLIP_FLOP;
+    PART DFF2: DFLIP_FLOP;
+    PART DFF3: DFLIP_FLOP;
+    PART DFF4: DFLIP_FLOP;
+    PART DFF5: DFLIP_FLOP;
+    PART DFF6: DFLIP_FLOP;
+    PART DFF7: DFLIP_FLOP;
+
+    PART MUX_D0: MUX_2_1;
+    PART MUX_D1: MUX_2_1;
+    PART MUX_D2: MUX_2_1;
+    PART MUX_D3: MUX_2_1;
+    PART MUX_D4: MUX_2_1;
+    PART MUX_D5: MUX_2_1;
+    PART MUX_D6: MUX_2_1;
+    PART MUX_D7: MUX_2_1;
+
+    CONNECT CLK -> DFF0.CLK;
+    CONNECT CLK -> DFF1.CLK;
+    CONNECT CLK -> DFF2.CLK;
+    CONNECT CLK -> DFF3.CLK;
+    CONNECT CLK -> DFF4.CLK;
+    CONNECT CLK -> DFF5.CLK;
+    CONNECT CLK -> DFF6.CLK;
+    CONNECT CLK -> DFF7.CLK;
+
+    CONNECT Data[0] -> MUX_D0.B; // load path
+    CONNECT Q[0] -> MUX_D0.A;    // hold (feedback)
+    CONNECT Load -> MUX_D0.S;
+    CONNECT MUX_D0.Out -> DFF0.D;
+    CONNECT DFF0.Q -> Q[0];
+    CONNECT DFF0.nQ -> nQ[0];
+
+    CONNECT Data[1] -> MUX_D1.B; // load path
+    CONNECT Q[1] -> MUX_D1.A;    // hold (feedback)
+    CONNECT Load -> MUX_D1.S;
+    CONNECT MUX_D1.Out -> DFF1.D;
+    CONNECT DFF1.Q -> Q[1];
+    CONNECT DFF1.nQ -> nQ[1];
+
+    CONNECT Data[2] -> MUX_D2.B; // load path
+    CONNECT Q[2] -> MUX_D2.A;    // hold (feedback)
+    CONNECT Load -> MUX_D2.S;
+    CONNECT MUX_D2.Out -> DFF2.D;
+    CONNECT DFF2.Q -> Q[2];
+    CONNECT DFF2.nQ -> nQ[2];
+
+    CONNECT Data[3] -> MUX_D3.B; // load path
+    CONNECT Q[3] -> MUX_D3.A;    // hold (feedback)
+    CONNECT Load -> MUX_D3.S;
+    CONNECT MUX_D3.Out -> DFF3.D;
+    CONNECT DFF3.Q -> Q[3];
+    CONNECT DFF3.nQ -> nQ[3];
+
+    CONNECT Data[4] -> MUX_D4.B; // load path
+    CONNECT Q[4] -> MUX_D4.A;    // hold (feedback)
+    CONNECT Load -> MUX_D4.S;
+    CONNECT MUX_D4.Out -> DFF4.D;
+    CONNECT DFF4.Q -> Q[4];
+    CONNECT DFF4.nQ -> nQ[4];
+
+    CONNECT Data[5] -> MUX_D5.B; // load path
+    CONNECT Q[5] -> MUX_D5.A;    // hold (feedback)
+    CONNECT Load -> MUX_D5.S;
+    CONNECT MUX_D5.Out -> DFF5.D;
+    CONNECT DFF5.Q -> Q[5];
+    CONNECT DFF5.nQ -> nQ[5];
+
+    CONNECT Data[6] -> MUX_D6.B; // load path
+    CONNECT Q[6] -> MUX_D6.A;    // hold (feedback)
+    CONNECT Load -> MUX_D6.S;
+    CONNECT MUX_D6.Out -> DFF6.D;
+    CONNECT DFF6.Q -> Q[6];
+    CONNECT DFF6.nQ -> nQ[6];
+
+    CONNECT Data[7] -> MUX_D7.B; // load path
+    CONNECT Q[7] -> MUX_D7.A;    // hold (feedback)
+    CONNECT Load -> MUX_D7.S;
+    CONNECT MUX_D7.Out -> DFF7.D;
+    CONNECT DFF7.Q -> Q[7];
+    CONNECT DFF7.nQ -> nQ[7];
+
+    // Initialize to all zeros
+    INIT {
+        SEQ Data[0] 0, Data[1] 0, Data[2] 0, Data[3] 0, Data[4] 0, Data[5] 0, Data[6] 0, Data[7] 0, Load 1, CLK 0 -> CLK 1 -> CLK 0;
+        SET Load 0;
+        EVAL;
+    }
+}

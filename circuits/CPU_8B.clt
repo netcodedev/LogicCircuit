@@ -1,0 +1,147 @@
+// Test suite for the top-level 8-bit CPU
+
+TESTS FOR CPU_8B {
+    TEST "LW R1, MemDataIn=200 (8-bit load)" {
+        SET MemDataIn[0] 0, MemDataIn[1] 0, MemDataIn[2] 0, MemDataIn[3] 1, MemDataIn[4] 0, MemDataIn[5] 0, MemDataIn[6] 1, MemDataIn[7] 1; // MemDataIn=200
+        SET Instruction[12] 1, Instruction[13] 1, Instruction[14] 1, Instruction[15] 1; // Op=15
+        SET Instruction[8] 1, Instruction[9] 0, Instruction[10] 0, Instruction[11] 0; // Rd=R1
+        SET Instruction[4] 0, Instruction[5] 0, Instruction[6] 0, Instruction[7] 0; // Ra=R0
+        SET Instruction[0] 0, Instruction[1] 0, Instruction[2] 0, Instruction[3] 0; // Rb/Imm=0
+        EVAL;
+        ASSERT Control.WriteEnable 1;
+        ASSERT Control.ALUSrc 0;
+        ASSERT Control.MemToReg 1;
+        ASSERT Control.ALUSel[0] 0;
+        ASSERT Control.ALUSel[1] 0;
+        ASSERT Control.ALUCin 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Datapath.RegFile.R1.Q[0] 0; ASSERT Datapath.RegFile.R1.Q[1] 0; ASSERT Datapath.RegFile.R1.Q[2] 0; ASSERT Datapath.RegFile.R1.Q[3] 1; ASSERT Datapath.RegFile.R1.Q[4] 0; ASSERT Datapath.RegFile.R1.Q[5] 0; ASSERT Datapath.RegFile.R1.Q[6] 1; ASSERT Datapath.RegFile.R1.Q[7] 1; // R1 = 200
+    }
+
+    TEST "LW R2, MemDataIn=100" {
+        SET MemDataIn[0] 0, MemDataIn[1] 0, MemDataIn[2] 1, MemDataIn[3] 0, MemDataIn[4] 0, MemDataIn[5] 1, MemDataIn[6] 1, MemDataIn[7] 0; // MemDataIn=100
+        SET Instruction[12] 1, Instruction[13] 1, Instruction[14] 1, Instruction[15] 1; // Op=15
+        SET Instruction[8] 0, Instruction[9] 1, Instruction[10] 0, Instruction[11] 0; // Rd=R2
+        SET Instruction[4] 0, Instruction[5] 0, Instruction[6] 0, Instruction[7] 0; // Ra=R0
+        SET Instruction[0] 0, Instruction[1] 0, Instruction[2] 0, Instruction[3] 0; // Rb/Imm=0
+        EVAL;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Datapath.RegFile.R2.Q[0] 0; ASSERT Datapath.RegFile.R2.Q[1] 0; ASSERT Datapath.RegFile.R2.Q[2] 1; ASSERT Datapath.RegFile.R2.Q[3] 0; ASSERT Datapath.RegFile.R2.Q[4] 0; ASSERT Datapath.RegFile.R2.Q[5] 1; ASSERT Datapath.RegFile.R2.Q[6] 1; ASSERT Datapath.RegFile.R2.Q[7] 0; // R2 = 100
+    }
+
+    TEST "ADD R3, R1, R2 (200 + 100 = 44, Cout=1)" {
+        SET Instruction[12] 1, Instruction[13] 0, Instruction[14] 0, Instruction[15] 0; // Op=1
+        SET Instruction[8] 1, Instruction[9] 1, Instruction[10] 0, Instruction[11] 0; // Rd=R3
+        SET Instruction[4] 1, Instruction[5] 0, Instruction[6] 0, Instruction[7] 0; // Ra=R1
+        SET Instruction[0] 0, Instruction[1] 1, Instruction[2] 0, Instruction[3] 0; // Rb/Imm=2
+        EVAL;
+        ASSERT Control.WriteEnable 1;
+        ASSERT Control.ALUSrc 0;
+        ASSERT Control.MemToReg 0;
+        ASSERT Control.ALUSel[0] 0;
+        ASSERT Control.ALUSel[1] 0;
+        ASSERT Control.ALUCin 0;
+        ASSERT Datapath.Alu.Result[0] 0; ASSERT Datapath.Alu.Result[1] 0; ASSERT Datapath.Alu.Result[2] 1; ASSERT Datapath.Alu.Result[3] 1; ASSERT Datapath.Alu.Result[4] 0; ASSERT Datapath.Alu.Result[5] 1; ASSERT Datapath.Alu.Result[6] 0; ASSERT Datapath.Alu.Result[7] 0; // ALU Result = 44
+        ASSERT ALU_Cout 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Datapath.RegFile.R3.Q[0] 0; ASSERT Datapath.RegFile.R3.Q[1] 0; ASSERT Datapath.RegFile.R3.Q[2] 1; ASSERT Datapath.RegFile.R3.Q[3] 1; ASSERT Datapath.RegFile.R3.Q[4] 0; ASSERT Datapath.RegFile.R3.Q[5] 1; ASSERT Datapath.RegFile.R3.Q[6] 0; ASSERT Datapath.RegFile.R3.Q[7] 0; // R3 = 44
+    }
+
+    TEST "SUB R4, R1, R2 (200 - 100 = 100)" {
+        SET Instruction[12] 0, Instruction[13] 1, Instruction[14] 0, Instruction[15] 0; // Op=2
+        SET Instruction[8] 0, Instruction[9] 0, Instruction[10] 1, Instruction[11] 0; // Rd=R4
+        SET Instruction[4] 1, Instruction[5] 0, Instruction[6] 0, Instruction[7] 0; // Ra=R1
+        SET Instruction[0] 0, Instruction[1] 1, Instruction[2] 0, Instruction[3] 0; // Rb/Imm=2
+        EVAL;
+        ASSERT Control.WriteEnable 1;
+        ASSERT Control.ALUSrc 0;
+        ASSERT Control.MemToReg 0;
+        ASSERT Control.ALUSel[0] 0;
+        ASSERT Control.ALUSel[1] 0;
+        ASSERT Control.ALUCin 1;
+        ASSERT Datapath.Alu.Result[0] 0; ASSERT Datapath.Alu.Result[1] 0; ASSERT Datapath.Alu.Result[2] 1; ASSERT Datapath.Alu.Result[3] 0; ASSERT Datapath.Alu.Result[4] 0; ASSERT Datapath.Alu.Result[5] 1; ASSERT Datapath.Alu.Result[6] 1; ASSERT Datapath.Alu.Result[7] 0; // ALU Result = 100
+        ASSERT ALU_Cout 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Datapath.RegFile.R4.Q[0] 0; ASSERT Datapath.RegFile.R4.Q[1] 0; ASSERT Datapath.RegFile.R4.Q[2] 1; ASSERT Datapath.RegFile.R4.Q[3] 0; ASSERT Datapath.RegFile.R4.Q[4] 0; ASSERT Datapath.RegFile.R4.Q[5] 1; ASSERT Datapath.RegFile.R4.Q[6] 1; ASSERT Datapath.RegFile.R4.Q[7] 0; // R4 = 100
+    }
+
+    TEST "SUB R5, R2, R1 (100 - 200 = 156, borrow)" {
+        SET Instruction[12] 0, Instruction[13] 1, Instruction[14] 0, Instruction[15] 0; // Op=2
+        SET Instruction[8] 1, Instruction[9] 0, Instruction[10] 1, Instruction[11] 0; // Rd=R5
+        SET Instruction[4] 0, Instruction[5] 1, Instruction[6] 0, Instruction[7] 0; // Ra=R2
+        SET Instruction[0] 1, Instruction[1] 0, Instruction[2] 0, Instruction[3] 0; // Rb/Imm=1
+        EVAL;
+        ASSERT Datapath.Alu.Result[0] 0; ASSERT Datapath.Alu.Result[1] 0; ASSERT Datapath.Alu.Result[2] 1; ASSERT Datapath.Alu.Result[3] 1; ASSERT Datapath.Alu.Result[4] 1; ASSERT Datapath.Alu.Result[5] 0; ASSERT Datapath.Alu.Result[6] 0; ASSERT Datapath.Alu.Result[7] 1; // ALU Result = 156
+        ASSERT ALU_Cout 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Datapath.RegFile.R5.Q[0] 0; ASSERT Datapath.RegFile.R5.Q[1] 0; ASSERT Datapath.RegFile.R5.Q[2] 1; ASSERT Datapath.RegFile.R5.Q[3] 1; ASSERT Datapath.RegFile.R5.Q[4] 1; ASSERT Datapath.RegFile.R5.Q[5] 0; ASSERT Datapath.RegFile.R5.Q[6] 0; ASSERT Datapath.RegFile.R5.Q[7] 1; // R5 = 156
+    }
+
+    TEST "AND R6, R1, R2 (200 & 100 = 64)" {
+        SET Instruction[12] 1, Instruction[13] 1, Instruction[14] 0, Instruction[15] 0; // Op=3
+        SET Instruction[8] 0, Instruction[9] 1, Instruction[10] 1, Instruction[11] 0; // Rd=R6
+        SET Instruction[4] 1, Instruction[5] 0, Instruction[6] 0, Instruction[7] 0; // Ra=R1
+        SET Instruction[0] 0, Instruction[1] 1, Instruction[2] 0, Instruction[3] 0; // Rb/Imm=2
+        EVAL;
+        ASSERT Control.WriteEnable 1;
+        ASSERT Control.ALUSrc 0;
+        ASSERT Control.MemToReg 0;
+        ASSERT Control.ALUSel[0] 1;
+        ASSERT Control.ALUSel[1] 0;
+        ASSERT Control.ALUCin 0;
+        ASSERT Datapath.Alu.Result[0] 0; ASSERT Datapath.Alu.Result[1] 0; ASSERT Datapath.Alu.Result[2] 0; ASSERT Datapath.Alu.Result[3] 0; ASSERT Datapath.Alu.Result[4] 0; ASSERT Datapath.Alu.Result[5] 0; ASSERT Datapath.Alu.Result[6] 1; ASSERT Datapath.Alu.Result[7] 0; // ALU Result = 64
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Datapath.RegFile.R6.Q[0] 0; ASSERT Datapath.RegFile.R6.Q[1] 0; ASSERT Datapath.RegFile.R6.Q[2] 0; ASSERT Datapath.RegFile.R6.Q[3] 0; ASSERT Datapath.RegFile.R6.Q[4] 0; ASSERT Datapath.RegFile.R6.Q[5] 0; ASSERT Datapath.RegFile.R6.Q[6] 1; ASSERT Datapath.RegFile.R6.Q[7] 0; // R6 = 64
+    }
+
+    TEST "OR R7, R1, R2 (200 | 100 = 236)" {
+        SET Instruction[12] 0, Instruction[13] 0, Instruction[14] 1, Instruction[15] 0; // Op=4
+        SET Instruction[8] 1, Instruction[9] 1, Instruction[10] 1, Instruction[11] 0; // Rd=R7
+        SET Instruction[4] 1, Instruction[5] 0, Instruction[6] 0, Instruction[7] 0; // Ra=R1
+        SET Instruction[0] 0, Instruction[1] 1, Instruction[2] 0, Instruction[3] 0; // Rb/Imm=2
+        EVAL;
+        ASSERT Control.WriteEnable 1;
+        ASSERT Control.ALUSrc 0;
+        ASSERT Control.MemToReg 0;
+        ASSERT Control.ALUSel[0] 0;
+        ASSERT Control.ALUSel[1] 1;
+        ASSERT Control.ALUCin 0;
+        ASSERT Datapath.Alu.Result[0] 0; ASSERT Datapath.Alu.Result[1] 0; ASSERT Datapath.Alu.Result[2] 1; ASSERT Datapath.Alu.Result[3] 1; ASSERT Datapath.Alu.Result[4] 0; ASSERT Datapath.Alu.Result[5] 1; ASSERT Datapath.Alu.Result[6] 1; ASSERT Datapath.Alu.Result[7] 1; // ALU Result = 236
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Datapath.RegFile.R7.Q[0] 0; ASSERT Datapath.RegFile.R7.Q[1] 0; ASSERT Datapath.RegFile.R7.Q[2] 1; ASSERT Datapath.RegFile.R7.Q[3] 1; ASSERT Datapath.RegFile.R7.Q[4] 0; ASSERT Datapath.RegFile.R7.Q[5] 1; ASSERT Datapath.RegFile.R7.Q[6] 1; ASSERT Datapath.RegFile.R7.Q[7] 1; // R7 = 236
+    }
+
+    TEST "XOR R8, R1, R2 (200 ^ 100 = 172)" {
+        SET Instruction[12] 1, Instruction[13] 0, Instruction[14] 1, Instruction[15] 0; // Op=5
+        SET Instruction[8] 0, Instruction[9] 0, Instruction[10] 0, Instruction[11] 1; // Rd=R8
+        SET Instruction[4] 1, Instruction[5] 0, Instruction[6] 0, Instruction[7] 0; // Ra=R1
+        SET Instruction[0] 0, Instruction[1] 1, Instruction[2] 0, Instruction[3] 0; // Rb/Imm=2
+        EVAL;
+        ASSERT Control.WriteEnable 1;
+        ASSERT Control.ALUSrc 0;
+        ASSERT Control.MemToReg 0;
+        ASSERT Control.ALUSel[0] 1;
+        ASSERT Control.ALUSel[1] 1;
+        ASSERT Control.ALUCin 0;
+        ASSERT Datapath.Alu.Result[0] 0; ASSERT Datapath.Alu.Result[1] 0; ASSERT Datapath.Alu.Result[2] 1; ASSERT Datapath.Alu.Result[3] 1; ASSERT Datapath.Alu.Result[4] 0; ASSERT Datapath.Alu.Result[5] 1; ASSERT Datapath.Alu.Result[6] 0; ASSERT Datapath.Alu.Result[7] 1; // ALU Result = 172
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Datapath.RegFile.R8.Q[0] 0; ASSERT Datapath.RegFile.R8.Q[1] 0; ASSERT Datapath.RegFile.R8.Q[2] 1; ASSERT Datapath.RegFile.R8.Q[3] 1; ASSERT Datapath.RegFile.R8.Q[4] 0; ASSERT Datapath.RegFile.R8.Q[5] 1; ASSERT Datapath.RegFile.R8.Q[6] 0; ASSERT Datapath.RegFile.R8.Q[7] 1; // R8 = 172
+    }
+
+    TEST "ADDI R9, R1, 15 (200 + 15 = 215, imm zero-extended)" {
+        SET Instruction[12] 1, Instruction[13] 0, Instruction[14] 0, Instruction[15] 1; // Op=9
+        SET Instruction[8] 1, Instruction[9] 0, Instruction[10] 0, Instruction[11] 1; // Rd=R9
+        SET Instruction[4] 1, Instruction[5] 0, Instruction[6] 0, Instruction[7] 0; // Ra=R1
+        SET Instruction[0] 1, Instruction[1] 1, Instruction[2] 1, Instruction[3] 1; // Rb/Imm=15
+        EVAL;
+        ASSERT Control.WriteEnable 1;
+        ASSERT Control.ALUSrc 1;
+        ASSERT Control.MemToReg 0;
+        ASSERT Control.ALUSel[0] 0;
+        ASSERT Control.ALUSel[1] 0;
+        ASSERT Control.ALUCin 0;
+        ASSERT Datapath.Alu.Result[0] 1; ASSERT Datapath.Alu.Result[1] 1; ASSERT Datapath.Alu.Result[2] 1; ASSERT Datapath.Alu.Result[3] 0; ASSERT Datapath.Alu.Result[4] 1; ASSERT Datapath.Alu.Result[5] 0; ASSERT Datapath.Alu.Result[6] 1; ASSERT Datapath.Alu.Result[7] 1; // ALU Result = 215
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Datapath.RegFile.R9.Q[0] 1; ASSERT Datapath.RegFile.R9.Q[1] 1; ASSERT Datapath.RegFile.R9.Q[2] 1; ASSERT Datapath.RegFile.R9.Q[3] 0; ASSERT Datapath.RegFile.R9.Q[4] 1; ASSERT Datapath.RegFile.R9.Q[5] 0; ASSERT Datapath.RegFile.R9.Q[6] 1; ASSERT Datapath.RegFile.R9.Q[7] 1; // R9 = 215
+    }
+}

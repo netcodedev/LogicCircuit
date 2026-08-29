@@ -1,0 +1,54 @@
+CIRCUIT MUX_8B_16_1 {
+    // 16-to-1 multiplexer, 8-bit wide. Select is a 4-bit address S[3:0].
+    INPUT In0[8], In1[8], In2[8], In3[8];
+    INPUT In4[8], In5[8], In6[8], In7[8];
+    INPUT In8[8], In9[8], In10[8], In11[8];
+    INPUT In12[8], In13[8], In14[8], In15[8];
+    INPUT S[4];
+
+    OUTPUT Out[8];
+
+    // Stage 1: four 4:1 muxes selected by S[1:0]
+    PART Mux_S1_0: MUX_8B_4_1; // In0-In3
+    PART Mux_S1_1: MUX_8B_4_1; // In4-In7
+    PART Mux_S1_2: MUX_8B_4_1; // In8-In11
+    PART Mux_S1_3: MUX_8B_4_1; // In12-In15
+    // Stage 2: one 4:1 mux selected by S[3:2]
+    PART Mux_S2_Final: MUX_8B_4_1;
+
+    // Stage 1 selects (low two address bits)
+    CONNECT S[0] -> Mux_S1_0.S[0]; CONNECT S[1] -> Mux_S1_0.S[1];
+    CONNECT S[0] -> Mux_S1_1.S[0]; CONNECT S[1] -> Mux_S1_1.S[1];
+    CONNECT S[0] -> Mux_S1_2.S[0]; CONNECT S[1] -> Mux_S1_2.S[1];
+    CONNECT S[0] -> Mux_S1_3.S[0]; CONNECT S[1] -> Mux_S1_3.S[1];
+    // Stage 2 select (high two address bits)
+    CONNECT S[2] -> Mux_S2_Final.S[0];
+    CONNECT S[3] -> Mux_S2_Final.S[1];
+
+    CONNECT In0 -> Mux_S1_0.In0;
+    CONNECT In1 -> Mux_S1_0.In1;
+    CONNECT In2 -> Mux_S1_0.In2;
+    CONNECT In3 -> Mux_S1_0.In3;
+
+    CONNECT In4 -> Mux_S1_1.In0;
+    CONNECT In5 -> Mux_S1_1.In1;
+    CONNECT In6 -> Mux_S1_1.In2;
+    CONNECT In7 -> Mux_S1_1.In3;
+
+    CONNECT In8 -> Mux_S1_2.In0;
+    CONNECT In9 -> Mux_S1_2.In1;
+    CONNECT In10 -> Mux_S1_2.In2;
+    CONNECT In11 -> Mux_S1_2.In3;
+
+    CONNECT In12 -> Mux_S1_3.In0;
+    CONNECT In13 -> Mux_S1_3.In1;
+    CONNECT In14 -> Mux_S1_3.In2;
+    CONNECT In15 -> Mux_S1_3.In3;
+
+    CONNECT Mux_S1_0.Out -> Mux_S2_Final.In0;
+    CONNECT Mux_S1_1.Out -> Mux_S2_Final.In1;
+    CONNECT Mux_S1_2.Out -> Mux_S2_Final.In2;
+    CONNECT Mux_S1_3.Out -> Mux_S2_Final.In3;
+
+    CONNECT Mux_S2_Final.Out -> Out;
+}

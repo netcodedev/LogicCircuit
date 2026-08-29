@@ -1,0 +1,50 @@
+CIRCUIT AND_8B {
+    // Inputs: Two 8-bit data buses
+    INPUT A[8];
+    INPUT B[8];
+
+    // Output: 8-bit result of bitwise AND
+    OUTPUT Out[8];
+
+    PART AND0: AND; // For bit 0
+    PART AND1: AND; // For bit 1
+    PART AND2: AND; // For bit 2
+    PART AND3: AND; // For bit 3
+    PART AND4: AND; // For bit 4
+    PART AND5: AND; // For bit 5
+    PART AND6: AND; // For bit 6
+    PART AND7: AND; // For bit 7
+
+    CONNECT A[0] -> AND0.in1;
+    CONNECT B[0] -> AND0.in2;
+    CONNECT AND0.out -> Out[0];
+
+    CONNECT A[1] -> AND1.in1;
+    CONNECT B[1] -> AND1.in2;
+    CONNECT AND1.out -> Out[1];
+
+    CONNECT A[2] -> AND2.in1;
+    CONNECT B[2] -> AND2.in2;
+    CONNECT AND2.out -> Out[2];
+
+    CONNECT A[3] -> AND3.in1;
+    CONNECT B[3] -> AND3.in2;
+    CONNECT AND3.out -> Out[3];
+
+    CONNECT A[4] -> AND4.in1;
+    CONNECT B[4] -> AND4.in2;
+    CONNECT AND4.out -> Out[4];
+
+    CONNECT A[5] -> AND5.in1;
+    CONNECT B[5] -> AND5.in2;
+    CONNECT AND5.out -> Out[5];
+
+    CONNECT A[6] -> AND6.in1;
+    CONNECT B[6] -> AND6.in2;
+    CONNECT AND6.out -> Out[6];
+
+    CONNECT A[7] -> AND7.in1;
+    CONNECT B[7] -> AND7.in2;
+    CONNECT AND7.out -> Out[7];
+
+}

@@ -1,0 +1,36 @@
+// Test suite for the 8-bit 2:1 multiplexer
+
+TESTS FOR MUX_8B_2_1 {
+    TEST "S=0 selects A (153)" {
+        SET S 0;
+        SET A[0] 1, A[1] 0, A[2] 0, A[3] 1, A[4] 1, A[5] 0, A[6] 0, A[7] 1; // A = 153
+        SET B[0] 0, B[1] 1, B[2] 1, B[3] 0, B[4] 0, B[5] 1, B[6] 1, B[7] 0; // B = 102
+        EVAL;
+        ASSERT Out[0] 1; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 1; ASSERT Out[4] 1; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 1; // Out = A = 153
+    }
+
+    TEST "S=1 selects B (102)" {
+        SET S 1;
+        SET A[0] 1, A[1] 0, A[2] 0, A[3] 1, A[4] 1, A[5] 0, A[6] 0, A[7] 1; // A = 153
+        SET B[0] 0, B[1] 1, B[2] 1, B[3] 0, B[4] 0, B[5] 1, B[6] 1, B[7] 0; // B = 102
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 1; ASSERT Out[2] 1; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 1; ASSERT Out[6] 1; ASSERT Out[7] 0; // Out = B = 102
+    }
+
+    TEST "S=0 selects A (165)" {
+        SET S 0;
+        SET A[0] 1, A[1] 0, A[2] 1, A[3] 0, A[4] 0, A[5] 1, A[6] 0, A[7] 1; // A = 165
+        SET B[0] 0, B[1] 1, B[2] 0, B[3] 1, B[4] 1, B[5] 0, B[6] 1, B[7] 0; // B = 90
+        EVAL;
+        ASSERT Out[0] 1; ASSERT Out[1] 0; ASSERT Out[2] 1; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 1; ASSERT Out[6] 0; ASSERT Out[7] 1; // Out = A = 165
+    }
+
+    TEST "S=1 selects B (90)" {
+        SET S 1;
+        SET A[0] 1, A[1] 0, A[2] 1, A[3] 0, A[4] 0, A[5] 1, A[6] 0, A[7] 1; // A = 165
+        SET B[0] 0, B[1] 1, B[2] 0, B[3] 1, B[4] 1, B[5] 0, B[6] 1, B[7] 0; // B = 90
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 1; ASSERT Out[2] 0; ASSERT Out[3] 1; ASSERT Out[4] 1; ASSERT Out[5] 0; ASSERT Out[6] 1; ASSERT Out[7] 0; // Out = B = 90
+    }
+
+}

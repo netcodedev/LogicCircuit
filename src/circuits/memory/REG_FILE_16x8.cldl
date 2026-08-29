@@ -1,0 +1,127 @@
+CIRCUIT REG_FILE_16x8 {
+    // 16-register file, each register 8 bits wide. R0 is hardwired to 0.
+    // Two read ports (A, B) and one write port.
+
+    INPUT DataIn[8];
+    INPUT WriteAddr[4];
+    INPUT WriteEnable;
+    INPUT ReadAddrA[4];
+    INPUT ReadAddrB[4];
+    INPUT CLK;
+
+    OUTPUT DataOutA[8];
+    OUTPUT DataOutB[8];
+
+    // R0 omitted (hardwired 0); registers R1-R15
+    PART R1: REGISTER_8B;
+    PART R2: REGISTER_8B;
+    PART R3: REGISTER_8B;
+    PART R4: REGISTER_8B;
+    PART R5: REGISTER_8B;
+    PART R6: REGISTER_8B;
+    PART R7: REGISTER_8B;
+    PART R8: REGISTER_8B;
+    PART R9: REGISTER_8B;
+    PART R10: REGISTER_8B;
+    PART R11: REGISTER_8B;
+    PART R12: REGISTER_8B;
+    PART R13: REGISTER_8B;
+    PART R14: REGISTER_8B;
+    PART R15: REGISTER_8B;
+
+    PART WriteDecoder: DECODER_4_16;
+    PART ReadMuxA: MUX_8B_16_1;
+    PART ReadMuxB: MUX_8B_16_1;
+
+    // --- Write logic ---
+    CONNECT WriteAddr -> WriteDecoder.A;
+    CONNECT WriteEnable -> WriteDecoder.Enable;
+    // Skip O[0] so R0 can never be written (stays 0).
+    CONNECT WriteDecoder.O[1] -> R1.Load;
+    CONNECT WriteDecoder.O[2] -> R2.Load;
+    CONNECT WriteDecoder.O[3] -> R3.Load;
+    CONNECT WriteDecoder.O[4] -> R4.Load;
+    CONNECT WriteDecoder.O[5] -> R5.Load;
+    CONNECT WriteDecoder.O[6] -> R6.Load;
+    CONNECT WriteDecoder.O[7] -> R7.Load;
+    CONNECT WriteDecoder.O[8] -> R8.Load;
+    CONNECT WriteDecoder.O[9] -> R9.Load;
+    CONNECT WriteDecoder.O[10] -> R10.Load;
+    CONNECT WriteDecoder.O[11] -> R11.Load;
+    CONNECT WriteDecoder.O[12] -> R12.Load;
+    CONNECT WriteDecoder.O[13] -> R13.Load;
+    CONNECT WriteDecoder.O[14] -> R14.Load;
+    CONNECT WriteDecoder.O[15] -> R15.Load;
+
+    // Fan-out write data to every register
+    CONNECT DataIn -> R1.Data;
+    CONNECT DataIn -> R2.Data;
+    CONNECT DataIn -> R3.Data;
+    CONNECT DataIn -> R4.Data;
+    CONNECT DataIn -> R5.Data;
+    CONNECT DataIn -> R6.Data;
+    CONNECT DataIn -> R7.Data;
+    CONNECT DataIn -> R8.Data;
+    CONNECT DataIn -> R9.Data;
+    CONNECT DataIn -> R10.Data;
+    CONNECT DataIn -> R11.Data;
+    CONNECT DataIn -> R12.Data;
+    CONNECT DataIn -> R13.Data;
+    CONNECT DataIn -> R14.Data;
+    CONNECT DataIn -> R15.Data;
+
+    // --- Read port A (In0 unconnected => R0 reads 0) ---
+    CONNECT R1.Q -> ReadMuxA.In1;
+    CONNECT R2.Q -> ReadMuxA.In2;
+    CONNECT R3.Q -> ReadMuxA.In3;
+    CONNECT R4.Q -> ReadMuxA.In4;
+    CONNECT R5.Q -> ReadMuxA.In5;
+    CONNECT R6.Q -> ReadMuxA.In6;
+    CONNECT R7.Q -> ReadMuxA.In7;
+    CONNECT R8.Q -> ReadMuxA.In8;
+    CONNECT R9.Q -> ReadMuxA.In9;
+    CONNECT R10.Q -> ReadMuxA.In10;
+    CONNECT R11.Q -> ReadMuxA.In11;
+    CONNECT R12.Q -> ReadMuxA.In12;
+    CONNECT R13.Q -> ReadMuxA.In13;
+    CONNECT R14.Q -> ReadMuxA.In14;
+    CONNECT R15.Q -> ReadMuxA.In15;
+    CONNECT ReadAddrA -> ReadMuxA.S;
+    CONNECT ReadMuxA.Out -> DataOutA;
+
+    // --- Read port B (In0 unconnected => R0 reads 0) ---
+    CONNECT R1.Q -> ReadMuxB.In1;
+    CONNECT R2.Q -> ReadMuxB.In2;
+    CONNECT R3.Q -> ReadMuxB.In3;
+    CONNECT R4.Q -> ReadMuxB.In4;
+    CONNECT R5.Q -> ReadMuxB.In5;
+    CONNECT R6.Q -> ReadMuxB.In6;
+    CONNECT R7.Q -> ReadMuxB.In7;
+    CONNECT R8.Q -> ReadMuxB.In8;
+    CONNECT R9.Q -> ReadMuxB.In9;
+    CONNECT R10.Q -> ReadMuxB.In10;
+    CONNECT R11.Q -> ReadMuxB.In11;
+    CONNECT R12.Q -> ReadMuxB.In12;
+    CONNECT R13.Q -> ReadMuxB.In13;
+    CONNECT R14.Q -> ReadMuxB.In14;
+    CONNECT R15.Q -> ReadMuxB.In15;
+    CONNECT ReadAddrB -> ReadMuxB.S;
+    CONNECT ReadMuxB.Out -> DataOutB;
+
+    // --- Clock fan-out ---
+    CONNECT CLK -> R1.CLK;
+    CONNECT CLK -> R2.CLK;
+    CONNECT CLK -> R3.CLK;
+    CONNECT CLK -> R4.CLK;
+    CONNECT CLK -> R5.CLK;
+    CONNECT CLK -> R6.CLK;
+    CONNECT CLK -> R7.CLK;
+    CONNECT CLK -> R8.CLK;
+    CONNECT CLK -> R9.CLK;
+    CONNECT CLK -> R10.CLK;
+    CONNECT CLK -> R11.CLK;
+    CONNECT CLK -> R12.CLK;
+    CONNECT CLK -> R13.CLK;
+    CONNECT CLK -> R14.CLK;
+    CONNECT CLK -> R15.CLK;
+}

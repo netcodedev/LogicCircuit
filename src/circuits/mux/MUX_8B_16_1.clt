@@ -1,0 +1,71 @@
+// Test suite for the 16-to-1 8-bit multiplexer
+
+TESTS FOR MUX_8B_16_1 {
+    TEST "Full sweep: In[i]=i*17 (distinct bytes), each select routes its input" {
+        SET In0[0] 0, In0[1] 0, In0[2] 0, In0[3] 0, In0[4] 0, In0[5] 0, In0[6] 0, In0[7] 0; // In0 = 0
+        SET In1[0] 1, In1[1] 0, In1[2] 0, In1[3] 0, In1[4] 1, In1[5] 0, In1[6] 0, In1[7] 0; // In1 = 17
+        SET In2[0] 0, In2[1] 1, In2[2] 0, In2[3] 0, In2[4] 0, In2[5] 1, In2[6] 0, In2[7] 0; // In2 = 34
+        SET In3[0] 1, In3[1] 1, In3[2] 0, In3[3] 0, In3[4] 1, In3[5] 1, In3[6] 0, In3[7] 0; // In3 = 51
+        SET In4[0] 0, In4[1] 0, In4[2] 1, In4[3] 0, In4[4] 0, In4[5] 0, In4[6] 1, In4[7] 0; // In4 = 68
+        SET In5[0] 1, In5[1] 0, In5[2] 1, In5[3] 0, In5[4] 1, In5[5] 0, In5[6] 1, In5[7] 0; // In5 = 85
+        SET In6[0] 0, In6[1] 1, In6[2] 1, In6[3] 0, In6[4] 0, In6[5] 1, In6[6] 1, In6[7] 0; // In6 = 102
+        SET In7[0] 1, In7[1] 1, In7[2] 1, In7[3] 0, In7[4] 1, In7[5] 1, In7[6] 1, In7[7] 0; // In7 = 119
+        SET In8[0] 0, In8[1] 0, In8[2] 0, In8[3] 1, In8[4] 0, In8[5] 0, In8[6] 0, In8[7] 1; // In8 = 136
+        SET In9[0] 1, In9[1] 0, In9[2] 0, In9[3] 1, In9[4] 1, In9[5] 0, In9[6] 0, In9[7] 1; // In9 = 153
+        SET In10[0] 0, In10[1] 1, In10[2] 0, In10[3] 1, In10[4] 0, In10[5] 1, In10[6] 0, In10[7] 1; // In10 = 170
+        SET In11[0] 1, In11[1] 1, In11[2] 0, In11[3] 1, In11[4] 1, In11[5] 1, In11[6] 0, In11[7] 1; // In11 = 187
+        SET In12[0] 0, In12[1] 0, In12[2] 1, In12[3] 1, In12[4] 0, In12[5] 0, In12[6] 1, In12[7] 1; // In12 = 204
+        SET In13[0] 1, In13[1] 0, In13[2] 1, In13[3] 1, In13[4] 1, In13[5] 0, In13[6] 1, In13[7] 1; // In13 = 221
+        SET In14[0] 0, In14[1] 1, In14[2] 1, In14[3] 1, In14[4] 0, In14[5] 1, In14[6] 1, In14[7] 1; // In14 = 238
+        SET In15[0] 1, In15[1] 1, In15[2] 1, In15[3] 1, In15[4] 1, In15[5] 1, In15[6] 1, In15[7] 1; // In15 = 255
+
+        SET S[0] 0, S[1] 0, S[2] 0, S[3] 0; // select 0
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; // Out = In0 = 0
+        SET S[0] 1, S[1] 0, S[2] 0, S[3] 0; // select 1
+        EVAL;
+        ASSERT Out[0] 1; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 1; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; // Out = In1 = 17
+        SET S[0] 0, S[1] 1, S[2] 0, S[3] 0; // select 2
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 1; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 1; ASSERT Out[6] 0; ASSERT Out[7] 0; // Out = In2 = 34
+        SET S[0] 1, S[1] 1, S[2] 0, S[3] 0; // select 3
+        EVAL;
+        ASSERT Out[0] 1; ASSERT Out[1] 1; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 1; ASSERT Out[5] 1; ASSERT Out[6] 0; ASSERT Out[7] 0; // Out = In3 = 51
+        SET S[0] 0, S[1] 0, S[2] 1, S[3] 0; // select 4
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 1; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 1; ASSERT Out[7] 0; // Out = In4 = 68
+        SET S[0] 1, S[1] 0, S[2] 1, S[3] 0; // select 5
+        EVAL;
+        ASSERT Out[0] 1; ASSERT Out[1] 0; ASSERT Out[2] 1; ASSERT Out[3] 0; ASSERT Out[4] 1; ASSERT Out[5] 0; ASSERT Out[6] 1; ASSERT Out[7] 0; // Out = In5 = 85
+        SET S[0] 0, S[1] 1, S[2] 1, S[3] 0; // select 6
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 1; ASSERT Out[2] 1; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 1; ASSERT Out[6] 1; ASSERT Out[7] 0; // Out = In6 = 102
+        SET S[0] 1, S[1] 1, S[2] 1, S[3] 0; // select 7
+        EVAL;
+        ASSERT Out[0] 1; ASSERT Out[1] 1; ASSERT Out[2] 1; ASSERT Out[3] 0; ASSERT Out[4] 1; ASSERT Out[5] 1; ASSERT Out[6] 1; ASSERT Out[7] 0; // Out = In7 = 119
+        SET S[0] 0, S[1] 0, S[2] 0, S[3] 1; // select 8
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 1; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 1; // Out = In8 = 136
+        SET S[0] 1, S[1] 0, S[2] 0, S[3] 1; // select 9
+        EVAL;
+        ASSERT Out[0] 1; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 1; ASSERT Out[4] 1; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 1; // Out = In9 = 153
+        SET S[0] 0, S[1] 1, S[2] 0, S[3] 1; // select 10
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 1; ASSERT Out[2] 0; ASSERT Out[3] 1; ASSERT Out[4] 0; ASSERT Out[5] 1; ASSERT Out[6] 0; ASSERT Out[7] 1; // Out = In10 = 170
+        SET S[0] 1, S[1] 1, S[2] 0, S[3] 1; // select 11
+        EVAL;
+        ASSERT Out[0] 1; ASSERT Out[1] 1; ASSERT Out[2] 0; ASSERT Out[3] 1; ASSERT Out[4] 1; ASSERT Out[5] 1; ASSERT Out[6] 0; ASSERT Out[7] 1; // Out = In11 = 187
+        SET S[0] 0, S[1] 0, S[2] 1, S[3] 1; // select 12
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 1; ASSERT Out[3] 1; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 1; ASSERT Out[7] 1; // Out = In12 = 204
+        SET S[0] 1, S[1] 0, S[2] 1, S[3] 1; // select 13
+        EVAL;
+        ASSERT Out[0] 1; ASSERT Out[1] 0; ASSERT Out[2] 1; ASSERT Out[3] 1; ASSERT Out[4] 1; ASSERT Out[5] 0; ASSERT Out[6] 1; ASSERT Out[7] 1; // Out = In13 = 221
+        SET S[0] 0, S[1] 1, S[2] 1, S[3] 1; // select 14
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 1; ASSERT Out[2] 1; ASSERT Out[3] 1; ASSERT Out[4] 0; ASSERT Out[5] 1; ASSERT Out[6] 1; ASSERT Out[7] 1; // Out = In14 = 238
+        SET S[0] 1, S[1] 1, S[2] 1, S[3] 1; // select 15
+        EVAL;
+        ASSERT Out[0] 1; ASSERT Out[1] 1; ASSERT Out[2] 1; ASSERT Out[3] 1; ASSERT Out[4] 1; ASSERT Out[5] 1; ASSERT Out[6] 1; ASSERT Out[7] 1; // Out = In15 = 255
+    }
+}

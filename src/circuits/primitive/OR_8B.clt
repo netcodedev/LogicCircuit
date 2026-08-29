@@ -1,0 +1,46 @@
+// Test suite for the 8-bit bitwise OR
+
+TESTS FOR OR_8B {
+    TEST "OR: 0 or 0 = 0" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0; // A = 0
+        SET B[0] 0, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0; // B = 0
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; // 0 OR 0 = 0
+    }
+
+    TEST "OR: 255 or 255 = 255" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1, A[4] 1, A[5] 1, A[6] 1, A[7] 1; // A = 255
+        SET B[0] 1, B[1] 1, B[2] 1, B[3] 1, B[4] 1, B[5] 1, B[6] 1, B[7] 1; // B = 255
+        EVAL;
+        ASSERT Out[0] 1; ASSERT Out[1] 1; ASSERT Out[2] 1; ASSERT Out[3] 1; ASSERT Out[4] 1; ASSERT Out[5] 1; ASSERT Out[6] 1; ASSERT Out[7] 1; // 255 OR 255 = 255
+    }
+
+    TEST "OR: 85 or 170 = 255" {
+        SET A[0] 1, A[1] 0, A[2] 1, A[3] 0, A[4] 1, A[5] 0, A[6] 1, A[7] 0; // A = 85
+        SET B[0] 0, B[1] 1, B[2] 0, B[3] 1, B[4] 0, B[5] 1, B[6] 0, B[7] 1; // B = 170
+        EVAL;
+        ASSERT Out[0] 1; ASSERT Out[1] 1; ASSERT Out[2] 1; ASSERT Out[3] 1; ASSERT Out[4] 1; ASSERT Out[5] 1; ASSERT Out[6] 1; ASSERT Out[7] 1; // 85 OR 170 = 255
+    }
+
+    TEST "OR: 170 or 85 = 255" {
+        SET A[0] 0, A[1] 1, A[2] 0, A[3] 1, A[4] 0, A[5] 1, A[6] 0, A[7] 1; // A = 170
+        SET B[0] 1, B[1] 0, B[2] 1, B[3] 0, B[4] 1, B[5] 0, B[6] 1, B[7] 0; // B = 85
+        EVAL;
+        ASSERT Out[0] 1; ASSERT Out[1] 1; ASSERT Out[2] 1; ASSERT Out[3] 1; ASSERT Out[4] 1; ASSERT Out[5] 1; ASSERT Out[6] 1; ASSERT Out[7] 1; // 170 OR 85 = 255
+    }
+
+    TEST "OR: 204 or 15 = 207" {
+        SET A[0] 0, A[1] 0, A[2] 1, A[3] 1, A[4] 0, A[5] 0, A[6] 1, A[7] 1; // A = 204
+        SET B[0] 1, B[1] 1, B[2] 1, B[3] 1, B[4] 0, B[5] 0, B[6] 0, B[7] 0; // B = 15
+        EVAL;
+        ASSERT Out[0] 1; ASSERT Out[1] 1; ASSERT Out[2] 1; ASSERT Out[3] 1; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 1; ASSERT Out[7] 1; // 204 OR 15 = 207
+    }
+
+    TEST "OR: 240 or 60 = 252" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 1, A[5] 1, A[6] 1, A[7] 1; // A = 240
+        SET B[0] 0, B[1] 0, B[2] 1, B[3] 1, B[4] 1, B[5] 1, B[6] 0, B[7] 0; // B = 60
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 1; ASSERT Out[3] 1; ASSERT Out[4] 1; ASSERT Out[5] 1; ASSERT Out[6] 1; ASSERT Out[7] 1; // 240 OR 60 = 252
+    }
+
+}

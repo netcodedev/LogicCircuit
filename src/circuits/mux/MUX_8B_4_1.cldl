@@ -1,0 +1,30 @@
+CIRCUIT MUX_8B_4_1 {
+    // Inputs: Four 8-bit data buses (In0, In1, In2, In3)
+    INPUT In0[8];
+    INPUT In1[8];
+    INPUT In2[8];
+    INPUT In3[8];
+    // Two Select inputs (S[0], S[1])
+    INPUT S[2];
+
+    // Output: Selected 8-bit data bus (Out)
+    OUTPUT Out[8];
+
+    PART MUX_A: MUX_8B_2_1; // Selects In0/In1 based on S[0]
+    PART MUX_B: MUX_8B_2_1; // Selects In2/In3 based on S[0]
+    PART MUX_C: MUX_8B_2_1; // Selects MUX_A/MUX_B based on S[1]
+
+    CONNECT In0 -> MUX_A.A;
+    CONNECT In1 -> MUX_A.B;
+    CONNECT S[0] -> MUX_A.S;
+
+    CONNECT In2 -> MUX_B.A;
+    CONNECT In3 -> MUX_B.B;
+    CONNECT S[0] -> MUX_B.S;
+
+    CONNECT MUX_A.Out -> MUX_C.A;
+    CONNECT MUX_B.Out -> MUX_C.B;
+    CONNECT S[1] -> MUX_C.S;
+
+    CONNECT MUX_C.Out -> Out;
+}

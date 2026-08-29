@@ -1,0 +1,33 @@
+// Test suite for the 8-bit register
+
+TESTS FOR REGISTER_8B {
+    TEST "Load 0xA5, hold through a clock, reload 0x5A, then clear" {
+        SET Data[0] 1, Data[1] 0, Data[2] 1, Data[3] 0, Data[4] 0, Data[5] 1, Data[6] 0, Data[7] 1; // Data = 165
+        SET Load 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Q[0] 1; ASSERT Q[1] 0; ASSERT Q[2] 1; ASSERT Q[3] 0; ASSERT Q[4] 0; ASSERT Q[5] 1; ASSERT Q[6] 0; ASSERT Q[7] 1; // loaded 0xA5
+        ASSERT nQ[0] 0; ASSERT nQ[1] 1; ASSERT nQ[2] 0; ASSERT nQ[3] 1; ASSERT nQ[4] 1; ASSERT nQ[5] 0; ASSERT nQ[6] 1; ASSERT nQ[7] 0; // nQ = ~Q
+
+        // Hold: drive Data=0x00 with Load=0 and clock; must still read 0xA5
+        SET Load 0;
+        SET Data[0] 0, Data[1] 0, Data[2] 0, Data[3] 0, Data[4] 0, Data[5] 0, Data[6] 0, Data[7] 0; // Data = 0
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Q[0] 1; ASSERT Q[1] 0; ASSERT Q[2] 1; ASSERT Q[3] 0; ASSERT Q[4] 0; ASSERT Q[5] 1; ASSERT Q[6] 0; ASSERT Q[7] 1; // held 0xA5
+
+        // Reload 0x5A
+        SET Data[0] 0, Data[1] 1, Data[2] 0, Data[3] 1, Data[4] 1, Data[5] 0, Data[6] 1, Data[7] 0; // Data = 90
+        SET Load 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Q[0] 0; ASSERT Q[1] 1; ASSERT Q[2] 0; ASSERT Q[3] 1; ASSERT Q[4] 1; ASSERT Q[5] 0; ASSERT Q[6] 1; ASSERT Q[7] 0; // loaded 0x5A
+    }
+
+    TEST "Load all-ones (0xFF) then clear to 0x00" {
+        SET Data[0] 1, Data[1] 1, Data[2] 1, Data[3] 1, Data[4] 1, Data[5] 1, Data[6] 1, Data[7] 1; // Data = 255
+        SET Load 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Q[0] 1; ASSERT Q[1] 1; ASSERT Q[2] 1; ASSERT Q[3] 1; ASSERT Q[4] 1; ASSERT Q[5] 1; ASSERT Q[6] 1; ASSERT Q[7] 1; // all ones
+        SET Data[0] 0, Data[1] 0, Data[2] 0, Data[3] 0, Data[4] 0, Data[5] 0, Data[6] 0, Data[7] 0; // Data = 0
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Q[0] 0; ASSERT Q[1] 0; ASSERT Q[2] 0; ASSERT Q[3] 0; ASSERT Q[4] 0; ASSERT Q[5] 0; ASSERT Q[6] 0; ASSERT Q[7] 0; // cleared
+    }
+}

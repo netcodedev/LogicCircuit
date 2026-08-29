@@ -1,0 +1,50 @@
+CIRCUIT OR_8B {
+    // Inputs: Two 8-bit data buses
+    INPUT A[8];
+    INPUT B[8];
+
+    // Output: 8-bit result of bitwise OR
+    OUTPUT Out[8];
+
+    PART OR0: OR; // For bit 0
+    PART OR1: OR; // For bit 1
+    PART OR2: OR; // For bit 2
+    PART OR3: OR; // For bit 3
+    PART OR4: OR; // For bit 4
+    PART OR5: OR; // For bit 5
+    PART OR6: OR; // For bit 6
+    PART OR7: OR; // For bit 7
+
+    CONNECT A[0] -> OR0.in1;
+    CONNECT B[0] -> OR0.in2;
+    CONNECT OR0.out -> Out[0];
+
+    CONNECT A[1] -> OR1.in1;
+    CONNECT B[1] -> OR1.in2;
+    CONNECT OR1.out -> Out[1];
+
+    CONNECT A[2] -> OR2.in1;
+    CONNECT B[2] -> OR2.in2;
+    CONNECT OR2.out -> Out[2];
+
+    CONNECT A[3] -> OR3.in1;
+    CONNECT B[3] -> OR3.in2;
+    CONNECT OR3.out -> Out[3];
+
+    CONNECT A[4] -> OR4.in1;
+    CONNECT B[4] -> OR4.in2;
+    CONNECT OR4.out -> Out[4];
+
+    CONNECT A[5] -> OR5.in1;
+    CONNECT B[5] -> OR5.in2;
+    CONNECT OR5.out -> Out[5];
+
+    CONNECT A[6] -> OR6.in1;
+    CONNECT B[6] -> OR6.in2;
+    CONNECT OR6.out -> Out[6];
+
+    CONNECT A[7] -> OR7.in1;
+    CONNECT B[7] -> OR7.in2;
+    CONNECT OR7.out -> Out[7];
+
+}

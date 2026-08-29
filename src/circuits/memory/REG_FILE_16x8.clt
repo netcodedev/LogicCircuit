@@ -1,0 +1,65 @@
+// Test suite for the 16x8 register file (R0 hardwired to 0)
+
+TESTS FOR REG_FILE_16x8 {
+    TEST "Initial state: R0 and R15 read 0" {
+        SET ReadAddrA[0] 0, ReadAddrA[1] 0, ReadAddrA[2] 0, ReadAddrA[3] 0; // ReadAddrA = 0
+        SET ReadAddrB[0] 1, ReadAddrB[1] 1, ReadAddrB[2] 1, ReadAddrB[3] 1; // ReadAddrB = 15
+        EVAL;
+        ASSERT DataOutA[0] 0; ASSERT DataOutA[1] 0; ASSERT DataOutA[2] 0; ASSERT DataOutA[3] 0; ASSERT DataOutA[4] 0; ASSERT DataOutA[5] 0; ASSERT DataOutA[6] 0; ASSERT DataOutA[7] 0; // R0 = 0
+        ASSERT DataOutB[0] 0; ASSERT DataOutB[1] 0; ASSERT DataOutB[2] 0; ASSERT DataOutB[3] 0; ASSERT DataOutB[4] 0; ASSERT DataOutB[5] 0; ASSERT DataOutB[6] 0; ASSERT DataOutB[7] 0; // R15 = 0
+    }
+
+    TEST "Write 0xC3 to R7, read on both ports" {
+        SET DataIn[0] 1, DataIn[1] 1, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 1, DataIn[7] 1; // DataIn = 195
+        SET WriteAddr[0] 1, WriteAddr[1] 1, WriteAddr[2] 1, WriteAddr[3] 0; // WriteAddr = 7
+        SET WriteEnable 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET WriteEnable 0;
+        SET ReadAddrA[0] 1, ReadAddrA[1] 1, ReadAddrA[2] 1, ReadAddrA[3] 0; // ReadAddrA = 7
+        SET ReadAddrB[0] 1, ReadAddrB[1] 1, ReadAddrB[2] 1, ReadAddrB[3] 0; // ReadAddrB = 7
+        EVAL;
+        ASSERT DataOutA[0] 1; ASSERT DataOutA[1] 1; ASSERT DataOutA[2] 0; ASSERT DataOutA[3] 0; ASSERT DataOutA[4] 0; ASSERT DataOutA[5] 0; ASSERT DataOutA[6] 1; ASSERT DataOutA[7] 1; // R7 on A
+        ASSERT DataOutB[0] 1; ASSERT DataOutB[1] 1; ASSERT DataOutB[2] 0; ASSERT DataOutB[3] 0; ASSERT DataOutB[4] 0; ASSERT DataOutB[5] 0; ASSERT DataOutB[6] 1; ASSERT DataOutB[7] 1; // R7 on B
+    }
+
+    TEST "WriteEnable=0 holds R7; untouched R8 reads 0" {
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 1, DataIn[3] 1, DataIn[4] 1, DataIn[5] 1, DataIn[6] 0, DataIn[7] 0; // DataIn = 60
+        SET WriteAddr[0] 1, WriteAddr[1] 1, WriteAddr[2] 1, WriteAddr[3] 0; // WriteAddr = 7
+        SET WriteEnable 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET ReadAddrA[0] 1, ReadAddrA[1] 1, ReadAddrA[2] 1, ReadAddrA[3] 0; // ReadAddrA = 7
+        SET ReadAddrB[0] 0, ReadAddrB[1] 0, ReadAddrB[2] 0, ReadAddrB[3] 1; // ReadAddrB = 8
+        EVAL;
+        ASSERT DataOutA[0] 1; ASSERT DataOutA[1] 1; ASSERT DataOutA[2] 0; ASSERT DataOutA[3] 0; ASSERT DataOutA[4] 0; ASSERT DataOutA[5] 0; ASSERT DataOutA[6] 1; ASSERT DataOutA[7] 1; // R7 unchanged
+        ASSERT DataOutB[0] 0; ASSERT DataOutB[1] 0; ASSERT DataOutB[2] 0; ASSERT DataOutB[3] 0; ASSERT DataOutB[4] 0; ASSERT DataOutB[5] 0; ASSERT DataOutB[6] 0; ASSERT DataOutB[7] 0; // R8 = 0
+    }
+
+    TEST "R0 hardwire: writing R0 is ignored" {
+        SET DataIn[0] 1, DataIn[1] 1, DataIn[2] 1, DataIn[3] 1, DataIn[4] 1, DataIn[5] 1, DataIn[6] 1, DataIn[7] 1; // DataIn = 255
+        SET WriteAddr[0] 0, WriteAddr[1] 0, WriteAddr[2] 0, WriteAddr[3] 0; // WriteAddr = 0
+        SET WriteEnable 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET WriteEnable 0;
+        SET ReadAddrA[0] 0, ReadAddrA[1] 0, ReadAddrA[2] 0, ReadAddrA[3] 0; // ReadAddrA = 0
+        EVAL;
+        ASSERT DataOutA[0] 0; ASSERT DataOutA[1] 0; ASSERT DataOutA[2] 0; ASSERT DataOutA[3] 0; ASSERT DataOutA[4] 0; ASSERT DataOutA[5] 0; ASSERT DataOutA[6] 0; ASSERT DataOutA[7] 0; // R0 still 0
+    }
+
+    TEST "Independent read ports: A=R1, B=R2" {
+        SET DataIn[0] 1, DataIn[1] 1, DataIn[2] 1, DataIn[3] 1, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0; // DataIn = 15
+        SET WriteAddr[0] 1, WriteAddr[1] 0, WriteAddr[2] 0, WriteAddr[3] 0; // WriteAddr = 1
+        SET WriteEnable 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET WriteEnable 0;
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 1, DataIn[5] 1, DataIn[6] 1, DataIn[7] 1; // DataIn = 240
+        SET WriteAddr[0] 0, WriteAddr[1] 1, WriteAddr[2] 0, WriteAddr[3] 0; // WriteAddr = 2
+        SET WriteEnable 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET WriteEnable 0;
+        SET ReadAddrA[0] 1, ReadAddrA[1] 0, ReadAddrA[2] 0, ReadAddrA[3] 0; // ReadAddrA = 1
+        SET ReadAddrB[0] 0, ReadAddrB[1] 1, ReadAddrB[2] 0, ReadAddrB[3] 0; // ReadAddrB = 2
+        EVAL;
+        ASSERT DataOutA[0] 1; ASSERT DataOutA[1] 1; ASSERT DataOutA[2] 1; ASSERT DataOutA[3] 1; ASSERT DataOutA[4] 0; ASSERT DataOutA[5] 0; ASSERT DataOutA[6] 0; ASSERT DataOutA[7] 0; // R1
+        ASSERT DataOutB[0] 0; ASSERT DataOutB[1] 0; ASSERT DataOutB[2] 0; ASSERT DataOutB[3] 0; ASSERT DataOutB[4] 1; ASSERT DataOutB[5] 1; ASSERT DataOutB[6] 1; ASSERT DataOutB[7] 1; // R2
+    }
+}

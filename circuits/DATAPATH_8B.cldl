@@ -1,0 +1,77 @@
+CIRCUIT DATAPATH_8B {
+    // 8-bit core datapath: register file + ALU + operand muxes.
+    // Mirrors DATAPATH_4B; only the DATA width is 8-bit. Register addresses
+    // stay 4-bit (16 registers), and control signals stay 1/2-bit.
+
+    // --- Control Inputs (from Control Unit) ---
+    INPUT ReadAddrA[4];     // Selects RegFile.DataOutA
+    INPUT ReadAddrB[4];     // Selects RegFile.DataOutB
+    INPUT WriteAddr[4];     // Selects RegFile register to write
+    INPUT WriteEnable;      // Enables writing to the RegFile
+    INPUT ALUSel[2];        // Selects the ALU operation
+    INPUT ALUCin;           // Carry-in / subtract flag for the ALU
+    INPUT CLK;              // Master clock signal
+
+    // --- Data Inputs & Controls ---
+    INPUT MemDataIn[8];     // Data from Memory (or test harness)
+    INPUT MemToReg;         // 1 = Write MemDataIn to Reg, 0 = Write ALU.Result to Reg
+
+    // --- Immediate Inputs & Control ---
+    INPUT Immediate[8];     // 8-bit immediate value (zero-extended by the CPU)
+    INPUT ALUSrc;           // 1 = Select Immediate, 0 = Select RegFile.DataOutB
+
+    // --- Flag Outputs (to Control Unit) ---
+    OUTPUT ALU_Cout;        // ALU Carry Out flag
+    OUTPUT ALU_Z;           // ALU Zero flag
+
+    // --- Core Components ---
+    PART RegFile: REG_FILE_16x8;
+    PART Alu: ALU_8B;
+
+    // --- Muxes ---
+    PART DataInMux: MUX_8B_2_1;  // Mux for RegFile DataIn
+    PART AluSrcMux: MUX_8B_2_1;  // Mux for ALU 'B' Input
+
+    // Conditionally inverts the ALU 'B' operand for two's-complement
+    // subtraction. ALUCin is the subtract flag (1 for SUB/SUBI): when set it
+    // inverts B, and the same ALUCin=1 into Alu.Cin supplies the "+1", so the
+    // adder computes A + ~B + 1 = A - B. For ADD/ADDI (ALUCin=0) B passes
+    // through unchanged. This keeps ALU_8B a pure A + B + Cin adder.
+    PART BInvert: XOR_8B;
+
+    // --- Connections ---
+
+    // 1. Control Signals
+    CONNECT ReadAddrA -> RegFile.ReadAddrA;
+    CONNECT ReadAddrB -> RegFile.ReadAddrB;
+    CONNECT WriteAddr -> RegFile.WriteAddr;
+    CONNECT WriteEnable -> RegFile.WriteEnable;
+    CONNECT CLK -> RegFile.CLK;
+
+    CONNECT ALUSel -> Alu.S;
+    CONNECT ALUCin -> Alu.Cin;
+
+    // 2. Datapath Loop: Read Port A -> ALU Input A
+    CONNECT RegFile.DataOutA -> Alu.A;
+
+    // 3. ALU 'B' Input Mux (S=0 -> RegB, S=1 -> Immediate)
+    CONNECT ALUSrc -> AluSrcMux.S;
+    CONNECT RegFile.DataOutB -> AluSrcMux.A;
+    CONNECT Immediate -> AluSrcMux.B;
+
+    // Route the selected B operand through the conditional inverter.
+    // BInvert.Out[i] = AluSrcMux.Out[i] XOR ALUCin (ALUCin teed to all 8 bits).
+    CONNECT AluSrcMux.Out -> BInvert.A; // 8-bit bus
+    CONNECT ALUCin -> BInvert.B;        // tee: broadcast subtract flag to all bits
+    CONNECT BInvert.Out -> Alu.B;       // 8-bit bus (A + ~B for subtraction)
+
+    // 4. Data-In Mux (S=0 -> ALU Result, S=1 -> Memory Data)
+    CONNECT MemToReg -> DataInMux.S;
+    CONNECT Alu.Result -> DataInMux.A;
+    CONNECT MemDataIn -> DataInMux.B;
+    CONNECT DataInMux.Out -> RegFile.DataIn;
+
+    // 5. Datapath Outputs
+    CONNECT Alu.Cout -> ALU_Cout;
+    CONNECT Alu.Z -> ALU_Z;
+}

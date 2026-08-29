@@ -1,0 +1,101 @@
+// Test suite for the 8-bit datapath
+
+TESTS FOR DATAPATH_8B {
+    TEST "REG-REG ADD: 100 + 50 = 150" {
+        SET MemDataIn[0] 0, MemDataIn[1] 0, MemDataIn[2] 1, MemDataIn[3] 0, MemDataIn[4] 0, MemDataIn[5] 1, MemDataIn[6] 1, MemDataIn[7] 0; // MemDataIn=100
+        SET WriteAddr[0] 1, WriteAddr[1] 0, WriteAddr[2] 0, WriteAddr[3] 0; // WriteAddr=1
+        SET WriteEnable 1;
+        SET MemToReg 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET MemDataIn[0] 0, MemDataIn[1] 1, MemDataIn[2] 0, MemDataIn[3] 0, MemDataIn[4] 1, MemDataIn[5] 1, MemDataIn[6] 0, MemDataIn[7] 0; // MemDataIn=50
+        SET WriteAddr[0] 0, WriteAddr[1] 1, WriteAddr[2] 0, WriteAddr[3] 0; // WriteAddr=2
+        SET WriteEnable 1;
+        SET MemToReg 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET WriteEnable 0; SET MemToReg 0;
+        SET ReadAddrA[0] 1, ReadAddrA[1] 0, ReadAddrA[2] 0, ReadAddrA[3] 0; // ReadAddrA=1
+        SET ReadAddrB[0] 0, ReadAddrB[1] 1, ReadAddrB[2] 0, ReadAddrB[3] 0; // ReadAddrB=2
+        SET ALUSel[0] 0, ALUSel[1] 0; SET ALUCin 0; SET ALUSrc 0;
+        EVAL;
+        ASSERT Alu.Result[0] 0; ASSERT Alu.Result[1] 1; ASSERT Alu.Result[2] 1; ASSERT Alu.Result[3] 0; ASSERT Alu.Result[4] 1; ASSERT Alu.Result[5] 0; ASSERT Alu.Result[6] 0; ASSERT Alu.Result[7] 1; // 100+50=150
+        ASSERT ALU_Cout 0;
+        ASSERT ALU_Z 0;
+    }
+
+    TEST "REG-REG SUB: 100 - 50 = 50 (no borrow, Cout=1)" {
+        SET ReadAddrA[0] 1, ReadAddrA[1] 0, ReadAddrA[2] 0, ReadAddrA[3] 0; // ReadAddrA=1
+        SET ReadAddrB[0] 0, ReadAddrB[1] 1, ReadAddrB[2] 0, ReadAddrB[3] 0; // ReadAddrB=2
+        SET ALUSel[0] 0, ALUSel[1] 0; SET ALUCin 1; SET ALUSrc 0; SET WriteEnable 0;
+        EVAL;
+        ASSERT Alu.Result[0] 0; ASSERT Alu.Result[1] 1; ASSERT Alu.Result[2] 0; ASSERT Alu.Result[3] 0; ASSERT Alu.Result[4] 1; ASSERT Alu.Result[5] 1; ASSERT Alu.Result[6] 0; ASSERT Alu.Result[7] 0; // 100-50=50
+        ASSERT ALU_Cout 1;
+        ASSERT ALU_Z 0;
+    }
+
+    TEST "REG-REG SUB: 50 - 100 = 206 (borrow, Cout=0)" {
+        SET ReadAddrA[0] 0, ReadAddrA[1] 1, ReadAddrA[2] 0, ReadAddrA[3] 0; // ReadAddrA=2
+        SET ReadAddrB[0] 1, ReadAddrB[1] 0, ReadAddrB[2] 0, ReadAddrB[3] 0; // ReadAddrB=1
+        SET ALUSel[0] 0, ALUSel[1] 0; SET ALUCin 1; SET ALUSrc 0; SET WriteEnable 0;
+        EVAL;
+        ASSERT Alu.Result[0] 0; ASSERT Alu.Result[1] 1; ASSERT Alu.Result[2] 1; ASSERT Alu.Result[3] 1; ASSERT Alu.Result[4] 0; ASSERT Alu.Result[5] 0; ASSERT Alu.Result[6] 1; ASSERT Alu.Result[7] 1; // 50-100 = -50 = 206
+        ASSERT ALU_Cout 0;
+        ASSERT ALU_Z 0;
+    }
+
+    TEST "REG-IMM ADDI: 100 + 30 = 130 (8-bit immediate)" {
+        SET ReadAddrA[0] 1, ReadAddrA[1] 0, ReadAddrA[2] 0, ReadAddrA[3] 0; // ReadAddrA=1
+        SET Immediate[0] 0, Immediate[1] 1, Immediate[2] 1, Immediate[3] 1, Immediate[4] 1, Immediate[5] 0, Immediate[6] 0, Immediate[7] 0; // Immediate=30
+        SET ALUSel[0] 0, ALUSel[1] 0; SET ALUCin 0; SET ALUSrc 1; SET WriteEnable 0;
+        EVAL;
+        ASSERT Alu.Result[0] 0; ASSERT Alu.Result[1] 1; ASSERT Alu.Result[2] 0; ASSERT Alu.Result[3] 0; ASSERT Alu.Result[4] 0; ASSERT Alu.Result[5] 0; ASSERT Alu.Result[6] 0; ASSERT Alu.Result[7] 1; // 100+30=130
+        ASSERT ALU_Cout 0;
+        ASSERT ALU_Z 0;
+    }
+
+    TEST "REG-REG AND: 0xCC & 0xAA = 0x88" {
+        SET MemDataIn[0] 0, MemDataIn[1] 0, MemDataIn[2] 1, MemDataIn[3] 1, MemDataIn[4] 0, MemDataIn[5] 0, MemDataIn[6] 1, MemDataIn[7] 1; // MemDataIn=204
+        SET WriteAddr[0] 1, WriteAddr[1] 1, WriteAddr[2] 0, WriteAddr[3] 0; // WriteAddr=3
+        SET WriteEnable 1;
+        SET MemToReg 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET MemDataIn[0] 0, MemDataIn[1] 1, MemDataIn[2] 0, MemDataIn[3] 1, MemDataIn[4] 0, MemDataIn[5] 1, MemDataIn[6] 0, MemDataIn[7] 1; // MemDataIn=170
+        SET WriteAddr[0] 0, WriteAddr[1] 0, WriteAddr[2] 1, WriteAddr[3] 0; // WriteAddr=4
+        SET WriteEnable 1;
+        SET MemToReg 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET WriteEnable 0; SET MemToReg 0;
+        SET ReadAddrA[0] 1, ReadAddrA[1] 1, ReadAddrA[2] 0, ReadAddrA[3] 0; // ReadAddrA=3
+        SET ReadAddrB[0] 0, ReadAddrB[1] 0, ReadAddrB[2] 1, ReadAddrB[3] 0; // ReadAddrB=4
+        SET ALUSel[0] 1, ALUSel[1] 0; SET ALUCin 0; SET ALUSrc 0;
+        EVAL;
+        ASSERT Alu.Result[0] 0; ASSERT Alu.Result[1] 0; ASSERT Alu.Result[2] 0; ASSERT Alu.Result[3] 1; ASSERT Alu.Result[4] 0; ASSERT Alu.Result[5] 0; ASSERT Alu.Result[6] 0; ASSERT Alu.Result[7] 1; // 0xCC & 0xAA = 0x88
+        ASSERT ALU_Cout 0;
+        ASSERT ALU_Z 0;
+    }
+
+    TEST "ADD overflow 200 + 100 = 44 (Cout=1), write-back to R7" {
+        SET MemDataIn[0] 0, MemDataIn[1] 0, MemDataIn[2] 0, MemDataIn[3] 1, MemDataIn[4] 0, MemDataIn[5] 0, MemDataIn[6] 1, MemDataIn[7] 1; // MemDataIn=200
+        SET WriteAddr[0] 1, WriteAddr[1] 0, WriteAddr[2] 1, WriteAddr[3] 0; // WriteAddr=5
+        SET WriteEnable 1;
+        SET MemToReg 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET MemDataIn[0] 0, MemDataIn[1] 0, MemDataIn[2] 1, MemDataIn[3] 0, MemDataIn[4] 0, MemDataIn[5] 1, MemDataIn[6] 1, MemDataIn[7] 0; // MemDataIn=100
+        SET WriteAddr[0] 0, WriteAddr[1] 1, WriteAddr[2] 1, WriteAddr[3] 0; // WriteAddr=6
+        SET WriteEnable 1;
+        SET MemToReg 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET WriteEnable 0; SET MemToReg 0;
+        SET ReadAddrA[0] 1, ReadAddrA[1] 0, ReadAddrA[2] 1, ReadAddrA[3] 0; // ReadAddrA=5
+        SET ReadAddrB[0] 0, ReadAddrB[1] 1, ReadAddrB[2] 1, ReadAddrB[3] 0; // ReadAddrB=6
+        SET ALUSel[0] 0, ALUSel[1] 0; SET ALUCin 0; SET ALUSrc 0;
+        EVAL;
+        ASSERT Alu.Result[0] 0; ASSERT Alu.Result[1] 0; ASSERT Alu.Result[2] 1; ASSERT Alu.Result[3] 1; ASSERT Alu.Result[4] 0; ASSERT Alu.Result[5] 1; ASSERT Alu.Result[6] 0; ASSERT Alu.Result[7] 0; // 200+100=300 -> 44
+        ASSERT ALU_Cout 1;
+        // write ALU result to R7 (MemToReg=0), then read it
+        SET WriteAddr[0] 1, WriteAddr[1] 1, WriteAddr[2] 1, WriteAddr[3] 0; // WriteAddr=7
+        SET WriteEnable 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET WriteEnable 0;
+        ASSERT RegFile.R7.Q[0] 0; ASSERT RegFile.R7.Q[1] 0; ASSERT RegFile.R7.Q[2] 1; ASSERT RegFile.R7.Q[3] 1; ASSERT RegFile.R7.Q[4] 0; ASSERT RegFile.R7.Q[5] 1; ASSERT RegFile.R7.Q[6] 0; ASSERT RegFile.R7.Q[7] 0; // R7 latched 44
+    }
+}

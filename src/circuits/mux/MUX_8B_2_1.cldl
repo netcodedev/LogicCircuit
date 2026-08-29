@@ -1,0 +1,59 @@
+CIRCUIT MUX_8B_2_1 {
+    // Inputs: Two 8-bit data buses (A, B) and one Select input (S)
+    INPUT A[8];
+    INPUT B[8];
+    INPUT S;
+
+    // Output: Selected 8-bit data bus (Out)
+    OUTPUT Out[8];
+
+    PART MUX0: MUX_2_1; // For bit 0
+    PART MUX1: MUX_2_1; // For bit 1
+    PART MUX2: MUX_2_1; // For bit 2
+    PART MUX3: MUX_2_1; // For bit 3
+    PART MUX4: MUX_2_1; // For bit 4
+    PART MUX5: MUX_2_1; // For bit 5
+    PART MUX6: MUX_2_1; // For bit 6
+    PART MUX7: MUX_2_1; // For bit 7
+
+    CONNECT A[0] -> MUX0.A;
+    CONNECT B[0] -> MUX0.B;
+    CONNECT S  -> MUX0.S;
+    CONNECT MUX0.Out -> Out[0];
+
+    CONNECT A[1] -> MUX1.A;
+    CONNECT B[1] -> MUX1.B;
+    CONNECT S  -> MUX1.S;
+    CONNECT MUX1.Out -> Out[1];
+
+    CONNECT A[2] -> MUX2.A;
+    CONNECT B[2] -> MUX2.B;
+    CONNECT S  -> MUX2.S;
+    CONNECT MUX2.Out -> Out[2];
+
+    CONNECT A[3] -> MUX3.A;
+    CONNECT B[3] -> MUX3.B;
+    CONNECT S  -> MUX3.S;
+    CONNECT MUX3.Out -> Out[3];
+
+    CONNECT A[4] -> MUX4.A;
+    CONNECT B[4] -> MUX4.B;
+    CONNECT S  -> MUX4.S;
+    CONNECT MUX4.Out -> Out[4];
+
+    CONNECT A[5] -> MUX5.A;
+    CONNECT B[5] -> MUX5.B;
+    CONNECT S  -> MUX5.S;
+    CONNECT MUX5.Out -> Out[5];
+
+    CONNECT A[6] -> MUX6.A;
+    CONNECT B[6] -> MUX6.B;
+    CONNECT S  -> MUX6.S;
+    CONNECT MUX6.Out -> Out[6];
+
+    CONNECT A[7] -> MUX7.A;
+    CONNECT B[7] -> MUX7.B;
+    CONNECT S  -> MUX7.S;
+    CONNECT MUX7.Out -> Out[7];
+
+}

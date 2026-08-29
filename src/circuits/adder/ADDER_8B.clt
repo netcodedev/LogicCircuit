@@ -1,0 +1,76 @@
+// Test suite for the 8-bit ripple-carry adder
+
+TESTS FOR ADDER_8B {
+    TEST "ADD: 0 + 0 + 0 = 0 (S=0, Cout=0)" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0; // A = 0
+        SET B[0] 0, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0; // B = 0
+        SET Cin 0;
+        EVAL;
+        ASSERT S[0] 0; ASSERT S[1] 0; ASSERT S[2] 0; ASSERT S[3] 0; ASSERT S[4] 0; ASSERT S[5] 0; ASSERT S[6] 0; ASSERT S[7] 0; // sum low byte = 0
+        ASSERT Cout 0;
+    }
+
+    TEST "ADD: 5 + 3 + 0 = 8 (S=8, Cout=0)" {
+        SET A[0] 1, A[1] 0, A[2] 1, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0; // A = 5
+        SET B[0] 1, B[1] 1, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0; // B = 3
+        SET Cin 0;
+        EVAL;
+        ASSERT S[0] 0; ASSERT S[1] 0; ASSERT S[2] 0; ASSERT S[3] 1; ASSERT S[4] 0; ASSERT S[5] 0; ASSERT S[6] 0; ASSERT S[7] 0; // sum low byte = 8
+        ASSERT Cout 0;
+    }
+
+    TEST "ADD: 127 + 1 + 0 = 128 (S=128, Cout=0)" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1, A[4] 1, A[5] 1, A[6] 1, A[7] 0; // A = 127
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0; // B = 1
+        SET Cin 0;
+        EVAL;
+        ASSERT S[0] 0; ASSERT S[1] 0; ASSERT S[2] 0; ASSERT S[3] 0; ASSERT S[4] 0; ASSERT S[5] 0; ASSERT S[6] 0; ASSERT S[7] 1; // sum low byte = 128
+        ASSERT Cout 0;
+    }
+
+    TEST "ADD: 240 + 15 + 0 = 255 (S=255, Cout=0)" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 1, A[5] 1, A[6] 1, A[7] 1; // A = 240
+        SET B[0] 1, B[1] 1, B[2] 1, B[3] 1, B[4] 0, B[5] 0, B[6] 0, B[7] 0; // B = 15
+        SET Cin 0;
+        EVAL;
+        ASSERT S[0] 1; ASSERT S[1] 1; ASSERT S[2] 1; ASSERT S[3] 1; ASSERT S[4] 1; ASSERT S[5] 1; ASSERT S[6] 1; ASSERT S[7] 1; // sum low byte = 255
+        ASSERT Cout 0;
+    }
+
+    TEST "ADD: 255 + 255 + 0 = 510 (S=254, Cout=1)" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1, A[4] 1, A[5] 1, A[6] 1, A[7] 1; // A = 255
+        SET B[0] 1, B[1] 1, B[2] 1, B[3] 1, B[4] 1, B[5] 1, B[6] 1, B[7] 1; // B = 255
+        SET Cin 0;
+        EVAL;
+        ASSERT S[0] 0; ASSERT S[1] 1; ASSERT S[2] 1; ASSERT S[3] 1; ASSERT S[4] 1; ASSERT S[5] 1; ASSERT S[6] 1; ASSERT S[7] 1; // sum low byte = 254
+        ASSERT Cout 1;
+    }
+
+    TEST "ADD: 200 + 100 + 0 = 300 (S=44, Cout=1)" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 1, A[4] 0, A[5] 0, A[6] 1, A[7] 1; // A = 200
+        SET B[0] 0, B[1] 0, B[2] 1, B[3] 0, B[4] 0, B[5] 1, B[6] 1, B[7] 0; // B = 100
+        SET Cin 0;
+        EVAL;
+        ASSERT S[0] 0; ASSERT S[1] 0; ASSERT S[2] 1; ASSERT S[3] 1; ASSERT S[4] 0; ASSERT S[5] 1; ASSERT S[6] 0; ASSERT S[7] 0; // sum low byte = 44
+        ASSERT Cout 1;
+    }
+
+    TEST "ADD: 100 + 50 + 1 = 151 (S=151, Cout=0)" {
+        SET A[0] 0, A[1] 0, A[2] 1, A[3] 0, A[4] 0, A[5] 1, A[6] 1, A[7] 0; // A = 100
+        SET B[0] 0, B[1] 1, B[2] 0, B[3] 0, B[4] 1, B[5] 1, B[6] 0, B[7] 0; // B = 50
+        SET Cin 1;
+        EVAL;
+        ASSERT S[0] 1; ASSERT S[1] 1; ASSERT S[2] 1; ASSERT S[3] 0; ASSERT S[4] 1; ASSERT S[5] 0; ASSERT S[6] 0; ASSERT S[7] 1; // sum low byte = 151
+        ASSERT Cout 0;
+    }
+
+    TEST "ADD: 255 + 0 + 1 = 256 (S=0, Cout=1)" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1, A[4] 1, A[5] 1, A[6] 1, A[7] 1; // A = 255
+        SET B[0] 0, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0; // B = 0
+        SET Cin 1;
+        EVAL;
+        ASSERT S[0] 0; ASSERT S[1] 0; ASSERT S[2] 0; ASSERT S[3] 0; ASSERT S[4] 0; ASSERT S[5] 0; ASSERT S[6] 0; ASSERT S[7] 0; // sum low byte = 0
+        ASSERT Cout 1;
+    }
+
+}
