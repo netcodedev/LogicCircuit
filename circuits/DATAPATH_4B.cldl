@@ -31,6 +31,13 @@ CIRCUIT DATAPATH_4B {
     PART DataInMux: MUX_4B_2_1;  // Mux for RegFile DataIn
     PART AluSrcMux: MUX_4B_2_1;  // Mux for ALU 'B' Input
 
+    // Conditionally inverts the ALU 'B' operand for two's-complement
+    // subtraction. ALUCin is the subtract flag (1 for SUB/SUBI): when set it
+    // inverts B, and the same ALUCin=1 into Alu.Cin supplies the "+1", so the
+    // adder computes A + ~B + 1 = A - B. For ADD/ADDI (ALUCin=0) B passes
+    // through unchanged. This keeps ALU_4B a pure A + B + Cin adder.
+    PART BInvert: XOR_4B;
+
     // --- Connections ---
 
     // 1. Connect Control Signals
@@ -58,7 +65,11 @@ CIRCUIT DATAPATH_4B {
     // Connect 4-bit immediate to the 4-bit Mux input.
     CONNECT Immediate -> AluSrcMux.B;
 
-    CONNECT AluSrcMux.Out -> Alu.B; // Connect 4-bit bus
+    // Route the selected B operand through the conditional inverter.
+    // BInvert.Out[i] = AluSrcMux.Out[i] XOR ALUCin (ALUCin teed to all 4 bits).
+    CONNECT AluSrcMux.Out -> BInvert.A; // 4-bit bus
+    CONNECT ALUCin -> BInvert.B;        // tee: broadcast subtract flag to all bits
+    CONNECT BInvert.Out -> Alu.B;       // 4-bit bus (A + ~B for subtraction)
 
     // 4. Connect Data-In Mux (ALU.Result or MemDataIn)
     // Mux S=0 selects A (ALU Result)

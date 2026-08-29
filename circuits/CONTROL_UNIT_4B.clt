@@ -1,0 +1,334 @@
+// Test suite for the 4-Bit Control Unit
+
+TESTS FOR CONTROL_UNIT_4B {
+    TEST "OPCODE: NOP (0000)" {
+        SET Opcode[3] 0, Opcode[2] 0, Opcode[1] 0, Opcode[0] 0;
+        EVAL;
+
+        // --- Assert Internal Decoder ---
+        ASSERT Decoder.O[0] 1; // NOP
+        ASSERT Decoder.O[1] 0;
+        ASSERT Decoder.O[2] 0;
+        ASSERT Decoder.O[3] 0;
+        ASSERT Decoder.O[4] 0;
+        ASSERT Decoder.O[5] 0;
+        ASSERT Decoder.O[6] 0;
+        ASSERT Decoder.O[7] 0;
+        ASSERT Decoder.O[8] 0;
+        ASSERT Decoder.O[9] 0;
+        ASSERT Decoder.O[10] 0;
+        ASSERT Decoder.O[11] 0;
+        ASSERT Decoder.O[12] 0;
+        ASSERT Decoder.O[13] 0;
+        ASSERT Decoder.O[14] 0;
+        ASSERT Decoder.O[15] 0;
+
+        // --- Assert Internal Logic (pre-inverter) ---
+        // All OR-gate trees should be 0, so the NOR output is 1
+        ASSERT WE_OR_FINAL.Out 1;
+        ASSERT ALUSRC_OR_FINAL.out 1;
+        // MemToReg is a direct wire, no intermediate NOR
+        ASSERT ALUCIN_OR1.out 1;
+        ASSERT ALUSEL0_OR1.Out 1;
+        ASSERT ALUSEL1_OR1.Out 1;
+
+        // --- Assert Final Outputs ---
+        ASSERT WriteEnable 0;
+        ASSERT ALUSrc 0;
+        ASSERT MemToReg 0;
+        ASSERT ALUSel[0] 0;
+        ASSERT ALUSel[1] 0;
+        ASSERT ALUCin 0;
+    }
+
+    TEST "OPCODE: ADD (0001)" {
+        SET Opcode[3] 0, Opcode[2] 0, Opcode[1] 0, Opcode[0] 1;
+        EVAL;
+
+        // --- Assert Internal Decoder ---
+        ASSERT Decoder.O[0] 0;
+        ASSERT Decoder.O[1] 1; // ADD
+        ASSERT Decoder.O[2] 0;
+        // ... (all others 0)
+
+        // --- Assert Internal Logic (pre-inverter) ---
+        ASSERT WE_OR_FINAL.Out 0; // WriteEnable=1
+        ASSERT ALUSRC_OR_FINAL.out 1;      // ALUSrc=0
+        // MemToReg is direct
+        ASSERT ALUCIN_OR1.out 1;      // ALUCin=0
+        ASSERT ALUSEL0_OR1.Out 1;     // ALUSel0=0
+        ASSERT ALUSEL1_OR1.Out 1;     // ALUSel1=0
+
+        // --- Assert Final Outputs ---
+        ASSERT WriteEnable 1;
+        ASSERT ALUSrc 0;
+        ASSERT MemToReg 0;
+        ASSERT ALUSel[0] 0;
+        ASSERT ALUSel[1] 0;
+        ASSERT ALUCin 0;
+    }
+
+    TEST "OPCODE: SUB (0010)" {
+        SET Opcode[3] 0, Opcode[2] 0, Opcode[1] 1, Opcode[0] 0;
+        EVAL;
+
+        // --- Assert Internal Decoder ---
+        ASSERT Decoder.O[2] 1; // SUB
+
+        // --- Assert Internal Logic (pre-inverter) ---
+        ASSERT WE_OR_FINAL.Out 0; // WriteEnable=1
+        ASSERT ALUSRC_OR_FINAL.out 1;      // ALUSrc=0
+        // MemToReg is direct
+        ASSERT ALUCIN_OR1.out 0;      // ALUCin=1
+        ASSERT ALUSEL0_OR1.Out 1;     // ALUSel0=0
+        ASSERT ALUSEL1_OR1.Out 1;     // ALUSel1=0
+
+        // --- Assert Final Outputs ---
+        ASSERT WriteEnable 1;
+        ASSERT ALUSrc 0;
+        ASSERT MemToReg 0;
+        ASSERT ALUSel[0] 0;
+        ASSERT ALUSel[1] 0;
+        ASSERT ALUCin 1;
+    }
+
+    TEST "OPCODE: AND (0011)" {
+        SET Opcode[3] 0, Opcode[2] 0, Opcode[1] 1, Opcode[0] 1;
+        EVAL;
+
+        // --- Assert Internal Decoder ---
+        ASSERT Decoder.O[3] 1; // AND
+
+        // --- Assert Internal Logic (pre-inverter) ---
+        ASSERT WE_OR_FINAL.Out 0; // WriteEnable=1
+        ASSERT ALUSRC_OR_FINAL.out 1;      // ALUSrc=0
+        // MemToReg is direct
+        ASSERT ALUCIN_OR1.out 1;      // ALUCin=0
+        ASSERT ALUSEL0_OR1.Out 0;     // ALUSel0=1
+        ASSERT ALUSEL1_OR1.Out 1;     // ALUSel1=0
+
+        // --- Assert Final Outputs ---
+        ASSERT WriteEnable 1;
+        ASSERT ALUSrc 0;
+        ASSERT MemToReg 0;
+        ASSERT ALUSel[0] 1;
+        ASSERT ALUSel[1] 0;
+        ASSERT ALUCin 0;
+    }
+
+    TEST "OPCODE: OR (0100)" {
+        SET Opcode[3] 0, Opcode[2] 1, Opcode[1] 0, Opcode[0] 0;
+        EVAL;
+
+        // --- Assert Internal Decoder ---
+        ASSERT Decoder.O[4] 1; // OR
+
+        // --- Assert Internal Logic (pre-inverter) ---
+        ASSERT WE_OR_FINAL.Out 0; // WriteEnable=1
+        ASSERT ALUSRC_OR_FINAL.out 1;      // ALUSrc=0
+        // MemToReg is direct
+        ASSERT ALUCIN_OR1.out 1;      // ALUCin=0
+        ASSERT ALUSEL0_OR1.Out 1;     // ALUSel0=0
+        ASSERT ALUSEL1_OR1.Out 0;     // ALUSel1=1
+
+        // --- Assert Final Outputs ---
+        ASSERT WriteEnable 1;
+        ASSERT ALUSrc 0;
+        ASSERT MemToReg 0;
+        ASSERT ALUSel[0] 0;
+        ASSERT ALUSel[1] 1;
+        ASSERT ALUCin 0;
+    }
+
+    TEST "OPCODE: XOR (0101)" {
+        SET Opcode[3] 0, Opcode[2] 1, Opcode[1] 0, Opcode[0] 1;
+        EVAL;
+
+        // --- Assert Internal Decoder ---
+        ASSERT Decoder.O[5] 1; // XOR
+
+        // --- Assert Internal Logic (pre-inverter) ---
+        ASSERT WE_OR_FINAL.Out 0; // WriteEnable=1
+        ASSERT ALUSRC_OR_FINAL.out 1;      // ALUSrc=0
+        // MemToReg is direct
+        ASSERT ALUCIN_OR1.out 1;      // ALUCin=0
+        ASSERT ALUSEL0_OR1.Out 0;     // ALUSel0=1
+        ASSERT ALUSEL1_OR1.Out 0;     // ALUSel1=1
+
+        // --- Assert Final Outputs ---
+        ASSERT WriteEnable 1;
+        ASSERT ALUSrc 0;
+        ASSERT MemToReg 0;
+        ASSERT ALUSel[0] 1;
+        ASSERT ALUSel[1] 1;
+        ASSERT ALUCin 0;
+    }
+
+    TEST "OPCODE: UNUSED (0110)" {
+        SET Opcode[3] 0, Opcode[2] 1, Opcode[1] 1, Opcode[0] 0;
+        EVAL;
+
+        // --- Assert Internal Decoder ---
+        ASSERT Decoder.O[6] 1; // UNUSED
+
+        // --- Assert Internal Logic (pre-inverter) ---
+        ASSERT WE_OR_FINAL.Out 1; // WriteEnable=0
+        ASSERT ALUSRC_OR_FINAL.out 1;      // ALUSrc=0
+        // MemToReg is direct
+        ASSERT ALUCIN_OR1.out 1;      // ALUCin=0
+        ASSERT ALUSEL0_OR1.Out 1;     // ALUSel0=0
+        ASSERT ALUSEL1_OR1.Out 1;     // ALUSel1=0
+
+        // --- Assert Final Outputs ---
+        ASSERT WriteEnable 0;
+        ASSERT ALUSrc 0;
+        ASSERT MemToReg 0;
+        ASSERT ALUSel[0] 0;
+        ASSERT ALUSel[1] 0;
+        ASSERT ALUCin 0;
+    }
+
+    TEST "OPCODE: ADDI (1001)" {
+        SET Opcode[3] 1, Opcode[2] 0, Opcode[1] 0, Opcode[0] 1;
+        EVAL;
+
+        // --- Assert Internal Decoder ---
+        ASSERT Decoder.O[9] 1; // ADDI
+
+        // --- Assert Internal Logic (pre-inverter) ---
+        ASSERT WE_OR_FINAL.Out 0; // WriteEnable=1
+        ASSERT ALUSRC_OR_FINAL.out 0;      // ALUSrc=1
+        // MemToReg is direct
+        ASSERT ALUCIN_OR1.out 1;      // ALUCin=0
+        ASSERT ALUSEL0_OR1.Out 1;     // ALUSel0=0
+        ASSERT ALUSEL1_OR1.Out 1;     // ALUSel1=0
+
+        // --- Assert Final Outputs ---
+        ASSERT WriteEnable 1;
+        ASSERT ALUSrc 1;
+        ASSERT MemToReg 0;
+        ASSERT ALUSel[0] 0;
+        ASSERT ALUSel[1] 0;
+        ASSERT ALUCin 0;
+    }
+
+    TEST "OPCODE: SUBI (1010)" {
+        SET Opcode[3] 1, Opcode[2] 0, Opcode[1] 1, Opcode[0] 0;
+        EVAL;
+
+        // --- Assert Internal Decoder ---
+        ASSERT Decoder.O[10] 1; // SUBI
+
+        // --- Assert Internal Logic (pre-inverter) ---
+        ASSERT WE_OR_FINAL.Out 0; // WriteEnable=1
+        ASSERT ALUSRC_OR_FINAL.out 0;      // ALUSrc=1
+        // MemToReg is direct
+        ASSERT ALUCIN_OR1.out 0;      // ALUCin=1
+        ASSERT ALUSEL0_OR1.Out 1;     // ALUSel0=0
+        ASSERT ALUSEL1_OR1.Out 1;     // ALUSel1=0
+
+        // --- Assert Final Outputs ---
+        ASSERT WriteEnable 1;
+        ASSERT ALUSrc 1;
+        ASSERT MemToReg 0;
+        ASSERT ALUSel[0] 0;
+        ASSERT ALUSel[1] 0;
+        ASSERT ALUCin 1;
+    }
+
+    TEST "OPCODE: ANDI (1011)" {
+        SET Opcode[3] 1, Opcode[2] 0, Opcode[1] 1, Opcode[0] 1;
+        EVAL;
+
+        // --- Assert Internal Decoder ---
+        ASSERT Decoder.O[11] 1; // ANDI
+
+        // --- Assert Internal Logic (pre-inverter) ---
+        ASSERT WE_OR_FINAL.Out 0; // WriteEnable=1
+        ASSERT ALUSRC_OR_FINAL.out 0;      // ALUSrc=1
+        // MemToReg is direct
+        ASSERT ALUCIN_OR1.out 1;      // ALUCin=0
+        ASSERT ALUSEL0_OR1.Out 0;     // ALUSel0=1
+        ASSERT ALUSEL1_OR1.Out 1;     // ALUSel1=0
+
+        // --- Assert Final Outputs ---
+        ASSERT WriteEnable 1;
+        ASSERT ALUSrc 1;
+        ASSERT MemToReg 0;
+        ASSERT ALUSel[0] 1;
+        ASSERT ALUSel[1] 0;
+        ASSERT ALUCin 0;
+    }
+
+    TEST "OPCODE: ORI (1100)" {
+        SET Opcode[3] 1, Opcode[2] 1, Opcode[1] 0, Opcode[0] 0;
+        EVAL;
+
+        // --- Assert Internal Decoder ---
+        ASSERT Decoder.O[12] 1; // ORI
+
+        // --- Assert Internal Logic (pre-inverter) ---
+        ASSERT WE_OR_FINAL.Out 0; // WriteEnable=1
+        ASSERT ALUSRC_OR_FINAL.out 0;      // ALUSrc=1
+        // MemToReg is direct
+        ASSERT ALUCIN_OR1.out 1;      // ALUCin=0
+        ASSERT ALUSEL0_OR1.Out 1;     // ALUSel0=0
+        ASSERT ALUSEL1_OR1.Out 0;     // ALUSel1=1
+
+        // --- Assert Final Outputs ---
+        ASSERT WriteEnable 1;
+        ASSERT ALUSrc 1;
+        ASSERT MemToReg 0;
+        ASSERT ALUSel[0] 0;
+        ASSERT ALUSel[1] 1;
+        ASSERT ALUCin 0;
+    }
+
+    TEST "OPCODE: XORI (1101)" {
+        SET Opcode[3] 1, Opcode[2] 1, Opcode[1] 0, Opcode[0] 1;
+        EVAL;
+
+        // --- Assert Internal Decoder ---
+        ASSERT Decoder.O[13] 1; // XORI
+
+        // --- Assert Internal Logic (pre-inverter) ---
+        ASSERT WE_OR_FINAL.Out 0; // WriteEnable=1
+        ASSERT ALUSRC_OR_FINAL.out 0;      // ALUSrc=1
+        // MemToReg is direct
+        ASSERT ALUCIN_OR1.out 1;      // ALUCin=0
+        ASSERT ALUSEL0_OR1.Out 0;     // ALUSel0=1
+        ASSERT ALUSEL1_OR1.Out 0;     // ALUSel1=1
+
+        // --- Assert Final Outputs ---
+        ASSERT WriteEnable 1;
+        ASSERT ALUSrc 1;
+        ASSERT MemToReg 0;
+        ASSERT ALUSel[0] 1;
+        ASSERT ALUSel[1] 1;
+        ASSERT ALUCin 0;
+    }
+
+    TEST "OPCODE: LW (1111)" {
+        SET Opcode[3] 1, Opcode[2] 1, Opcode[1] 1, Opcode[0] 1;
+        EVAL;
+
+        // --- Assert Internal Decoder ---
+        ASSERT Decoder.O[15] 1; // LW
+
+        // --- Assert Internal Logic (pre-inverter) ---
+        ASSERT WE_OR_FINAL.Out 0; // WriteEnable=1
+        ASSERT ALUSRC_OR_FINAL.out 1;      // ALUSrc=0 (default)
+        // MemToReg is direct, no intermediate gate
+        ASSERT ALUCIN_OR1.out 1;      // ALUCin=0
+        ASSERT ALUSEL0_OR1.Out 1;     // ALUSel0=0
+        ASSERT ALUSEL1_OR1.Out 1;     // ALUSel1=0
+
+        // --- Assert Final Outputs ---
+        ASSERT WriteEnable 1;
+        ASSERT ALUSrc 0;
+        ASSERT MemToReg 1;
+        ASSERT ALUSel[0] 0;
+        ASSERT ALUSel[1] 0;
+        ASSERT ALUCin 0;
+    }
+}

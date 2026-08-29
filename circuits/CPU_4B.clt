@@ -1,0 +1,258 @@
+// Test suite for the top-level CPU
+// This suite tests the integration of the Datapath and Control Unit.
+// It verifies that instructions are decoded correctly and that
+// the register file state is updated across clock cycles.
+
+TESTS FOR CPU {
+    TEST "ADDI R1, R0, 5 (Reg-Imm)" {
+        // --- Setup ---
+        // R0 is hardwired to 0.
+        // We will execute: ADDI R1, R0, 5
+        // Instruction: 1001_0001_0000_0101 (Op=9, Rd=1, Ra=0, Imm=5)
+
+        // --- Test ---
+        // Opcode: 1001 (ADDI)
+        SET Instruction[15] 1, Instruction[14] 0, Instruction[13] 0, Instruction[12] 1;
+        // Rd (WriteAddr): 0001 (R1)
+        SET Instruction[11] 0, Instruction[10] 0, Instruction[9] 0, Instruction[8] 1;
+        // Ra (ReadAddrA): 0000 (R0)
+        SET Instruction[7] 0, Instruction[6] 0, Instruction[5] 0, Instruction[4] 0;
+        // Imm (Immediate): 0101 (5)
+        SET Instruction[3] 0, Instruction[2] 1, Instruction[1] 0, Instruction[0] 1;
+
+        EVAL; // Evaluate combinational logic
+
+        // --- Assert Control Logic ---
+        ASSERT Control.WriteEnable 1;
+        ASSERT Control.ALUSrc 1;      // Selects Immediate
+        ASSERT Control.MemToReg 0;    // Selects ALU Result
+        ASSERT Control.ALUSel[0] 0; // ADD
+        ASSERT Control.ALUSel[1] 0; // ADD
+        ASSERT Control.ALUCin 0;
+
+        // --- Assert Datapath Wiring ---
+        ASSERT Datapath.WriteAddr[3] 0; // R1
+        ASSERT Datapath.WriteAddr[2] 0;
+        ASSERT Datapath.WriteAddr[1] 0;
+        ASSERT Datapath.WriteAddr[0] 1;
+        ASSERT Datapath.ReadAddrA[3] 0; // R0
+        ASSERT Datapath.ReadAddrA[2] 0;
+        ASSERT Datapath.ReadAddrA[1] 0;
+        ASSERT Datapath.ReadAddrA[0] 0;
+        ASSERT Datapath.Immediate[3] 0; // 5
+        ASSERT Datapath.Immediate[2] 1;
+        ASSERT Datapath.Immediate[1] 0;
+        ASSERT Datapath.Immediate[0] 1;
+
+        // --- Assert Datapath Internals ---
+        // Verify R0 (0) is read
+        ASSERT Datapath.RegFile.DataOutA[3] 0;
+        ASSERT Datapath.RegFile.DataOutA[2] 0;
+        ASSERT Datapath.RegFile.DataOutA[1] 0;
+        ASSERT Datapath.RegFile.DataOutA[0] 0;
+        // Verify Mux B selects Immediate (5)
+        ASSERT Datapath.AluSrcMux.Out[3] 0;
+        ASSERT Datapath.AluSrcMux.Out[2] 1;
+        ASSERT Datapath.AluSrcMux.Out[1] 0;
+        ASSERT Datapath.AluSrcMux.Out[0] 1;
+        // Verify ALU Result (0 + 5 = 5)
+        ASSERT Datapath.Alu.Result[3] 0;
+        ASSERT Datapath.Alu.Result[2] 1;
+        ASSERT Datapath.Alu.Result[1] 0;
+        ASSERT Datapath.Alu.Result[0] 1;
+        // Verify DataInMux selects ALU Result (5)
+        ASSERT Datapath.DataInMux.Out[3] 0;
+        ASSERT Datapath.DataInMux.Out[2] 1;
+        ASSERT Datapath.DataInMux.Out[1] 0;
+        ASSERT Datapath.DataInMux.Out[0] 1;
+
+        // --- Assert CPU Outputs ---
+        ASSERT ALU_Z 0;
+        ASSERT ALU_Cout 0;
+
+        // --- Clock ---
+        // Latch the result (5) into R1
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+    }
+
+    TEST "ADD R3, R1, R0 (Reg-Reg)" {
+        // --- Setup ---
+        // From previous test, R1 now holds 5. R0 is 0.
+        // We will execute: ADD R3, R1, R0
+        // Instruction: 0001_0011_0001_0000 (Op=1, Rd=3, Ra=1, Rb=0)
+        // Expected ALU Result: 5 + 0 = 5
+
+        // --- Test ---
+        // Opcode: 0001 (ADD)
+        SET Instruction[15] 0, Instruction[14] 0, Instruction[13] 0, Instruction[12] 1;
+        // Rd (WriteAddr): 0011 (R3)
+        SET Instruction[11] 0, Instruction[10] 0, Instruction[9] 1, Instruction[8] 1;
+        // Ra (ReadAddrA): 0001 (R1)
+        SET Instruction[7] 0, Instruction[6] 0, Instruction[5] 0, Instruction[4] 1;
+        // Rb (ReadAddrB): 0000 (R0)
+        SET Instruction[3] 0, Instruction[2] 0, Instruction[1] 0, Instruction[0] 0;
+
+        EVAL;
+
+        // --- Assert Datapath Internals ---
+        // Verify R1 (5) is read
+        ASSERT Datapath.RegFile.DataOutA[3] 0;
+        ASSERT Datapath.RegFile.DataOutA[2] 1;
+        ASSERT Datapath.RegFile.DataOutA[1] 0;
+        ASSERT Datapath.RegFile.DataOutA[0] 1;
+        // Verify R0 (0) is read
+        ASSERT Datapath.RegFile.DataOutB[3] 0;
+        ASSERT Datapath.RegFile.DataOutB[2] 0;
+        ASSERT Datapath.RegFile.DataOutB[1] 0;
+        ASSERT Datapath.RegFile.DataOutB[0] 0;
+        // Verify Mux B selects RegB (0)
+        ASSERT Datapath.AluSrcMux.Out[3] 0;
+        ASSERT Datapath.AluSrcMux.Out[2] 0;
+        ASSERT Datapath.AluSrcMux.Out[1] 0;
+        ASSERT Datapath.AluSrcMux.Out[0] 0;
+        // Verify ALU Result (5 + 0 = 5)
+        ASSERT Datapath.Alu.Result[3] 0;
+        ASSERT Datapath.Alu.Result[2] 1;
+        ASSERT Datapath.Alu.Result[1] 0;
+        ASSERT Datapath.Alu.Result[0] 1;
+        // Verify DataInMux selects ALU Result (5)
+        ASSERT Datapath.DataInMux.Out[3] 0;
+        ASSERT Datapath.DataInMux.Out[2] 1;
+        ASSERT Datapath.DataInMux.Out[1] 0;
+        ASSERT Datapath.DataInMux.Out[0] 1;
+
+        // --- Assert Control Logic ---
+        ASSERT Control.WriteEnable 1;
+        ASSERT Control.ALUSrc 0;      // Selects RegB
+        ASSERT Control.MemToReg 0;    // Selects ALU Result
+        ASSERT Control.ALUSel[0] 0; // ADD
+        ASSERT Control.ALUSel[1] 0; // ADD
+        ASSERT Control.ALUCin 0;
+
+        // --- Assert CPU Outputs ---
+        ASSERT ALU_Z 0;
+        ASSERT ALU_Cout 0;
+
+        // --- Clock ---
+        // Latch the result (5) into R3
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+    }
+
+    TEST "LW R4, MemDataIn=10 (Load Word)" {
+        // --- Setup ---
+        // We will load 10 (1010) from MemDataIn into R4.
+        // We will execute: LW R4, 0(R0)
+        // Instruction: 1111_0100_0000_0000 (Op=15, Rd=4, Ra=0, Imm=0)
+        // Ra/Imm are ignored by LW, but ALU will compute 0+0=0.
+
+        // --- Test ---
+        // Set the data on the memory bus
+        SET MemDataIn[3] 1, MemDataIn[2] 0, MemDataIn[1] 1, MemDataIn[0] 0; // 10
+
+        // Opcode: 1111 (LW)
+        SET Instruction[15] 1, Instruction[14] 1, Instruction[13] 1, Instruction[12] 1;
+        // Rd (WriteAddr): 0100 (R4)
+        SET Instruction[11] 0, Instruction[10] 1, Instruction[9] 0, Instruction[8] 0;
+        // Ra (ReadAddrA): 0000 (R0)
+        SET Instruction[7] 0, Instruction[6] 0, Instruction[5] 0, Instruction[4] 0;
+        // Imm (Immediate): 0000 (R0)
+        SET Instruction[3] 0, Instruction[2] 0, Instruction[1] 0, Instruction[0] 0;
+
+        EVAL; 
+
+        // --- Assert Control Logic ---
+        ASSERT Control.Opcode[0] 1;
+        ASSERT Control.Opcode[1] 1;
+        ASSERT Control.Opcode[2] 1;
+        ASSERT Control.Opcode[3] 1;
+
+        ASSERT Control.WE_OR3.C 1;
+
+        ASSERT Control.WriteEnable 1;
+        ASSERT Control.ALUSrc 0;      // Selects RegB
+        ASSERT Control.MemToReg 1;    // Selects Memory
+        ASSERT Control.ALUSel[0] 0; // ADD
+        ASSERT Control.ALUSel[1] 0; // ADD
+        ASSERT Control.ALUCin 0;
+
+        // --- Assert Datapath Internals ---
+        // Verify ALU Result (0 + 0 = 0)
+        ASSERT Datapath.Alu.Result[3] 0;
+        ASSERT Datapath.Alu.Result[2] 0;
+        ASSERT Datapath.Alu.Result[1] 0;
+        ASSERT Datapath.Alu.Result[0] 0;
+
+        // --- Assert CPU Outputs ---
+        // ALU result was 0, so Z flag is 1
+        ASSERT ALU_Z 1;
+        ASSERT ALU_Cout 0;
+
+        // --- Clock ---
+        // Latch the memory data (10) into R4
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+
+        // R4 now holds 10 (1010): Q[3]=1, Q[2]=0, Q[1]=1, Q[0]=0
+        ASSERT Datapath.RegFile.R4.Q[0] 0;
+        ASSERT Datapath.RegFile.R4.Q[1] 1;
+        ASSERT Datapath.RegFile.R4.Q[2] 0;
+        ASSERT Datapath.RegFile.R4.Q[3] 1;
+    }
+
+    TEST "SUBI R5, R4, 10 (Verify LW)" {
+        // --- Setup ---
+        // From previous test, R4 now holds 10.
+        // We will execute: SUBI R5, R4, 10
+        // Instruction: 1010_0101_0100_1010 (Op=10, Rd=5, Ra=4, Imm=10)
+        // Expected ALU Result: 10 - 10 = 0 (Z=1, Cout=1)
+
+        // --- Test ---
+        // Opcode: 1010 (SUBI)
+        SET Instruction[15] 1, Instruction[14] 0, Instruction[13] 1, Instruction[12] 0;
+        // Rd (WriteAddr): 0101 (R5)
+        SET Instruction[11] 0, Instruction[10] 1, Instruction[9] 0, Instruction[8] 1;
+        // Ra (ReadAddrA): 0100 (R4)
+        SET Instruction[7] 0, Instruction[6] 1, Instruction[5] 0, Instruction[4] 0;
+        // Imm (Immediate): 1010 (10)
+        SET Instruction[3] 1, Instruction[2] 0, Instruction[1] 1, Instruction[0] 0;
+
+        EVAL; 
+
+        // --- Assert Control Logic ---
+        ASSERT Control.WriteEnable 1;
+        ASSERT Control.ALUSrc 1;      // Selects Immediate
+        ASSERT Control.MemToReg 0;    // Selects ALU Result
+        ASSERT Control.ALUSel[0] 0; // ADD
+        ASSERT Control.ALUSel[1] 0; // ADD
+        ASSERT Control.ALUCin 1;      // Set for SUBI
+
+        // --- Assert Datapath Internals ---
+        // Verify R4 (10) is read
+        ASSERT Datapath.RegFile.DataOutA[3] 1;
+        ASSERT Datapath.RegFile.DataOutA[2] 0;
+        ASSERT Datapath.RegFile.DataOutA[1] 1;
+        ASSERT Datapath.RegFile.DataOutA[0] 0;
+        // Verify Mux B selects Immediate (10)
+        ASSERT Datapath.AluSrcMux.Out[3] 1;
+        ASSERT Datapath.AluSrcMux.Out[2] 0;
+        ASSERT Datapath.AluSrcMux.Out[1] 1;
+        ASSERT Datapath.AluSrcMux.Out[0] 0;
+        // Verify ALU Result (10 - 10 = 0)
+        ASSERT Datapath.Alu.Result[3] 0;
+        ASSERT Datapath.Alu.Result[2] 0;
+        ASSERT Datapath.Alu.Result[1] 0;
+        ASSERT Datapath.Alu.Result[0] 0;
+        // Verify DataInMux selects ALU Result (0)
+        ASSERT Datapath.DataInMux.Out[3] 0;
+        ASSERT Datapath.DataInMux.Out[2] 0;
+        ASSERT Datapath.DataInMux.Out[1] 0;
+        ASSERT Datapath.DataInMux.Out[0] 0;
+
+        // --- Assert CPU Outputs ---
+        ASSERT ALU_Z 1;
+        ASSERT ALU_Cout 1;
+
+        // --- Clock ---
+        // Latch the result (0) into R5
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+    }
+}

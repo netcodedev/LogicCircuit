@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::circuit::{Circuit, LogicGate, Wire, wire};
+use crate::circuit::{Circuit, LogicGate, Wire};
 
 impl Circuit {
     /// Creates a new, empty circuit with a name.
@@ -22,10 +22,11 @@ impl Circuit {
         self.gates.push(gate);
     }
 
-    pub fn add_input(&mut self, name: &str) -> Wire {
-        let new_wire = wire();
-        self.inputs.insert(name.to_string(), new_wire.clone());
-        new_wire
+    /// Registers `wire` as a named circuit input. The wire is shared (not
+    /// copied), so it must be the same `Wire` the internal gates were built
+    /// against.
+    pub fn register_input(&mut self, name: &str, wire: Wire) {
+        self.inputs.insert(name.to_string(), wire);
     }
 
     pub fn add_output(&mut self, name: &str, wire: Wire) {
@@ -40,15 +41,13 @@ impl Circuit {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_output(&self, name: &str) -> Option<bool> {
         self.outputs.get(name).map(|wire| wire.borrow().value)
     }
 
-    pub fn get_output_unwrapped(&self, name: &str) -> bool {
-        self.get_output(name).expect(&format!(
-            "Output '{}' not found in circuit '{}'",
-            name, self.name
-        ))
+    pub fn get_wire_value(&self, name: &str) -> bool {
+        self.wire_map.get(name).expect(format!("Value '{}' not found", name).as_str()).borrow().value
     }
 
     pub fn set_wire_map(&mut self, wire_map: HashMap<String, Wire>) {

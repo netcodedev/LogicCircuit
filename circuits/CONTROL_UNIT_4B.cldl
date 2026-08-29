@@ -1,0 +1,129 @@
+CIRCUIT CONTROL_UNIT_4B {
+    // Decodes the 4-bit Opcode to generate control signals for the Datapath.
+    // Implements the ISA defined in the opcode table.
+
+    INPUT Opcode[4];
+
+    OUTPUT WriteEnable; // 1 = Register write is enabled
+    OUTPUT ALUSrc;      // 1 = ALU B-input selects Immediate, 0 = selects RegFile.DataOutB
+    OUTPUT MemToReg;    // 1 = RegFile DataIn selects MemDataIn, 0 = selects ALU.Result
+    OUTPUT ALUSel[2];   // Selects ALU operation (00=ADD, 01=AND, 10=OR, 11=XOR)
+    OUTPUT ALUCin;      // Carry-in for the ALU (1 for SUB/SUBI)
+
+    // --- Parts ---
+    PART Decoder: DECODER_4_16;
+    PART C_TRUE: NOR; // Constant 1 (VCC), NOR(0,0) = 1
+
+    // OR gates for combining decoder outputs
+    // We use NOT(NOR(...)) as our OR primitive.
+
+    // PART: WriteEnable OR-Gate (11 inputs)
+    // O[1]=ADD, O[2]=SUB, O[3]=AND, O[4]=OR, O[5]=XOR
+    // O[9]=ADDI, O[10]=SUBI, O[11]=ANDI, O[12]=ORI, O[13]=XORI
+    // O[15]=LW
+    PART WE_OR1: NOR4; // 1,2,3,4
+    PART WE_NOT1: NOT; // Intermediate NOT
+    PART WE_OR2: NOR4; // 5,9,10,11
+    PART WE_NOT2: NOT; // Intermediate NOT
+    PART WE_OR3: NOR4; // 12,13,15
+    PART WE_NOT3: NOT; // Intermediate NOT
+    PART WE_OR_FINAL: NOR4;
+    PART WE_NOT_FINAL: NOT; // Final NOT to make it an OR
+
+    // PART: ALUSrc (1=Imm) OR-Gate (5 inputs: 9,10,11,12,13)
+    PART ALUSRC_OR1: NOR4;
+    PART ALUSRC_NOT1: NOT; // Intermediate NOT
+    PART ALUSRC_OR2: NOR; // For the 5th input
+    PART ALUSRC_NOT2: NOT; // Intermediate NOT
+    PART ALUSRC_OR_FINAL: NOR;
+    PART ALUSRC_NOT_FINAL: NOT;
+
+    // PART: ALUCin (1=Sub) OR-Gate (2 inputs: 2, 10)
+    PART ALUCIN_OR1: NOR;
+    PART ALUCIN_NOT_FINAL: NOT;
+
+    // PART: ALUSel[0] (1 for 01, 11) OR-Gate (4 inputs: 3,5,11,13)
+    PART ALUSEL0_OR1: NOR4;
+    PART ALUSEL0_NOT_FINAL: NOT;
+
+    // PART: ALUSel[1] (1 for 10, 11) OR-Gate (4 inputs: 4,5,12,13)
+    PART ALUSEL1_OR1: NOR4;
+    PART ALUSEL1_NOT_FINAL: NOT;
+
+    // --- Connections ---
+
+    // 1. Enable the Decoder (tie inputs of NOR to 0 (unconnected) -> NOR(0,0)=1)
+    CONNECT C_TRUE.out -> Decoder.Enable;
+    CONNECT Opcode -> Decoder.A;
+
+    // 2. Generate Control Signals by OR-ing decoder outputs
+
+    // --- WriteEnable Connections ---
+    CONNECT Decoder.O[1] -> WE_OR1.A;
+    CONNECT Decoder.O[2] -> WE_OR1.B;
+    CONNECT Decoder.O[3] -> WE_OR1.C;
+    CONNECT Decoder.O[4] -> WE_OR1.D;
+    CONNECT WE_OR1.Out -> WE_NOT1.in;
+
+    CONNECT Decoder.O[5] -> WE_OR2.A;
+    CONNECT Decoder.O[9] -> WE_OR2.B;
+    CONNECT Decoder.O[10] -> WE_OR2.C;
+    CONNECT Decoder.O[11] -> WE_OR2.D;
+    CONNECT WE_OR2.Out -> WE_NOT2.in;
+
+    CONNECT Decoder.O[12] -> WE_OR3.A;
+    CONNECT Decoder.O[13] -> WE_OR3.B;
+    CONNECT Decoder.O[15] -> WE_OR3.C;
+    // WE_OR3.D is unconnected (0)
+    CONNECT WE_OR3.Out -> WE_NOT3.in;
+
+    CONNECT WE_NOT1.out -> WE_OR_FINAL.A;
+    CONNECT WE_NOT2.out -> WE_OR_FINAL.B;
+    CONNECT WE_NOT3.out -> WE_OR_FINAL.C;
+    // WE_OR_FINAL.D is unconnected (0)
+
+    CONNECT WE_OR_FINAL.Out -> WE_NOT_FINAL.in;
+    CONNECT WE_NOT_FINAL.out -> WriteEnable;
+
+    // --- ALUSrc (1=Imm) Connections ---
+    CONNECT Decoder.O[9] -> ALUSRC_OR1.A;
+    CONNECT Decoder.O[10] -> ALUSRC_OR1.B;
+    CONNECT Decoder.O[11] -> ALUSRC_OR1.C;
+    CONNECT Decoder.O[12] -> ALUSRC_OR1.D;
+    CONNECT ALUSRC_OR1.Out -> ALUSRC_NOT1.in;
+
+    CONNECT Decoder.O[13] -> ALUSRC_OR2.in1;
+    // ALUSRC_OR2.in2 is unconnected
+    CONNECT ALUSRC_OR2.out -> ALUSRC_NOT2.in;
+
+    CONNECT ALUSRC_NOT1.out -> ALUSRC_OR_FINAL.in1;
+    CONNECT ALUSRC_NOT2.out -> ALUSRC_OR_FINAL.in2;
+
+    CONNECT ALUSRC_OR_FINAL.out -> ALUSRC_NOT_FINAL.in;
+    CONNECT ALUSRC_NOT_FINAL.out -> ALUSrc;
+
+    // --- MemToReg (1=Mem) Connection ---
+    CONNECT Decoder.O[15] -> MemToReg;
+
+    // --- ALUCin (1=Sub) Connections ---
+    CONNECT Decoder.O[2] -> ALUCIN_OR1.in1;
+    CONNECT Decoder.O[10] -> ALUCIN_OR1.in2;
+    CONNECT ALUCIN_OR1.out -> ALUCIN_NOT_FINAL.in;
+    CONNECT ALUCIN_NOT_FINAL.out -> ALUCin;
+
+    // --- ALUSel[0] (1 for 01, 11) Connections ---
+    CONNECT Decoder.O[3] -> ALUSEL0_OR1.A;  // AND
+    CONNECT Decoder.O[5] -> ALUSEL0_OR1.B;  // XOR
+    CONNECT Decoder.O[11] -> ALUSEL0_OR1.C; // ANDI
+    CONNECT Decoder.O[13] -> ALUSEL0_OR1.D; // XORI
+    CONNECT ALUSEL0_OR1.Out -> ALUSEL0_NOT_FINAL.in;
+    CONNECT ALUSEL0_NOT_FINAL.out -> ALUSel[0];
+
+    // --- ALUSel[1] (1 for 10, 11) Connections ---
+    CONNECT Decoder.O[4] -> ALUSEL1_OR1.A;  // OR
+    CONNECT Decoder.O[5] -> ALUSEL1_OR1.B;  // XOR
+    CONNECT Decoder.O[12] -> ALUSEL1_OR1.C; // ORI
+    CONNECT Decoder.O[13] -> ALUSEL1_OR1.D; // XORI
+    CONNECT ALUSEL1_OR1.Out -> ALUSEL1_NOT_FINAL.in;
+    CONNECT ALUSEL1_NOT_FINAL.out -> ALUSel[1];
+}

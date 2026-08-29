@@ -283,7 +283,7 @@ impl CircuitTester {
                     // Use Circuit's get_output_unwrapped - assumes it handles canonical names
                     // Note: This will panic if the output doesn't exist.
                     // A more robust runner might use get_output and return Err on None.
-                    let actual_value = circuit.get_output_unwrapped(&pin_key);
+                    let actual_value = circuit.get_wire_value(&pin_key);
 
                     if actual_value != expected_value {
                         circuit.print_io_state();

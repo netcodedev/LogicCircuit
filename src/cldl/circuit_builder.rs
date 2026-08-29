@@ -101,9 +101,19 @@ impl CircuitBuilder {
     }
 
     /// Builds a new `Circuit` from the named definition and runs initialization.
+    ///
+    /// Wiring is resolved in two passes. First a *planning* pass walks the whole
+    /// hierarchy and records every connection as a union in an equivalence
+    /// structure over wire keys (`BuildPlan`), without creating any `Wire`.
+    /// Then a *materialization* pass creates exactly one shared `Wire` per
+    /// equivalence class and binds gates, inputs and outputs to it.
+    ///
+    /// Resolving all aliases before any `Wire` exists is what makes wiring
+    /// order-independent and fan-out-safe: a single source pin can drive any
+    /// number of loads, and a connection can span hierarchy boundaries, without
+    /// an earlier connection being able to sever a later one.
     pub fn build(&self, top_level_name: &str) -> Circuit {
         let mut circuit = Circuit::new(top_level_name.to_string());
-        let mut wire_map: HashMap<String, Wire> = HashMap::new();
         let top_def = self.definitions.get(top_level_name).unwrap_or_else(|| {
             panic!(
                 "Top-level circuit definition '{}' not found",
@@ -111,39 +121,48 @@ impl CircuitBuilder {
             )
         });
 
-        // --- Pass 1: Handle bus inputs ---
+        // === Planning pass: collect wire equivalence classes, gates and inits ===
+        let mut plan = BuildPlan::default();
+
+        // Register the top-level IO pins so they always resolve to a wire, even
+        // if left unconnected.
+        self.register_io_keys(top_def, "", &mut plan);
+
+        // Top-level connections.
+        self.apply_connections(top_def, "", &mut plan);
+
+        // Recursively plan every part.
+        for part in &top_def.parts {
+            self.plan_part(&part.part_type, &part.instance_name, &mut plan);
+        }
+
+        // Top-level initialization runs last, after every part is planned.
+        if !top_def.initialization.is_empty() {
+            plan.events.push(BuildEvent::Init {
+                prefix: String::new(),
+                commands: top_def.initialization.clone(),
+            });
+        }
+
+        // === Materialization pass: one shared Wire per equivalence class ===
+        let wire_map = plan.materialize();
+
+        // Register circuit inputs (bus-aware) using the shared wires.
         for input_def in &top_def.inputs {
             match input_def.width {
                 Some(width) => {
-                    // Create wires for each bit of the bus
                     for i in 0..width {
-                        let wire_name = format!("{}.{}", input_def.name, i);
-                        let w = circuit.add_input(&wire_name); // Add individual inputs to circuit
-                        wire_map.insert(wire_name, w);
+                        let key = format!("{}.{}", input_def.name, i);
+                        circuit.register_input(&key, wire_map[&key].clone());
                     }
                 }
                 None => {
-                    // Single wire input
-                    let w = circuit.add_input(&input_def.name);
-                    wire_map.insert(input_def.name.clone(), w);
+                    circuit.register_input(&input_def.name, wire_map[&input_def.name].clone());
                 }
             }
         }
 
-        // Pass 2: Apply top-level Connections
-        self.apply_connections(top_def, "", &mut wire_map);
-
-        // Pass 3: Instantiate all parts recursively
-        for part in &top_def.parts {
-            self.instantiate_part(
-                &part.part_type,
-                &part.instance_name,
-                &mut circuit,
-                &mut wire_map,
-            );
-        }
-
-        //Pass 4: Handle bus outputs
+        // Register circuit outputs (bus-aware).
         for output_def in &top_def.outputs {
             match output_def.width {
                 Some(width) => {
@@ -178,60 +197,104 @@ impl CircuitBuilder {
             }
         }
 
-        // Pass 5: Execute Top-Level Init
-        if !top_def.initialization.is_empty() {
-            execute_initialization(&circuit, &wire_map, &top_def.initialization, "");
+        // Replay the recorded build events in their original DFS order: a gate
+        // is added when reached, and a part's initialization runs immediately
+        // after its own subtree of gates (before any later sibling gate exists).
+        // Preserving this interleaving matters for parts whose init pulses a pin
+        // that a *later*-built gate also drives (e.g. a register initialised to 0
+        // before the write decoder that feeds its Load line is in place).
+        for event in &plan.events {
+            match event {
+                BuildEvent::Nand {
+                    id,
+                    in1,
+                    in2,
+                    out,
+                } => {
+                    circuit.add_gate(Box::new(NandGate {
+                        id: id.clone(),
+                        in1: wire_map[in1].clone(),
+                        in2: wire_map[in2].clone(),
+                        out: wire_map[out].clone(),
+                    }));
+                }
+                BuildEvent::Init { prefix, commands } => {
+                    execute_initialization(&circuit, &wire_map, commands, prefix);
+                }
+            }
         }
+
+        // Store the full wire map so downstream code (tests) can probe any wire.
         circuit.set_wire_map(wire_map);
+
         circuit
     }
 
-    /// Recursively instantiates a part and runs its initialization if defined.
-    fn instantiate_part(
-        &self,
-        part_type: &str,
-        instance_name: &str,
-        circuit: &mut Circuit,
-        wire_map: &mut HashMap<String, Wire>,
-    ) {
+    /// Recursively records a part's structure into `plan` as an ordered stream
+    /// of build events (gates in DFS order, each part's init right after its own
+    /// subtree). No `Wire` is created here — that happens later in
+    /// `BuildPlan::materialize`.
+    fn plan_part(&self, part_type: &str, instance_name: &str, plan: &mut BuildPlan) {
         if part_type == "NAND" {
-            // Primitive gates don't have indexed pins *internally*
-            // Connections *to* them might be indexed, handled by apply_connections
-            let in1_wire_name = format!("{}.in1", instance_name);
-            let in2_wire_name = format!("{}.in2", instance_name);
-            let out_wire_name = format!("{}.out", instance_name);
-
-            let in1 = self.get_or_create_wire(&in1_wire_name, wire_map);
-            let in2 = self.get_or_create_wire(&in2_wire_name, wire_map);
-            let out = self.get_or_create_wire(&out_wire_name, wire_map);
-            let gate = NandGate {
+            // The single primitive gate. Its pins are plain (never indexed)
+            // internally; indexed connections *to* it are handled by callers.
+            let in1 = format!("{}.in1", instance_name);
+            let in2 = format!("{}.in2", instance_name);
+            let out = format!("{}.out", instance_name);
+            plan.register(&in1);
+            plan.register(&in2);
+            plan.register(&out);
+            plan.events.push(BuildEvent::Nand {
                 id: instance_name.to_string(),
                 in1,
                 in2,
                 out,
-            };
-            circuit.add_gate(Box::new(gate));
+            });
         } else if let Some(def) = self.definitions.get(part_type) {
-            // Apply internal connections for the sub-circuit first
-            self.apply_connections(def, instance_name, wire_map);
-            // Instantiate sub-parts recursively
+            // Make this part's IO pins resolvable even when unconnected.
+            self.register_io_keys(def, instance_name, plan);
+            // Internal connections of the sub-circuit.
+            self.apply_connections(def, instance_name, plan);
+            // Recurse into sub-parts.
             for sub_part in &def.parts {
-                self.instantiate_part(
+                self.plan_part(
                     &sub_part.part_type,
                     &format!("{}.{}", instance_name, sub_part.instance_name),
-                    circuit,
-                    wire_map,
+                    plan,
                 );
             }
-            // Execute initialization for this sub-part AFTER its children are built
+            // Record initialization AFTER its children (post-order).
             if !def.initialization.is_empty() {
-                execute_initialization(circuit, wire_map, &def.initialization, instance_name);
+                plan.events.push(BuildEvent::Init {
+                    prefix: instance_name.to_string(),
+                    commands: def.initialization.clone(),
+                });
             }
         } else {
             panic!(
                 "Unknown part type '{}' requested by part '{}'",
                 part_type, instance_name
             );
+        }
+    }
+
+    /// Registers every IO pin of `def` (bus-expanded, namespaced by `prefix`)
+    /// as a wire key so it resolves to a wire even if left unconnected.
+    fn register_io_keys(&self, def: &CldlDefinition, prefix: &str, plan: &mut BuildPlan) {
+        for pin in def.inputs.iter().chain(def.outputs.iter()) {
+            let base = if prefix.is_empty() {
+                pin.name.clone()
+            } else {
+                format!("{}.{}", prefix, pin.name)
+            };
+            match pin.width {
+                Some(width) => {
+                    for i in 0..width {
+                        plan.register(&format!("{}.{}", base, i));
+                    }
+                }
+                None => plan.register(&base),
+            }
         }
     }
 
@@ -297,22 +360,15 @@ impl CircuitBuilder {
         None
     }
 
-    /// Helper to alias two wires in the map.
-    /// `src_wire_key` will be aliased to `dest_wire_key`.
-    fn alias_wires(
-        &self,
-        wire_map: &mut HashMap<String, Wire>,
-        src_wire_key: &str,
-        dest_wire_key: &str,
-    ) {
-        if let Some(dest_wire) = wire_map.get(dest_wire_key).cloned() {
-            // Dest exists, make Src point to it
-            wire_map.insert(src_wire_key.to_string(), dest_wire);
-        } else {
-            // Dest doesn't exist, get/create Src and make Dest point to it
-            let src_wire = self.get_or_create_wire(src_wire_key, wire_map);
-            wire_map.insert(dest_wire_key.to_string(), src_wire);
-        }
+    /// Records that two wire keys are the same electrical node.
+    ///
+    /// Both keys are merged into one equivalence class in the plan. Because this
+    /// is a symmetric union rather than a map overwrite, the order in which
+    /// connections are processed does not matter, and a source pin may be
+    /// aliased to any number of destinations (fan-out) without an earlier alias
+    /// being severed by a later one.
+    fn alias_wires(&self, plan: &mut BuildPlan, src_wire_key: &str, dest_wire_key: &str) {
+        plan.alias(src_wire_key, dest_wire_key);
     }
 
     /// Applies connections from a definition, handling single-bit, bus-to-bus, and tee connections.
@@ -320,7 +376,7 @@ impl CircuitBuilder {
         &self,
         def: &CldlDefinition,
         instance_prefix: &str,
-        wire_map: &mut HashMap<String, Wire>,
+        plan: &mut BuildPlan,
     ) {
         for conn in &def.connections {
             // Apply prefix to base names (e.g., "A" -> "MyPart.A")
@@ -332,7 +388,7 @@ impl CircuitBuilder {
                     // Case 1: Single-bit to Single-bit (e.g., A[0] -> B[1])
                     let src_wire_key = src_pin_ref.to_wire_map_key();
                     let dest_wire_key = dest_pin_ref.to_wire_map_key();
-                    self.alias_wires(wire_map, &src_wire_key, &dest_wire_key);
+                    self.alias_wires(plan, &src_wire_key, &dest_wire_key);
                 }
 
                 (None, None) => {
@@ -355,14 +411,14 @@ impl CircuitBuilder {
                                 // Use the *namespaced* base_name for the key
                                 let src_wire_key = format!("{}.{}", src_pin_ref.base_name, i);
                                 let dest_wire_key = format!("{}.{}", dest_pin_ref.base_name, i);
-                                self.alias_wires(wire_map, &src_wire_key, &dest_wire_key);
+                                self.alias_wires(plan, &src_wire_key, &dest_wire_key);
                             }
                         }
                         (None, None) => {
                             // Single-to-Single (Clk -> G1.clk)
                             let src_wire_key = src_pin_ref.to_wire_map_key();
                             let dest_wire_key = dest_pin_ref.to_wire_map_key();
-                            self.alias_wires(wire_map, &src_wire_key, &dest_wire_key);
+                            self.alias_wires(plan, &src_wire_key, &dest_wire_key);
                         }
                         (Some(w), None) => {
                             // Bus-to-Single (A -> B) - Error
@@ -378,7 +434,7 @@ impl CircuitBuilder {
                             for i in 0..w {
                                 // Use the *namespaced* base_name for the key
                                 let dest_wire_key = format!("{}.{}", dest_pin_ref.base_name, i);
-                                self.alias_wires(wire_map, &src_wire_key, &dest_wire_key);
+                                self.alias_wires(plan, &src_wire_key, &dest_wire_key);
                             }
                         }
                     }
@@ -396,12 +452,12 @@ impl CircuitBuilder {
                         for i in 0..w {
                             // Use the *namespaced* base_name for the key
                             let dest_wire_key = format!("{}.{}", dest_pin_ref.base_name, i);
-                            self.alias_wires(wire_map, &src_wire_key, &dest_wire_key);
+                            self.alias_wires(plan, &src_wire_key, &dest_wire_key);
                         }
                     } else {
                         // Single-bit-to-Single-pin (A[0] -> B)
                         let dest_wire_key = dest_pin_ref.to_wire_map_key(); // e.g., "MyPart.B"
-                        self.alias_wires(wire_map, &src_wire_key, &dest_wire_key);
+                        self.alias_wires(plan, &src_wire_key, &dest_wire_key);
                     }
                 }
 
@@ -424,22 +480,11 @@ impl CircuitBuilder {
                         // Source is a single pin (e.g., FA0.sum -> S[0]) - OK
                         let src_wire_key = src_pin_ref.to_wire_map_key(); // "prefix.FA0.sum"
                         let dest_wire_key = dest_pin_ref.to_wire_map_key(); // "prefix.S.0"
-                        self.alias_wires(wire_map, &src_wire_key, &dest_wire_key);
+                        self.alias_wires(plan, &src_wire_key, &dest_wire_key);
                     }
                 }
             }
         }
-    }
-
-    /// Helper to get a wire from the map or create it if it doesn't exist, using canonical key.
-    fn get_or_create_wire(
-        &self,
-        canonical_wire_name: &str,
-        map: &mut HashMap<String, Wire>,
-    ) -> Wire {
-        map.entry(canonical_wire_name.to_string())
-            .or_insert_with(wire)
-            .clone()
     }
 
     /// Exports the hierarchical definition of a circuit to the DOT graph language.
@@ -893,3 +938,107 @@ fn namespace_pin_ref(pin_ref: &PinRef, prefix: &str) -> PinRef {
 }
 
 
+
+/// Union-find over wire-key strings.
+///
+/// Every wire key seen during the planning pass is interned to an integer, and
+/// connections union the two keys' classes. All keys that end up in the same
+/// class denote the same electrical node and will share a single `Wire`.
+#[derive(Default)]
+struct WireUnion {
+    ids: HashMap<String, usize>,
+    parent: Vec<usize>,
+}
+
+impl WireUnion {
+    /// Returns the id for `key`, assigning a fresh singleton class on first use.
+    fn intern(&mut self, key: &str) -> usize {
+        if let Some(&id) = self.ids.get(key) {
+            return id;
+        }
+        let id = self.parent.len();
+        self.parent.push(id);
+        self.ids.insert(key.to_string(), id);
+        id
+    }
+
+    /// Finds the class representative for `x`, compressing the path on the way.
+    fn find(&mut self, x: usize) -> usize {
+        let mut root = x;
+        while self.parent[root] != root {
+            root = self.parent[root];
+        }
+        let mut cur = x;
+        while self.parent[cur] != cur {
+            let next = self.parent[cur];
+            self.parent[cur] = root;
+            cur = next;
+        }
+        root
+    }
+
+    /// Merges the classes of `a` and `b` (interning either if unseen).
+    fn union(&mut self, a: &str, b: &str) {
+        let ia = self.intern(a);
+        let ib = self.intern(b);
+        let ra = self.find(ia);
+        let rb = self.find(ib);
+        if ra != rb {
+            self.parent[ra] = rb;
+        }
+    }
+}
+
+/// One step of circuit construction, recorded in DFS order during planning and
+/// replayed after wires are materialized.
+enum BuildEvent {
+    /// Add a NAND gate wired to the given (still unresolved) wire keys.
+    Nand {
+        id: String,
+        in1: String,
+        in2: String,
+        out: String,
+    },
+    /// Run an initialization block for the part at `prefix`.
+    Init {
+        prefix: String,
+        commands: Vec<InitCommand>,
+    },
+}
+
+/// The resolved structure of a circuit, accumulated during the planning pass
+/// before any `Wire` is created.
+#[derive(Default)]
+struct BuildPlan {
+    /// Equivalence classes over wire keys.
+    union: WireUnion,
+    /// Gate-add and init steps, in the exact order they must be replayed.
+    events: Vec<BuildEvent>,
+}
+
+impl BuildPlan {
+    /// Ensures `key` has a wire, even if it is never connected to anything.
+    fn register(&mut self, key: &str) {
+        self.union.intern(key);
+    }
+
+    /// Records that `a` and `b` are the same electrical node.
+    fn alias(&mut self, a: &str, b: &str) {
+        self.union.union(a, b);
+    }
+
+    /// Creates exactly one shared `Wire` per equivalence class and returns a map
+    /// from every registered key to its class's wire.
+    fn materialize(&mut self) -> HashMap<String, Wire> {
+        let keys: Vec<String> = self.union.ids.keys().cloned().collect();
+        let mut class_wire: HashMap<usize, Wire> = HashMap::new();
+        let mut wire_map: HashMap<String, Wire> = HashMap::with_capacity(keys.len());
+        for key in keys {
+            let id = self.union.ids[&key];
+            let root = self.union.find(id);
+            let w = class_wire.entry(root).or_insert_with(wire).clone();
+            wire_map.insert(key, w);
+        }
+        wire_map
+    }
+}
