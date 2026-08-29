@@ -92,4 +92,33 @@ TESTS FOR REG_FILE_16x4 {
         ASSERT DataOutB[2] 0;
         ASSERT DataOutB[3] 0;
     }
+
+    TEST "Write mid-file R7, read on both ports" {
+        // Write 12 (1100) to R7 (addr 0111)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 1, DataIn[3] 1;
+        SET WriteAddr[0] 1, WriteAddr[1] 1, WriteAddr[2] 1, WriteAddr[3] 0;
+        SET WriteEnable 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+
+        SET WriteEnable 0;
+        SET ReadAddrA[0] 1, ReadAddrA[1] 1, ReadAddrA[2] 1, ReadAddrA[3] 0; // R7 on A
+        SET ReadAddrB[0] 1, ReadAddrB[1] 1, ReadAddrB[2] 1, ReadAddrB[3] 0; // R7 on B
+        EVAL;
+        ASSERT DataOutA[0] 0; ASSERT DataOutA[1] 0; ASSERT DataOutA[2] 1; ASSERT DataOutA[3] 1;
+        ASSERT DataOutB[0] 0; ASSERT DataOutB[1] 0; ASSERT DataOutB[2] 1; ASSERT DataOutB[3] 1;
+    }
+
+    TEST "WriteEnable=0 holds R7; untouched R8 reads 0" {
+        // Attempt to overwrite R7 (holds 12) with 3 (0011) while WriteEnable=0
+        SET DataIn[0] 1, DataIn[1] 1, DataIn[2] 0, DataIn[3] 0;
+        SET WriteAddr[0] 1, WriteAddr[1] 1, WriteAddr[2] 1, WriteAddr[3] 0; // Addr 7
+        SET WriteEnable 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+
+        SET ReadAddrA[0] 1, ReadAddrA[1] 1, ReadAddrA[2] 1, ReadAddrA[3] 0; // R7
+        SET ReadAddrB[0] 0, ReadAddrB[1] 0, ReadAddrB[2] 0, ReadAddrB[3] 1; // R8 (1000)
+        EVAL;
+        ASSERT DataOutA[0] 0; ASSERT DataOutA[1] 0; ASSERT DataOutA[2] 1; ASSERT DataOutA[3] 1; // R7 still 12
+        ASSERT DataOutB[0] 0; ASSERT DataOutB[1] 0; ASSERT DataOutB[2] 0; ASSERT DataOutB[3] 0; // R8 = 0
+    }
 }

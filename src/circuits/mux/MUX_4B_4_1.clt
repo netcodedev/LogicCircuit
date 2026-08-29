@@ -81,4 +81,18 @@ TESTS FOR MUX_4B_4_1 {
         ASSERT Out[3] 1;
     }
 
+    TEST "Anti-bit-swap: route asymmetric 0110 through In2" {
+        SET S[1] 1, S[0] 0; // select In2
+        // Distinct asymmetric values; In2 = 6 (0110)
+        SET In0[0] 1, In0[1] 1, In0[2] 1, In0[3] 1; // 15
+        SET In1[0] 1, In1[1] 0, In1[2] 0, In1[3] 0; // 1
+        SET In2[0] 0, In2[1] 1, In2[2] 1, In2[3] 0; // 6
+        SET In3[0] 0, In3[1] 0, In3[2] 0, In3[3] 1; // 8
+        EVAL;
+        // Out must equal In2 = 0110 exactly (proves no bit reversal)
+        ASSERT Out[0] 0;
+        ASSERT Out[1] 1;
+        ASSERT Out[2] 1;
+        ASSERT Out[3] 0;
+    }
 }

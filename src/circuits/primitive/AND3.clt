@@ -50,4 +50,10 @@ TESTS FOR AND3 {
         ASSERT Out 1;
     }
 
+    TEST "One Input High (B=1)" {
+        // AND(0,1,0) = 0
+        SET A 0, B 1, C 0;
+        EVAL;
+        ASSERT Out 0;
+    }
 }

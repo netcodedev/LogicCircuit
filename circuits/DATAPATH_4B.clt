@@ -151,4 +151,51 @@ TESTS FOR DATAPATH_4B {
         ASSERT ALU_Z 1;
         ASSERT ALU_Cout 0;
     }
+
+    // --- Part 3: Subtraction (ALUCin=1 -> BInvert path), Result + write-back ---
+    TEST "REG-REG SUB: 10 - 3 = 7 (no borrow, Cout=1), write-back R7" {
+        // Write 10 (1010) to R5
+        SET MemDataIn[0] 0, MemDataIn[1] 1, MemDataIn[2] 0, MemDataIn[3] 1;
+        SET WriteAddr[0] 1, WriteAddr[1] 0, WriteAddr[2] 1, WriteAddr[3] 0; // R5
+        SET WriteEnable 1; SET MemToReg 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        // Write 3 (0011) to R6
+        SET MemDataIn[0] 1, MemDataIn[1] 1, MemDataIn[2] 0, MemDataIn[3] 0;
+        SET WriteAddr[0] 0, WriteAddr[1] 1, WriteAddr[2] 1, WriteAddr[3] 0; // R6
+        SET WriteEnable 1; SET MemToReg 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET WriteEnable 0; SET MemToReg 0;
+
+        // Compute R5 - R6 = 10 - 3
+        SET ReadAddrA[0] 1, ReadAddrA[1] 0, ReadAddrA[2] 1, ReadAddrA[3] 0; // R5 (A operand)
+        SET ReadAddrB[0] 0, ReadAddrB[1] 1, ReadAddrB[2] 1, ReadAddrB[3] 0; // R6 (B operand)
+        SET ALUSel[0] 0, ALUSel[1] 0; // ADD base
+        SET ALUCin 1;                 // subtract: invert B, +1
+        SET ALUSrc 0;                 // B from register
+        EVAL;
+        ASSERT Alu.Result[0] 1; ASSERT Alu.Result[1] 1; ASSERT Alu.Result[2] 1; ASSERT Alu.Result[3] 0; // Result = 7 (0111)
+        ASSERT ALU_Z 0;
+        ASSERT ALU_Cout 1; // 10>=3 -> no borrow
+
+        // Write the ALU result (7) back to R7, then read it
+        SET WriteAddr[0] 1, WriteAddr[1] 1, WriteAddr[2] 1, WriteAddr[3] 0; // R7
+        SET WriteEnable 1; // MemToReg still 0 -> DataIn = ALU result
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET WriteEnable 0;
+        ASSERT RegFile.R7.Q[0] 1; ASSERT RegFile.R7.Q[1] 1; ASSERT RegFile.R7.Q[2] 1; ASSERT RegFile.R7.Q[3] 0; // R7 latched 7
+    }
+
+    TEST "REG-REG SUB: 3 - 10 = 9 (borrow, Cout=0)" {
+        // R5=10, R6=3 from previous test. Compute R6 - R5 = 3 - 10.
+        SET ReadAddrA[0] 0, ReadAddrA[1] 1, ReadAddrA[2] 1, ReadAddrA[3] 0; // R6 = 3 (A)
+        SET ReadAddrB[0] 1, ReadAddrB[1] 0, ReadAddrB[2] 1, ReadAddrB[3] 0; // R5 = 10 (B)
+        SET ALUSel[0] 0, ALUSel[1] 0;
+        SET ALUCin 1;
+        SET ALUSrc 0;
+        SET WriteEnable 0;
+        EVAL;
+        ASSERT Alu.Result[0] 1; ASSERT Alu.Result[1] 0; ASSERT Alu.Result[2] 0; ASSERT Alu.Result[3] 1; // 3 - 10 = -7 = 9 (1001)
+        ASSERT ALU_Z 0;
+        ASSERT ALU_Cout 0; // 3<10 -> borrow
+    }
 }

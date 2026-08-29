@@ -255,4 +255,172 @@ TESTS FOR CPU {
         // Latch the result (0) into R5
         SEQ CLK 0 -> CLK 1 -> CLK 0;
     }
+
+    TEST "SUB R6, R4, R1 (10 - 5 = 5, reg-reg, asymmetric)" {
+        SET Instruction[12] 0, Instruction[13] 1, Instruction[14] 0, Instruction[15] 0; // Op=2
+        SET Instruction[8] 0, Instruction[9] 1, Instruction[10] 1, Instruction[11] 0; // Rd=R6
+        SET Instruction[4] 0, Instruction[5] 0, Instruction[6] 1, Instruction[7] 0; // Ra=R4
+        SET Instruction[0] 1, Instruction[1] 0, Instruction[2] 0, Instruction[3] 0; // Rb/Imm=1
+        EVAL;
+
+        ASSERT Control.WriteEnable 1;
+        ASSERT Control.ALUSrc 0;
+        ASSERT Control.MemToReg 0;
+        ASSERT Control.ALUSel[0] 0;
+        ASSERT Control.ALUSel[1] 0;
+        ASSERT Control.ALUCin 1;
+
+        ASSERT Datapath.Alu.Result[0] 1; ASSERT Datapath.Alu.Result[1] 0; ASSERT Datapath.Alu.Result[2] 1; ASSERT Datapath.Alu.Result[3] 0; // ALU Result = 5
+
+        // Latch the result and verify the destination register
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Datapath.RegFile.R6.Q[0] 1; ASSERT Datapath.RegFile.R6.Q[1] 0; ASSERT Datapath.RegFile.R6.Q[2] 1; ASSERT Datapath.RegFile.R6.Q[3] 0; // R6 = 5
+    }
+
+    TEST "ADDI R14, R0, 12 (setup 1100 for logic tests)" {
+        SET Instruction[12] 1, Instruction[13] 0, Instruction[14] 0, Instruction[15] 1; // Op=9
+        SET Instruction[8] 0, Instruction[9] 1, Instruction[10] 1, Instruction[11] 1; // Rd=R14
+        SET Instruction[4] 0, Instruction[5] 0, Instruction[6] 0, Instruction[7] 0; // Ra=R0
+        SET Instruction[0] 0, Instruction[1] 0, Instruction[2] 1, Instruction[3] 1; // Rb/Imm=12
+        EVAL;
+
+        ASSERT Control.WriteEnable 1;
+        ASSERT Control.ALUSrc 1;
+        ASSERT Control.MemToReg 0;
+        ASSERT Control.ALUSel[0] 0;
+        ASSERT Control.ALUSel[1] 0;
+        ASSERT Control.ALUCin 0;
+
+        ASSERT Datapath.Alu.Result[0] 0; ASSERT Datapath.Alu.Result[1] 0; ASSERT Datapath.Alu.Result[2] 1; ASSERT Datapath.Alu.Result[3] 1; // ALU Result = 12
+
+        // Latch the result and verify the destination register
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Datapath.RegFile.R14.Q[0] 0; ASSERT Datapath.RegFile.R14.Q[1] 0; ASSERT Datapath.RegFile.R14.Q[2] 1; ASSERT Datapath.RegFile.R14.Q[3] 1; // R14 = 12
+    }
+
+    TEST "ANDI R7, R4, 6 (1010 & 0110 = 0010 = 2)" {
+        SET Instruction[12] 1, Instruction[13] 1, Instruction[14] 0, Instruction[15] 1; // Op=11
+        SET Instruction[8] 1, Instruction[9] 1, Instruction[10] 1, Instruction[11] 0; // Rd=R7
+        SET Instruction[4] 0, Instruction[5] 0, Instruction[6] 1, Instruction[7] 0; // Ra=R4
+        SET Instruction[0] 0, Instruction[1] 1, Instruction[2] 1, Instruction[3] 0; // Rb/Imm=6
+        EVAL;
+
+        ASSERT Control.WriteEnable 1;
+        ASSERT Control.ALUSrc 1;
+        ASSERT Control.MemToReg 0;
+        ASSERT Control.ALUSel[0] 1;
+        ASSERT Control.ALUSel[1] 0;
+        ASSERT Control.ALUCin 0;
+
+        ASSERT Datapath.Alu.Result[0] 0; ASSERT Datapath.Alu.Result[1] 1; ASSERT Datapath.Alu.Result[2] 0; ASSERT Datapath.Alu.Result[3] 0; // ALU Result = 2
+
+        // Latch the result and verify the destination register
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Datapath.RegFile.R7.Q[0] 0; ASSERT Datapath.RegFile.R7.Q[1] 1; ASSERT Datapath.RegFile.R7.Q[2] 0; ASSERT Datapath.RegFile.R7.Q[3] 0; // R7 = 2
+    }
+
+    TEST "ORI R8, R4, 5 (1010 | 0101 = 1111 = 15)" {
+        SET Instruction[12] 0, Instruction[13] 0, Instruction[14] 1, Instruction[15] 1; // Op=12
+        SET Instruction[8] 0, Instruction[9] 0, Instruction[10] 0, Instruction[11] 1; // Rd=R8
+        SET Instruction[4] 0, Instruction[5] 0, Instruction[6] 1, Instruction[7] 0; // Ra=R4
+        SET Instruction[0] 1, Instruction[1] 0, Instruction[2] 1, Instruction[3] 0; // Rb/Imm=5
+        EVAL;
+
+        ASSERT Control.WriteEnable 1;
+        ASSERT Control.ALUSrc 1;
+        ASSERT Control.MemToReg 0;
+        ASSERT Control.ALUSel[0] 0;
+        ASSERT Control.ALUSel[1] 1;
+        ASSERT Control.ALUCin 0;
+
+        ASSERT Datapath.Alu.Result[0] 1; ASSERT Datapath.Alu.Result[1] 1; ASSERT Datapath.Alu.Result[2] 1; ASSERT Datapath.Alu.Result[3] 1; // ALU Result = 15
+
+        // Latch the result and verify the destination register
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Datapath.RegFile.R8.Q[0] 1; ASSERT Datapath.RegFile.R8.Q[1] 1; ASSERT Datapath.RegFile.R8.Q[2] 1; ASSERT Datapath.RegFile.R8.Q[3] 1; // R8 = 15
+    }
+
+    TEST "XORI R9, R4, 6 (1010 ^ 0110 = 1100 = 12)" {
+        SET Instruction[12] 1, Instruction[13] 0, Instruction[14] 1, Instruction[15] 1; // Op=13
+        SET Instruction[8] 1, Instruction[9] 0, Instruction[10] 0, Instruction[11] 1; // Rd=R9
+        SET Instruction[4] 0, Instruction[5] 0, Instruction[6] 1, Instruction[7] 0; // Ra=R4
+        SET Instruction[0] 0, Instruction[1] 1, Instruction[2] 1, Instruction[3] 0; // Rb/Imm=6
+        EVAL;
+
+        ASSERT Control.WriteEnable 1;
+        ASSERT Control.ALUSrc 1;
+        ASSERT Control.MemToReg 0;
+        ASSERT Control.ALUSel[0] 1;
+        ASSERT Control.ALUSel[1] 1;
+        ASSERT Control.ALUCin 0;
+
+        ASSERT Datapath.Alu.Result[0] 0; ASSERT Datapath.Alu.Result[1] 0; ASSERT Datapath.Alu.Result[2] 1; ASSERT Datapath.Alu.Result[3] 1; // ALU Result = 12
+
+        // Latch the result and verify the destination register
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Datapath.RegFile.R9.Q[0] 0; ASSERT Datapath.RegFile.R9.Q[1] 0; ASSERT Datapath.RegFile.R9.Q[2] 1; ASSERT Datapath.RegFile.R9.Q[3] 1; // R9 = 12
+    }
+
+    TEST "AND R10, R4, R14 (1010 & 1100 = 1000 = 8, reg-reg)" {
+        SET Instruction[12] 1, Instruction[13] 1, Instruction[14] 0, Instruction[15] 0; // Op=3
+        SET Instruction[8] 0, Instruction[9] 1, Instruction[10] 0, Instruction[11] 1; // Rd=R10
+        SET Instruction[4] 0, Instruction[5] 0, Instruction[6] 1, Instruction[7] 0; // Ra=R4
+        SET Instruction[0] 0, Instruction[1] 1, Instruction[2] 1, Instruction[3] 1; // Rb/Imm=14
+        EVAL;
+
+        ASSERT Control.WriteEnable 1;
+        ASSERT Control.ALUSrc 0;
+        ASSERT Control.MemToReg 0;
+        ASSERT Control.ALUSel[0] 1;
+        ASSERT Control.ALUSel[1] 0;
+        ASSERT Control.ALUCin 0;
+
+        ASSERT Datapath.Alu.Result[0] 0; ASSERT Datapath.Alu.Result[1] 0; ASSERT Datapath.Alu.Result[2] 0; ASSERT Datapath.Alu.Result[3] 1; // ALU Result = 8
+
+        // Latch the result and verify the destination register
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Datapath.RegFile.R10.Q[0] 0; ASSERT Datapath.RegFile.R10.Q[1] 0; ASSERT Datapath.RegFile.R10.Q[2] 0; ASSERT Datapath.RegFile.R10.Q[3] 1; // R10 = 8
+    }
+
+    TEST "OR R11, R4, R14 (1010 | 1100 = 1110 = 14, reg-reg)" {
+        SET Instruction[12] 0, Instruction[13] 0, Instruction[14] 1, Instruction[15] 0; // Op=4
+        SET Instruction[8] 1, Instruction[9] 1, Instruction[10] 0, Instruction[11] 1; // Rd=R11
+        SET Instruction[4] 0, Instruction[5] 0, Instruction[6] 1, Instruction[7] 0; // Ra=R4
+        SET Instruction[0] 0, Instruction[1] 1, Instruction[2] 1, Instruction[3] 1; // Rb/Imm=14
+        EVAL;
+
+        ASSERT Control.WriteEnable 1;
+        ASSERT Control.ALUSrc 0;
+        ASSERT Control.MemToReg 0;
+        ASSERT Control.ALUSel[0] 0;
+        ASSERT Control.ALUSel[1] 1;
+        ASSERT Control.ALUCin 0;
+
+        ASSERT Datapath.Alu.Result[0] 0; ASSERT Datapath.Alu.Result[1] 1; ASSERT Datapath.Alu.Result[2] 1; ASSERT Datapath.Alu.Result[3] 1; // ALU Result = 14
+
+        // Latch the result and verify the destination register
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Datapath.RegFile.R11.Q[0] 0; ASSERT Datapath.RegFile.R11.Q[1] 1; ASSERT Datapath.RegFile.R11.Q[2] 1; ASSERT Datapath.RegFile.R11.Q[3] 1; // R11 = 14
+    }
+
+    TEST "XOR R12, R4, R14 (1010 ^ 1100 = 0110 = 6, reg-reg)" {
+        SET Instruction[12] 1, Instruction[13] 0, Instruction[14] 1, Instruction[15] 0; // Op=5
+        SET Instruction[8] 0, Instruction[9] 0, Instruction[10] 1, Instruction[11] 1; // Rd=R12
+        SET Instruction[4] 0, Instruction[5] 0, Instruction[6] 1, Instruction[7] 0; // Ra=R4
+        SET Instruction[0] 0, Instruction[1] 1, Instruction[2] 1, Instruction[3] 1; // Rb/Imm=14
+        EVAL;
+
+        ASSERT Control.WriteEnable 1;
+        ASSERT Control.ALUSrc 0;
+        ASSERT Control.MemToReg 0;
+        ASSERT Control.ALUSel[0] 1;
+        ASSERT Control.ALUSel[1] 1;
+        ASSERT Control.ALUCin 0;
+
+        ASSERT Datapath.Alu.Result[0] 0; ASSERT Datapath.Alu.Result[1] 1; ASSERT Datapath.Alu.Result[2] 1; ASSERT Datapath.Alu.Result[3] 0; // ALU Result = 6
+
+        // Latch the result and verify the destination register
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Datapath.RegFile.R12.Q[0] 0; ASSERT Datapath.RegFile.R12.Q[1] 1; ASSERT Datapath.RegFile.R12.Q[2] 1; ASSERT Datapath.RegFile.R12.Q[3] 0; // R12 = 6
+    }
 }

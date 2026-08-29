@@ -111,5 +111,23 @@ TESTS FOR REGISTER_4B { // Matches the CIRCUIT name in REGISTER_4B.cldl
         ASSERT Q[3] 1;
     }
 
-} // End TESTS FOR REGISTER_4B
+    TEST "Load all-ones (1111), hold through a clock, then clear" {
+        // Load 1111
+        SET Data[0] 1, Data[1] 1, Data[2] 1, Data[3] 1;
+        SET Load 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Q[0] 1; ASSERT Q[1] 1; ASSERT Q[2] 1; ASSERT Q[3] 1;
+        ASSERT nQ[0] 0; ASSERT nQ[1] 0; ASSERT nQ[2] 0; ASSERT nQ[3] 0;
 
+        // Hold: drive Data=0000 with Load=0 and clock; must still read 1111
+        SET Load 0;
+        SET Data[0] 0, Data[1] 0, Data[2] 0, Data[3] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Q[0] 1; ASSERT Q[1] 1; ASSERT Q[2] 1; ASSERT Q[3] 1;
+
+        // Reload 0000
+        SET Load 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Q[0] 0; ASSERT Q[1] 0; ASSERT Q[2] 0; ASSERT Q[3] 0;
+    }
+}
