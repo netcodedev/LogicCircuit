@@ -1,0 +1,23 @@
+CIRCUIT ZERO_16B {
+    // Z = 1 if all 16 bits of A are 0: four NOR4 over the nibbles, ANDed.
+    INPUT A[16];
+
+    OUTPUT Z;
+
+    FOR n IN 0..4 {
+        PART Nib[n]: NOR4;
+        CONNECT A[4*n] -> Nib[n].A;
+        CONNECT A[4*n+1] -> Nib[n].B;
+        CONNECT A[4*n+2] -> Nib[n].C;
+        CONNECT A[4*n+3] -> Nib[n].D;
+    }
+    PART And012: AND3;
+    PART AndAll: AND;
+
+    CONNECT Nib[0].Out -> And012.A;
+    CONNECT Nib[1].Out -> And012.B;
+    CONNECT Nib[2].Out -> And012.C;
+    CONNECT And012.Out -> AndAll.in1;
+    CONNECT Nib[3].Out -> AndAll.in2;
+    CONNECT AndAll.out -> Z;
+}

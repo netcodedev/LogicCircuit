@@ -1,0 +1,23 @@
+CIRCUIT PREFIX_LEVEL<W, D> {
+    // One level of a Kogge-Stone prefix network: bit i >= D combines its
+    // (G, P) with that of bit i-D; bits below D pass through unchanged.
+    INPUT G[W];
+    INPUT P[W];
+
+    OUTPUT GO[W];
+    OUTPUT PO[W];
+
+    FOR i IN 0..D {
+        CONNECT G[i] -> GO[i];
+        CONNECT P[i] -> PO[i];
+    }
+    FOR i IN D..W {
+        PART Cell[i]: PREFIX_CELL;
+        CONNECT G[i] -> Cell[i].Gh;
+        CONNECT P[i] -> Cell[i].Ph;
+        CONNECT G[i-D] -> Cell[i].Gl;
+        CONNECT P[i-D] -> Cell[i].Pl;
+        CONNECT Cell[i].G -> GO[i];
+        CONNECT Cell[i].P -> PO[i];
+    }
+}

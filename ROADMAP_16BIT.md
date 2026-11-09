@@ -15,8 +15,10 @@ ausgeschrieben werden müssen.
   an; bei Zwei-Wort-Befehlen erhöht sich der PC um 2. Kein Mehrtakt-Steuerwerk.
 - **Register:** 16 × 16 Bit, R0 ist fest 0 (wie bisher).
 - **Stack-Pointer:** eigenes Hardware-Register `SP` (nicht R15), damit `POP`
-  (Rd und SP schreiben) und `CALL`/`RET` in einem Takt gehen. Start 0xFFFF,
-  der Stack wächst nach unten (`PUSH`: `SP ← SP−1; mem[SP] ← Rs`).
+  (Rd und SP schreiben) und `CALL`/`RET` in einem Takt gehen. Der Stack
+  wächst nach unten (`PUSH`: `SP ← SP−1; mem[SP] ← Rs`). *Präzisiert
+  2026-11-09:* Reset setzt SP auf 0, der erste PUSH schreibt also nach
+  0xFFFF (gleiche Wirkung wie „Start 0xFFFF“, aber Reset auf 0 ist billiger).
 - **Adressraum:** Harvard, je 64K Wörter (16 Bit, wortadressiert), 16-Bit-PC.
 - **Multiplizierer:** vorerst keiner. `MULL`/`MULH` sind im ALU-Funktionscode
   reserviert; optional später als Array-Multiplizierer (~4.100 NANDs).
@@ -104,13 +106,48 @@ Flag-Semantik von ADC/SBC/CMP) wird in Phase 3 festgezurrt und steht dann in
 
 ## Phase 2 – 16-Bit-Bausteine
 
-- [ ] Register 16 Bit, Registerfile 16×16
-- [ ] Addierer/ALU 16 Bit (Ripple vs. Carry-Lookahead per `chip build` vergleichen)
-- [ ] Muxe, Barrel-Shifter (SHL/SHR/SAR/ROL/ROR)
-- [ ] Flag-Register Z/C/N/V
-- [ ] PC 16 Bit mit Addierer für relative Sprünge und +2
-- [ ] SP-Register (±1)
-- [ ] 4× `HEX_7SEG`
+Alle mit `.clt`-Tests und `verify-verilog` (76 Suiten, 4 Varianten) grün,
+Stand 2026-11-09. „Tiefe“ = längster Pfad in NAND-Stufen zwischen
+Eingängen/Flipflops und Ausgängen/Flipflops (neu in `cargo run -- nands`).
+
+| Baustein | Ort | NANDs | Tiefe |
+|---|---|---:|---:|
+| `AND/OR/XOR/NOT_BUS<W>` | `src/circuits/logic/` | 2/3/4/1 je Bit | |
+| `ZERO_16B` | `logic/` | 46 | |
+| `MUX_4_1_BUS<W>`, `MUX_16_1_BUS<W>` | `mux/` | 384 / 1.920 (W=16) | |
+| `REGISTER_R<W>` (synchroner Reset) | `memory/` | 596 (W=16) | |
+| `REG_FILE_16<W>` | `memory/` | **12.308** (W=16) | 17 |
+| `ADDER<16>` (Ripple) | `adder/` | 240 | 67 |
+| `ADDER_CLA_16B` (Kogge-Stone) | `adder/` | 410 | 14 |
+| `ALU_16B` (mit CLA) | `alu/` | 1.091 | 34 |
+| `SHIFTER_16B` (Barrel) | `alu/` | 890 | 29 |
+| `HEX_DISPLAY_16B` | `display/` | 664 | |
+| `PC_16B` | `circuits/` | 1.096 | |
+| `SP_16B` | `circuits/` | 839 | |
+| `FLAGS_16B` | `circuits/` | 156 | |
+
+- [x] Register 16 Bit (`REGISTER<16>`, `REGISTER_R<16>` mit Reset),
+      Registerfile `REG_FILE_16<W>` (bei W=8 exakt `REG_FILE_16x8`, 6.188)
+- [x] Muxe mit gemeinsamem Eingangsbus (`In[k*W+i]`, weil CLDL keine
+      Namensverkettung kennt); bei W=8 exakt `MUX_8B_4_1`/`MUX_8B_16_1`
+- [x] `ALU_16B`: Operanden-Aufbereitung `A' = ZeroA ? 0 : A`,
+      `B' = InvB ? ~B : B`, Auswahl ADD/AND/OR/XOR. Damit alle
+      ALU-Funktionscodes nur über Steuerbits (ADD SUB ADC SBC AND OR XOR BIC
+      MOV NOT NEG CMP TEST). Flags roh: Cout (bei SUB 1 = kein Borgen), Z, N, V
+- [x] **Ripple vs. Carry-Lookahead (2026-11-09):** registrierter 16-Bit-Addierer
+      (`chip build`, basic, met5, 5 ns Takt): Ripple 2.750 Transistoren,
+      **148 MHz**; Kogge-Stone 3.362 Transistoren (+22 %), **481 MHz**.
+      Entscheidung: CLA in der ALU, Ripple in PC und SP (laufen parallel zur
+      ALU und sind nicht der kritische Pfad)
+- [x] Barrel-Shifter `SHIFTER_16B` aus vier `SHIFT_STAGE<16, S>` (nur rechts;
+      links durch Bitumkehr davor und danach). Kein Carry-Ausgang (Schieben
+      setzt nur Z/N)
+- [x] `FLAGS_16B`: Z/N und C/V getrennt ladbar, Reset
+- [x] `PC_16B`: `Next = PC + 1 + (Branch ? Offset : Step2)`, `Jump` lädt `Target`,
+      `Next` ist zugleich Rücksprungadresse für CALL; Reset
+- [x] `SP_16B`: `Next = SP − Dec + Inc`, Reset auf 0
+- [x] `HEX_DISPLAY_16B` (4× `HEX_7SEG`, `Seg3..Seg0`)
+- [ ] Multiplizierer: zurückgestellt (Phase-0-Entscheidung)
 
 ## Phase 3 – ISA und Steuerwerk
 

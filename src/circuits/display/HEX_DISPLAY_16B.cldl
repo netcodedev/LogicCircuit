@@ -1,0 +1,21 @@
+CIRCUIT HEX_DISPLAY_16B {
+    // Four-digit hex display for a 16-bit value: Seg3 shows Value[15..12],
+    // Seg0 shows Value[3..0]. Segment order as in HEX_7SEG (a..g).
+    INPUT Value[16];
+
+    OUTPUT Seg3[7];
+    OUTPUT Seg2[7];
+    OUTPUT Seg1[7];
+    OUTPUT Seg0[7];
+
+    FOR d IN 0..4 {
+        PART Digit[d]: HEX_7SEG;
+        FOR i IN 0..4 {
+            CONNECT Value[4*d+i] -> Digit[d].D[i];
+        }
+    }
+    CONNECT Digit[3].Seg -> Seg3;
+    CONNECT Digit[2].Seg -> Seg2;
+    CONNECT Digit[1].Seg -> Seg1;
+    CONNECT Digit[0].Seg -> Seg0;
+}

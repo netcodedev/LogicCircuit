@@ -164,6 +164,41 @@ impl CircuitBuilder {
         Some(total)
     }
 
+    /// Longest combinational path of `name` in NAND gates: from a top-level
+    /// input or flip-flop output to a top-level output or flip-flop input.
+    /// Flip-flops (`DFLIP_FLOP`) cut the paths; any other feedback loop is
+    /// cut where the search meets it again. A rough, technology-independent
+    /// measure for comparing designs (e.g. ripple vs. lookahead adders).
+    pub fn logic_depth(&self, name: &str) -> Option<usize> {
+        let flat = self.flatten_until(name, &|t: &str| t == "DFLIP_FLOP")?;
+        // NAND output net -> its two input nets.
+        let mut driver: HashMap<usize, [usize; 2]> = HashMap::new();
+        let mut ends: Vec<usize> = flat.outputs.iter().map(|&(_, n)| n).collect();
+        for block in &flat.blocks {
+            let net = |pin: &str| block.pins.iter().find(|p| p.name == pin).map(|p| p.nets[0]);
+            match block.kind.as_str() {
+                "NAND" => {
+                    driver.insert(net("out")?, [net("in1")?, net("in2")?]);
+                }
+                _ => ends.extend(net("D")),
+            }
+        }
+        fn depth(net: usize, driver: &HashMap<usize, [usize; 2]>, memo: &mut HashMap<usize, Option<usize>>) -> usize {
+            match memo.get(&net) {
+                Some(Some(d)) => return *d,
+                Some(None) => return 0, // on the current path: a loop
+                None => {}
+            }
+            let Some(inputs) = driver.get(&net) else { return 0 };
+            memo.insert(net, None);
+            let d = 1 + inputs.iter().map(|&n| depth(n, driver, memo)).max().unwrap_or(0);
+            memo.insert(net, Some(d));
+            d
+        }
+        let mut memo = HashMap::new();
+        Some(ends.into_iter().map(|n| depth(n, &driver, &mut memo)).max().unwrap_or(0))
+    }
+
     /// Describes one level of the named circuit for visualization.
     /// Returns `None` if no such definition exists.
     pub fn describe(&self, name: &str) -> Option<CircuitView> {
@@ -272,5 +307,18 @@ mod tests {
             let via_basic: usize = basic.iter().map(|b| builder.nand_count(&b.kind).unwrap()).sum();
             assert_eq!(counted, via_basic, "{name}");
         }
+    }
+
+    #[test]
+    fn logic_depth_counts_nand_levels() {
+        let builder = CircuitBuilder::new();
+        assert_eq!(builder.logic_depth("NAND"), None);
+        assert_eq!(builder.logic_depth("NOT"), Some(1));
+        assert_eq!(builder.logic_depth("AND"), Some(2));
+        // Flip-flops cut paths: a register is shallow despite its latches.
+        assert!(builder.logic_depth("REGISTER<16>").unwrap() < 10);
+        let ripple = builder.logic_depth("ADDER<16>").unwrap();
+        let lookahead = builder.logic_depth("ADDER_CLA_16B").unwrap();
+        assert!(lookahead * 4 < ripple, "{lookahead} vs {ripple}");
     }
 }

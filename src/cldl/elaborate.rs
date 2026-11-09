@@ -694,6 +694,15 @@ mod tests {
         assert_eq!(b.nand_count("REGISTER<4>"), b.nand_count("REGISTER_4B"));
         assert_eq!(b.nand_count("MUX_2_1_BUS<8>"), b.nand_count("MUX_8B_2_1"));
         assert_eq!(b.nand_count("ADDER<16>"), Some(2 * b.nand_count("ADDER_8B").unwrap()));
+        for (param, fixed) in [
+            ("MUX_4_1_BUS<8>", "MUX_8B_4_1"),
+            ("MUX_16_1_BUS<8>", "MUX_8B_16_1"),
+            ("REG_FILE_16<8>", "REG_FILE_16x8"),
+            ("AND_BUS<8>", "AND_8B"),
+            ("XOR_BUS<4>", "XOR_4B"),
+        ] {
+            assert_eq!(b.nand_count(param), b.nand_count(fixed), "{param}");
+        }
 
         let (fixed, param) = (b.build("ADDER_8B"), b.build("ADDER<8>"));
         for x in (0..256u32).step_by(7) {

@@ -1,0 +1,24 @@
+CIRCUIT PREFIX_CELL {
+    // Combines the (generate, propagate) pairs of two adjacent bit ranges for
+    // a parallel-prefix (carry-lookahead) adder; "high" is the upper range:
+    //   G = Gh OR (Ph AND Gl)     P = Ph AND Pl
+    // G is built as NAND(NOT Gh, NAND(Ph, Gl)): 3 NANDs on the carry path.
+    INPUT Gh, Ph, Gl, Pl;
+    OUTPUT G, P;
+
+    PART NotGh: NOT;
+    PART PhGl: NAND;
+    PART GOut: NAND;
+    PART PAnd: AND;
+
+    CONNECT Gh -> NotGh.in;
+    CONNECT Ph -> PhGl.in1;
+    CONNECT Gl -> PhGl.in2;
+    CONNECT NotGh.out -> GOut.in1;
+    CONNECT PhGl.out -> GOut.in2;
+    CONNECT GOut.out -> G;
+
+    CONNECT Ph -> PAnd.in1;
+    CONNECT Pl -> PAnd.in2;
+    CONNECT PAnd.out -> P;
+}

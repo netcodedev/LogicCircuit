@@ -1,0 +1,14 @@
+CIRCUIT AND_BUS<W> {
+    // Bitwise AND of two W-bit buses (one AND gate per bit, like AND_8B).
+    INPUT A[W];
+    INPUT B[W];
+
+    OUTPUT Out[W];
+
+    FOR i IN 0..W {
+        PART G[i]: AND;
+        CONNECT A[i] -> G[i].in1;
+        CONNECT B[i] -> G[i].in2;
+        CONNECT G[i].out -> Out[i];
+    }
+}

@@ -1,0 +1,27 @@
+// Tests for NOT_BUS<W>
+
+TESTS FOR NOT_BUS<16> {
+    TEST "NOT 0x0000" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        EVAL;
+        ASSERT Out[0] 1; ASSERT Out[1] 1; ASSERT Out[2] 1; ASSERT Out[3] 1; ASSERT Out[4] 1; ASSERT Out[5] 1; ASSERT Out[6] 1; ASSERT Out[7] 1; ASSERT Out[8] 1; ASSERT Out[9] 1; ASSERT Out[10] 1; ASSERT Out[11] 1; ASSERT Out[12] 1; ASSERT Out[13] 1; ASSERT Out[14] 1; ASSERT Out[15] 1;
+    }
+
+    TEST "NOT 0xFFFF" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1, A[4] 1, A[5] 1, A[6] 1, A[7] 1, A[8] 1, A[9] 1, A[10] 1, A[11] 1, A[12] 1, A[13] 1, A[14] 1, A[15] 1;
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 0; ASSERT Out[10] 0; ASSERT Out[11] 0; ASSERT Out[12] 0; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 0;
+    }
+
+    TEST "NOT 0x1234" {
+        SET A[0] 0, A[1] 0, A[2] 1, A[3] 0, A[4] 1, A[5] 1, A[6] 0, A[7] 0, A[8] 0, A[9] 1, A[10] 0, A[11] 0, A[12] 1, A[13] 0, A[14] 0, A[15] 0;
+        EVAL;
+        ASSERT Out[0] 1; ASSERT Out[1] 1; ASSERT Out[2] 0; ASSERT Out[3] 1; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 1; ASSERT Out[7] 1; ASSERT Out[8] 1; ASSERT Out[9] 0; ASSERT Out[10] 1; ASSERT Out[11] 1; ASSERT Out[12] 0; ASSERT Out[13] 1; ASSERT Out[14] 1; ASSERT Out[15] 1;
+    }
+
+    TEST "NOT 0xA5A5" {
+        SET A[0] 1, A[1] 0, A[2] 1, A[3] 0, A[4] 0, A[5] 1, A[6] 0, A[7] 1, A[8] 1, A[9] 0, A[10] 1, A[11] 0, A[12] 0, A[13] 1, A[14] 0, A[15] 1;
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 1; ASSERT Out[2] 0; ASSERT Out[3] 1; ASSERT Out[4] 1; ASSERT Out[5] 0; ASSERT Out[6] 1; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 1; ASSERT Out[10] 0; ASSERT Out[11] 1; ASSERT Out[12] 1; ASSERT Out[13] 0; ASSERT Out[14] 1; ASSERT Out[15] 0;
+    }
+}

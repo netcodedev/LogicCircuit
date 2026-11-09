@@ -1,0 +1,46 @@
+// Tests for REGISTER_R<W> (register with synchronous reset)
+
+TESTS FOR REGISTER_R<16> {
+    TEST "Starts at 0" {
+        EVAL;
+        ASSERT Q[0] 0; ASSERT Q[1] 0; ASSERT Q[2] 0; ASSERT Q[3] 0; ASSERT Q[4] 0; ASSERT Q[5] 0; ASSERT Q[6] 0; ASSERT Q[7] 0; ASSERT Q[8] 0; ASSERT Q[9] 0; ASSERT Q[10] 0; ASSERT Q[11] 0; ASSERT Q[12] 0; ASSERT Q[13] 0; ASSERT Q[14] 0; ASSERT Q[15] 0;
+    }
+
+    TEST "Load 0xCAFE" {
+        SET Data[0] 0, Data[1] 1, Data[2] 1, Data[3] 1, Data[4] 1, Data[5] 1, Data[6] 1, Data[7] 1, Data[8] 0, Data[9] 1, Data[10] 0, Data[11] 1, Data[12] 0, Data[13] 0, Data[14] 1, Data[15] 1;
+        SET Load 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Load 0;
+        EVAL;
+        ASSERT Q[0] 0; ASSERT Q[1] 1; ASSERT Q[2] 1; ASSERT Q[3] 1; ASSERT Q[4] 1; ASSERT Q[5] 1; ASSERT Q[6] 1; ASSERT Q[7] 1; ASSERT Q[8] 0; ASSERT Q[9] 1; ASSERT Q[10] 0; ASSERT Q[11] 1; ASSERT Q[12] 0; ASSERT Q[13] 0; ASSERT Q[14] 1; ASSERT Q[15] 1;
+        ASSERT nQ[0] 1; ASSERT nQ[1] 0; ASSERT nQ[2] 0; ASSERT nQ[3] 0; ASSERT nQ[4] 0; ASSERT nQ[5] 0; ASSERT nQ[6] 0; ASSERT nQ[7] 0; ASSERT nQ[8] 1; ASSERT nQ[9] 0; ASSERT nQ[10] 1; ASSERT nQ[11] 0; ASSERT nQ[12] 1; ASSERT nQ[13] 1; ASSERT nQ[14] 0; ASSERT nQ[15] 0;
+    }
+
+    TEST "Hold with Load=0" {
+        SET Data[0] 1, Data[1] 0, Data[2] 0, Data[3] 0, Data[4] 1, Data[5] 0, Data[6] 0, Data[7] 0, Data[8] 1, Data[9] 0, Data[10] 0, Data[11] 0, Data[12] 1, Data[13] 0, Data[14] 0, Data[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Q[0] 0; ASSERT Q[1] 1; ASSERT Q[2] 1; ASSERT Q[3] 1; ASSERT Q[4] 1; ASSERT Q[5] 1; ASSERT Q[6] 1; ASSERT Q[7] 1; ASSERT Q[8] 0; ASSERT Q[9] 1; ASSERT Q[10] 0; ASSERT Q[11] 1; ASSERT Q[12] 0; ASSERT Q[13] 0; ASSERT Q[14] 1; ASSERT Q[15] 1;
+    }
+
+    TEST "Reset wins over Load" {
+        SET Data[0] 0, Data[1] 0, Data[2] 1, Data[3] 0, Data[4] 1, Data[5] 1, Data[6] 0, Data[7] 0, Data[8] 0, Data[9] 1, Data[10] 0, Data[11] 0, Data[12] 1, Data[13] 0, Data[14] 0, Data[15] 0;
+        SET Load 1, Reset 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Load 0, Reset 0;
+        EVAL;
+        ASSERT Q[0] 0; ASSERT Q[1] 0; ASSERT Q[2] 0; ASSERT Q[3] 0; ASSERT Q[4] 0; ASSERT Q[5] 0; ASSERT Q[6] 0; ASSERT Q[7] 0; ASSERT Q[8] 0; ASSERT Q[9] 0; ASSERT Q[10] 0; ASSERT Q[11] 0; ASSERT Q[12] 0; ASSERT Q[13] 0; ASSERT Q[14] 0; ASSERT Q[15] 0;
+    }
+
+    TEST "Reset alone clears" {
+        SET Data[0] 1, Data[1] 1, Data[2] 1, Data[3] 1, Data[4] 1, Data[5] 1, Data[6] 1, Data[7] 1, Data[8] 1, Data[9] 1, Data[10] 1, Data[11] 1, Data[12] 1, Data[13] 1, Data[14] 1, Data[15] 1;
+        SET Load 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Load 0;
+        ASSERT Q[0] 1; ASSERT Q[1] 1; ASSERT Q[2] 1; ASSERT Q[3] 1; ASSERT Q[4] 1; ASSERT Q[5] 1; ASSERT Q[6] 1; ASSERT Q[7] 1; ASSERT Q[8] 1; ASSERT Q[9] 1; ASSERT Q[10] 1; ASSERT Q[11] 1; ASSERT Q[12] 1; ASSERT Q[13] 1; ASSERT Q[14] 1; ASSERT Q[15] 1;
+        SET Reset 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Reset 0;
+        EVAL;
+        ASSERT Q[0] 0; ASSERT Q[1] 0; ASSERT Q[2] 0; ASSERT Q[3] 0; ASSERT Q[4] 0; ASSERT Q[5] 0; ASSERT Q[6] 0; ASSERT Q[7] 0; ASSERT Q[8] 0; ASSERT Q[9] 0; ASSERT Q[10] 0; ASSERT Q[11] 0; ASSERT Q[12] 0; ASSERT Q[13] 0; ASSERT Q[14] 0; ASSERT Q[15] 0;
+    }
+}

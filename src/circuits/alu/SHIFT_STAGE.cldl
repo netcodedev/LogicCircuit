@@ -1,0 +1,30 @@
+CIRCUIT SHIFT_STAGE<W, S> {
+    // One stage of a right barrel shifter: with Sel=1, Out = In shifted right
+    // by S bits; with Sel=0, Out = In. The S bits shifted in at the top are
+    // the bits shifted out at the bottom (Rot=1, rotate) or Fill (Rot=0).
+    INPUT In[W];
+    INPUT Sel;
+    INPUT Rot;
+    INPUT Fill;
+
+    OUTPUT Out[W];
+
+    FOR i IN 0..W {
+        PART Mux[i]: MUX_2_1;
+        CONNECT In[i] -> Mux[i].A;
+        CONNECT Sel -> Mux[i].S;
+        CONNECT Mux[i].Out -> Out[i];
+    }
+    // Lower bits take the bit S places above.
+    FOR i IN 0..W-S {
+        CONNECT In[i+S] -> Mux[i].B;
+    }
+    // Upper S bits: wrapped-around bit or the fill bit.
+    FOR i IN W-S..W {
+        PART Wrap[i]: MUX_2_1;
+        CONNECT Fill -> Wrap[i].A;
+        CONNECT In[i+S-W] -> Wrap[i].B;
+        CONNECT Rot -> Wrap[i].S;
+        CONNECT Wrap[i].Out -> Mux[i].B;
+    }
+}

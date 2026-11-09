@@ -1,0 +1,33 @@
+CIRCUIT SP_16B {
+    // 16-bit stack pointer. The stack grows down and SP points to the most
+    // recently pushed word; after reset SP = 0, so the first PUSH writes to
+    // 0xFFFF.
+    //   PUSH/CALL: address = Next (SP - 1), then SP <- SP - 1   (Dec = 1)
+    //   POP/RET:   address = SP,            then SP <- SP + 1   (Inc = 1)
+    // Next = SP - Dec + Inc is always available; on the clock edge SP takes
+    // it when Inc or Dec is set, and becomes 0 when Reset is set.
+    INPUT Inc;
+    INPUT Dec;
+    INPUT Reset;
+    INPUT CLK;
+
+    OUTPUT SP[16];
+    OUTPUT Next[16];
+
+    PART SP_Reg: REGISTER_R<16>;
+    PART Adder: ADDER<16>;   // SP + (Dec ? 0xFFFF : 0) + Inc
+    PART LoadOr: OR;
+
+    CONNECT SP_Reg.Q -> SP;
+    CONNECT SP_Reg.Q -> Adder.A;
+    CONNECT Dec -> Adder.B;  // tee: all ones = -1
+    CONNECT Inc -> Adder.Cin;
+    CONNECT Adder.S -> Next;
+
+    CONNECT Inc -> LoadOr.in1;
+    CONNECT Dec -> LoadOr.in2;
+    CONNECT Adder.S -> SP_Reg.Data;
+    CONNECT LoadOr.out -> SP_Reg.Load;
+    CONNECT Reset -> SP_Reg.Reset;
+    CONNECT CLK -> SP_Reg.CLK;
+}
