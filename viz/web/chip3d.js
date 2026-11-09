@@ -114,14 +114,20 @@ export class ChipView {
     const { header, section } = parseLayout(buffer);
     this.header = header;
     const dbu = header.dbu_per_micron;
+    // Flat shading: the normal comes from the screen-space geometry instead
+    // of the vertex normal. Mirrored placements (FS rows) reverse the triangle
+    // winding; with smooth normals three.js would treat their outer faces as
+    // back faces and flip the normal (it only corrects mirroring per object,
+    // not per instance), so a mirrored cell's power rail is shaded darker than
+    // the coinciding rail of the neighbouring row and the two flicker.
     this.layers = header.layers.map((l, i) => ({
       ...l, index: i, visible: l.kind !== 'well', meshes: [],
-      material: new THREE.MeshLambertMaterial({ color: l.color, side: THREE.DoubleSide, clippingPlanes: [this.clip] }),
+      material: new THREE.MeshLambertMaterial({ color: l.color, side: THREE.DoubleSide, flatShading: true, clippingPlanes: [this.clip] }),
       // Routing shares its layer's height with the cells' own shapes on that
       // layer (e.g. li1 pads and met1 over cell met1). A depth offset lets the
       // routing win instead of both flickering (z-fighting).
       routeMaterial: new THREE.MeshLambertMaterial({
-        color: l.color, side: THREE.DoubleSide, clippingPlanes: [this.clip],
+        color: l.color, side: THREE.DoubleSide, flatShading: true, clippingPlanes: [this.clip],
         polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4,
       }),
     }));
