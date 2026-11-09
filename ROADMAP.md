@@ -107,19 +107,42 @@ externe Toolchain braucht (Export, Statistiken, Darstellung), gibt es in beiden.
 
 ## Phase 2 – Platzierung und Verdrahtung (CLI)
 
-- [ ] Verzeichnis `chip/` mit OpenLane-Konfiguration (`config.json`) pro Design
-- [ ] Synthese überspringen bzw. Netzliste unverändert übernehmen, damit Yosys
-      unsere Struktur nicht wegoptimiert (vorab gemappte Netzliste, `keep`-Attribute,
-      prüfen, dass die Zellzahl gleich bleibt)
-- [ ] CLI: `chip build <NAME>` = Verilog exportieren → Konfiguration schreiben →
-      OpenLane (Docker/Nix) aufrufen → Ergebnisse nach `chip/<NAME>/run/` legen
-- [ ] **Einstellbare Lagenzahl:** `--max-layer met1..met5` (OpenLane
-      `RT_MAX_LAYER`). sky130 hat `li1` plus `met1`–`met5`; weniger Lagen ergeben
-      größere Fläche und längere Leitungen
-- [ ] Kenngrößen aus den Reports einsammeln: Fläche, Zellzahl, Transistorzahl,
-      Leitungslänge pro Lage, Via-Anzahl, kritischer Pfad / maximale Taktfrequenz
-- [ ] CLI: `chip report <NAME>` gibt diese Kennzahlen als Tabelle aus
-- [ ] Experiment dokumentieren: dieselbe Schaltung mit 2, 3, 4, 5 Lagen vergleichen
+- [x] Läufe unter `chip/<NAME>/<run>/` (Netzliste, Namensliste, DEF/ODB, Logs, Metriken);
+      der Run-Name kodiert die Optionen (`basic-met3`, `nand-met5-u70-latches-opt`).
+      Statt einer Konfigurationsdatei pro Design genügen CLI-Optionen
+- [x] Keine Synthese: OpenROAD liest unsere Netzliste direkt; `chip report` vergleicht
+      exportierte und platzierte Zellen (Differenz = Clock-Tree-Buffer, ggf. `--optimize`)
+- [x] CLI: `chip build <NAME> [--level] [--keep-latches] [--max-layer met2..met5]
+      [--clock-period NS] [--util %] [--die-size UM] [--optimize]` – exportiert, startet
+      OpenROAD im gepinnten Container (`chip/flow/IMAGE`), sammelt die Ergebnisse
+- [x] **Einstellbare Lagenzahl:** `--max-layer` begrenzt Signale, Power-Grid und Pins.
+      Unter met5 baut `pnr.tcl` ein reduziertes Power-Grid (met1-Schienen + Streifen auf
+      met4 bzw. met2) und legt die Pins auf erlaubte Lagen. Minimum ist met2 (met1 allein
+      kann sky130 nicht sinnvoll verdrahten; `li1` liegt in den Zellen)
+- [x] Kenngrößen: Die, Logikfläche, Zellen, Transistoren (aus der CDL-Netzliste der
+      Zellbibliothek gezählt), Leitung pro Lage, Vias, DRC, Slack, fmax
+- [x] CLI: `chip report <NAME> [--run RUN] [--json]` – Vergleichstabelle aller Läufe,
+      Leitung pro Lage, Zellliste für einen Lauf, JSON für Skripte
+- [x] `--optimize`: `repair_design` + `repair_timing` (Buffer, Zellgrößen)
+- [x] Lagen-Experiment (COMPUTER_8B, Basis-Blöcke, 10-ns-Takt, 2026-11-09):
+
+  | Lauf | Die | Leitung | Vias | DRC | fmax | Laufzeit |
+  |---|---|---|---|---|---|---|
+  | met5, 40 % | 199 µm | 31,7 mm | 11.516 | 0 | 98 MHz | 25 s |
+  | met4, 40 % | 199 µm | 31,7 mm | 11.474 | 0 | 98 MHz | 21 s |
+  | met3, 40 % | 199 µm | 31,7 mm | 11.459 | 0 | 98 MHz | 25 s |
+  | met2, 40 % | 199 µm | 33,2 mm | 11.478 | 0 | 96 MHz | 49 s |
+  | met5, 70 % | 153 µm | 31,7 mm | 11.715 | 0 | 99 MHz | 40 s |
+  | met3, 70 % | 153 µm | 31,7 mm | 11.666 | 0 | 97 MHz | 40 s |
+  | met2, 70 % | 153 µm | 32,1 mm | 11.662 | 0 | 97 MHz | 171 s |
+  | met5 + `--optimize` | 199 µm | 32,4 mm | 11.523 | 0 | 108 MHz | 23 s |
+  | NAND-Stufe, met5 | 230 µm | 45,0 mm | 21.029 | 0 | 83 MHz | 26 s |
+
+  Ergebnis: Der Computer ist klein genug, dass schon **2 Lagen** DRC-frei reichen; 95 %
+  der Leitung liegt ohnehin auf met1/met2. Weniger Lagen kosten vor allem Rechenzeit
+  des Routers (bei 70 % Auslastung 4×) und etwas Leitung/Takt. Die NAND-Abbildung
+  braucht 2,1× so viele Zellen, 1,5× so viele Transistoren (20.948 statt 13.852) und
+  ist 15 % langsamer. Interessant würden die Lagen erst bei deutlich größeren Designs.
 
 ## Phase 3 – Layout in eigenes Format umwandeln
 

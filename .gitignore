@@ -9,4 +9,7 @@ ruvector.db
 /.claude/proven-config.json
 /.claude/.proven-config-version
 /chip/**/out*/
-/chip/COMPUTER_8B/
+# Generated chip runs (chip build); flow scripts and the smoke test stay tracked.
+/chip/*
+!/chip/flow/
+!/chip/smoke/

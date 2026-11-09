@@ -6,6 +6,7 @@ use logic_circuit::clt::{CircuitTester, TestSummary}; // Import TestSummary
 use logic_circuit::cldl::FlatLevel;
 use logic_circuit::export::verilog::{CellLib, VerilogOptions, export_verilog};
 use logic_circuit::export::verify_with_iverilog;
+use logic_circuit::chip::{self, BuildOptions, RunMetrics};
 use logic_circuit::{clt, isa, machine};
 
 #[derive(clap::ValueEnum, Clone, Copy, Debug)]
@@ -103,6 +104,12 @@ enum Commands {
         #[arg(long, value_name = "FILE")]
         names: Option<PathBuf>,
     },
+    /// Chip layout: place and route with OpenROAD (Docker) and report.
+    /// Loads ./circuits automatically if -d is not given.
+    Chip {
+        #[command(subcommand)]
+        command: ChipCommand,
+    },
     /// Check exported netlists against the .clt tests with Icarus Verilog.
     /// Without a name, checks every circuit that has tests.
     VerifyVerilog {
@@ -112,6 +119,45 @@ enum Commands {
         level: Level,
         #[arg(long)]
         keep_latches: bool,
+    },
+}
+#[derive(clap::Subcommand, Debug)]
+enum ChipCommand {
+    /// Export as sky130 netlist, then floorplan, place, clock tree and route.
+    /// Results go to chip/<NAME>/<run>/ (run name from the options).
+    Build {
+        #[arg(value_name = "COMPONENT_NAME")]
+        component_name: String,
+        #[arg(long, value_enum, default_value_t = Level::Basic)]
+        level: Level,
+        #[arg(long)]
+        keep_latches: bool,
+        /// Highest metal layer for routing, power grid and pins.
+        #[arg(long, default_value = "met5", value_parser = ["met2", "met3", "met4", "met5"])]
+        max_layer: String,
+        /// Clock period in ns for timing analysis.
+        #[arg(long, default_value_t = 10.0)]
+        clock_period: f64,
+        /// Core utilisation in percent.
+        #[arg(long, default_value_t = chip::DEFAULT_UTIL)]
+        util: u32,
+        /// Fixed square die edge in um instead of --util.
+        #[arg(long)]
+        die_size: Option<f64>,
+        /// Let OpenROAD buffer and resize cells (changes the netlist).
+        #[arg(long)]
+        optimize: bool,
+    },
+    /// Compare all runs of a circuit (or show one run in detail).
+    Report {
+        #[arg(value_name = "COMPONENT_NAME")]
+        component_name: String,
+        /// Show only this run, with its cell list.
+        #[arg(long)]
+        run: Option<String>,
+        /// Print JSON instead of tables.
+        #[arg(long)]
+        json: bool,
     },
 }
 // --- End Command Line Args ---
@@ -147,7 +193,13 @@ fn main() {
     // The CPU circuits live in ./circuits, which is not embedded.
     if args.directory.is_none() && matches!(
         args.command,
-        Some(Commands::Run { .. } | Commands::Nands { .. } | Commands::ExportVerilog { .. } | Commands::VerifyVerilog { .. })
+        Some(
+            Commands::Run { .. }
+                | Commands::Nands { .. }
+                | Commands::ExportVerilog { .. }
+                | Commands::VerifyVerilog { .. }
+                | Commands::Chip { .. }
+        )
     ) {
         let default_dir = Path::new("./circuits");
         if default_dir.is_dir() {
@@ -261,6 +313,49 @@ fn main() {
                 println!("Wrote name map {}", names_path.display());
             }
         }
+        Some(Commands::Chip { command }) => match command {
+            ChipCommand::Build { component_name, level, keep_latches, max_layer, clock_period, util, die_size, optimize } => {
+                let opts = BuildOptions {
+                    level: level.into(),
+                    keep_latches,
+                    max_layer,
+                    clock_period_ns: clock_period,
+                    utilization: util,
+                    die_size_um: die_size,
+                    optimize,
+                };
+                println!("\nBuilding chip/{}/{} with OpenROAD …", component_name, opts.run_name());
+                let started = std::time::Instant::now();
+                match chip::build(&builder, &component_name, &opts, Path::new(".")) {
+                    Ok(m) => {
+                        println!("Done in {:.0} s.", started.elapsed().as_secs_f64());
+                        print_chip_runs(&component_name, &[m]);
+                    }
+                    Err(e) => {
+                        eprintln!("Error: {}", e);
+                        std::process::exit(1);
+                    }
+                }
+            }
+            ChipCommand::Report { component_name, run, json } => {
+                let mut runs = chip::runs(Path::new("."), &component_name);
+                if let Some(r) = &run {
+                    runs.retain(|m| &m.run == r);
+                }
+                if runs.is_empty() {
+                    eprintln!("No chip runs found for '{}' (chip build {} first).", component_name, component_name);
+                    std::process::exit(1);
+                }
+                if json {
+                    println!("{}", chip::to_json(&component_name, &runs));
+                } else {
+                    print_chip_runs(&component_name, &runs);
+                    if run.is_some() {
+                        print_chip_cells(&runs[0]);
+                    }
+                }
+            }
+        },
         Some(Commands::VerifyVerilog { component_name, level, keep_latches }) => {
             let opts = VerilogOptions { level: level.into(), cells: CellLib::Generic, keep_latches };
             verify_verilog(&builder, component_name.as_deref(), opts);
@@ -479,4 +574,61 @@ fn verify_verilog(builder: &CircuitBuilder, only: Option<&str>, opts: VerilogOpt
         std::process::exit(1);
     }
     println!("\nAll {} suites match our simulator.", suites.len());
+}
+
+fn print_chip_runs(name: &str, runs: &[RunMetrics]) {
+    let fmt_f = |v: f64| group_digits(v.round() as usize);
+    println!("\n{}\n", name);
+    println!(
+        "  {:<24} {:>13} {:>11} {:>8} {:>12} {:>10} {:>8} {:>4} {:>8} {:>9}",
+        "Run", "Die (um)", "Logic um2", "Cells", "Transistors", "Wire um", "Vias", "DRC", "Slack", "fmax"
+    );
+    for r in runs {
+        let cells = match r.exported_cells {
+            Some(e) if e != r.logic_cells() => format!("{}*", group_digits(r.logic_cells())),
+            _ => group_digits(r.logic_cells()),
+        };
+        println!(
+            "  {:<24} {:>13} {:>11} {:>8} {:>12} {:>10} {:>8} {:>4} {:>8} {:>9}",
+            r.run,
+            format!("{:.0} x {:.0}", r.die_um.0, r.die_um.1),
+            fmt_f(r.logic_area_um2),
+            cells,
+            group_digits(r.transistors),
+            fmt_f(r.total_wire_um()),
+            r.vias.map_or("-".into(), group_digits),
+            r.drc_violations,
+            r.worst_slack_ns.map_or("-".into(), |v| format!("{:.2} ns", v)),
+            r.fmax_mhz().map_or("-".into(), |v| format!("{:.0} MHz", v)),
+        );
+    }
+    if runs.iter().any(|r| r.exported_cells.is_some_and(|e| e != r.logic_cells())) {
+        println!("  * more cells than exported: clock tree buffers (and buffers from --optimize)");
+    }
+
+    // Wire length per layer, one column per run.
+    let layers: Vec<&str> = chip::LAYERS.to_vec();
+    print!("\n  {:<6}", "Wire");
+    for r in runs {
+        print!(" {:>24}", r.run);
+    }
+    println!();
+    for layer in layers {
+        print!("  {:<6}", layer);
+        for r in runs {
+            let v = r.wire_um.get(layer).copied().unwrap_or(0.0);
+            let share = 100.0 * v / r.total_wire_um().max(1.0);
+            print!(" {:>24}", format!("{} um ({:.0}%)", fmt_f(v), share));
+        }
+        println!();
+    }
+}
+
+fn print_chip_cells(run: &RunMetrics) {
+    println!("\n  {:<36} {:>8}", "Cell", "Count");
+    let mut cells: Vec<_> = run.cells.iter().collect();
+    cells.sort_by(|a, b| b.1.cmp(a.1).then_with(|| a.0.cmp(b.0)));
+    for (cell, n) in cells {
+        println!("  {:<36} {:>8}", cell, group_digits(*n));
+    }
 }

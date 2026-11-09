@@ -4,10 +4,17 @@
 #   PLATFORM_DIR   ORFS sky130hd platform directory (LEF, liberty, PDN, tracks)
 #   NETLIST, TOP   structural Verilog and its top module
 #   OUT_DIR        where DEF/ODB and reports are written
-#   MAX_LAYER      highest metal layer for signal routing (met1..met5, default met5)
+#   MAX_LAYER      highest metal layer for routing (met2..met5, default met5); the
+#                  power grid and the pins are kept at or below it as well
 #   CLOCK_PORT     clock input; empty for purely combinational designs
 #   CLOCK_PERIOD   clock period in ns (default 10)
 #   DIE_SIZE       square die edge in um; otherwise sized by CORE_UTIL (percent, default 30)
+#   OPTIMIZE       1 = let OpenROAD insert buffers and resize cells (repair_design,
+#                  repair_timing); the netlist then no longer matches ours 1:1
+#
+# Besides DEF/ODB/Verilog it writes metrics.txt ("key value" lines): die size,
+# cell area, instances and transistors per cell master. Wire length per
+# layer, via count and slack are read from the log by the Rust CLI.
 #
 # The netlist is used as is: no synthesis, so every cell we export ends up on
 # the chip.
@@ -22,6 +29,11 @@ set top       $::env(TOP)
 set out       $::env(OUT_DIR)
 set max_layer [env_or MAX_LAYER met5]
 set clk_port  [env_or CLOCK_PORT ""]
+set optimize  [expr {[env_or OPTIMIZE 0] eq "1"}]
+set layers    {met1 met2 met3 met4 met5}
+if {[lsearch $layers $max_layer] < 1} {
+    error "MAX_LAYER must be one of met2..met5, got '$max_layer'"
+}
 file mkdir $out
 
 # --- Technology and design ---------------------------------------------------
@@ -56,19 +68,41 @@ set ::env(TAP_CELL_NAME) sky130_fd_sc_hd__tapvpwrvgnd_1
 source $platform/tapcell.tcl
 # Tap cells are new instances: connect their supply pins too.
 global_connect
-source $platform/pdn.tcl
+# Power grid: the platform grid uses met4/met5 stripes. With fewer layers,
+# build a reduced grid: met1 rails plus vertical stripes on the highest
+# vertical layer available (met4 or met2; sky130 alternates H/V from met1).
+if {$max_layer eq "met5"} {
+    source $platform/pdn.tcl
+} else {
+    set stripe [expr {$max_layer eq "met2" || $max_layer eq "met3" ? "met2" : "met4"}]
+    set_voltage_domain -name {CORE} -power {VDD} -ground {VSS}
+    define_pdn_grid -name {grid} -voltage_domains {CORE} -pins $stripe
+    add_pdn_stripe -grid {grid} -layer {met1} -width {0.48} -pitch {5.44} -offset {0} -followpins
+    add_pdn_stripe -grid {grid} -layer $stripe -width {1.2} -pitch {27.14} -offset {13.57}
+    add_pdn_connect -grid {grid} -layers [list met1 $stripe]
+}
 pdngen
 
-place_pins -hor_layers met3 -ver_layers met2
+# Pins on the highest horizontal / vertical layers that may be used.
+set pin_h [expr {$max_layer eq "met2" ? "met1" : "met3"}]
+place_pins -hor_layers $pin_h -ver_layers met2
 source $platform/setRC.tcl
 
 # --- Placement and clock tree --------------------------------------------------
 global_placement -density 0.6
+if {$optimize} {
+    estimate_parasitics -placement
+    repair_design
+}
 detailed_placement
 
 if {$clk_port ne ""} {
     clock_tree_synthesis -root_buf sky130_fd_sc_hd__clkbuf_16 -buf_list sky130_fd_sc_hd__clkbuf_4
     set_propagated_clock [all_clocks]
+    if {$optimize} {
+        estimate_parasitics -placement
+        repair_timing -setup
+    }
     detailed_placement
 }
 
@@ -93,3 +127,60 @@ if {$clk_port ne ""} {
     report_checks -path_delay max -format full_clock_expanded > $out/timing.rpt
     report_worst_slack
 }
+
+# --- Metrics -------------------------------------------------------------------
+# Transistors per cell master, counted from the platform's SPICE netlist.
+proc cdl_transistors {path} {
+    set counts [dict create]
+    set fh [open $path]
+    set cell ""
+    while {[gets $fh line] >= 0} {
+        set word [string toupper [lindex [split [string trim $line]] 0]]
+        if {$word eq ".SUBCKT"} {
+            set cell [lindex [split [string trim $line]] 1]
+            dict set counts $cell 0
+        } elseif {$word eq ".ENDS"} {
+            set cell ""
+        } elseif {$cell ne "" && [string match {M*} [string toupper [string trim $line]]]} {
+            dict incr counts $cell
+        }
+    }
+    close $fh
+    return $counts
+}
+set transistors_of [cdl_transistors $platform/cdl/sky130hd.cdl]
+
+set block [ord::get_db_block]
+set dbu [$block getDbUnitsPerMicron]
+set die [$block getDieArea]
+set masters [dict create]
+set cell_area 0.0
+set logic_area 0.0
+set transistors 0
+foreach inst [$block getInsts] {
+    set m [$inst getMaster]
+    set name [$m getName]
+    dict incr masters $name
+    set a [expr {double([$m getWidth]) * [$m getHeight] / $dbu / $dbu}]
+    set cell_area [expr {$cell_area + $a}]
+    # Logic area: without filler and tap cells, which only fill rows.
+    if {![string match *__fill_* $name] && ![string match *__tapvpwrvgnd_* $name]} {
+        set logic_area [expr {$logic_area + $a}]
+    }
+    if {[dict exists $transistors_of $name]} {
+        incr transistors [dict get $transistors_of $name]
+    }
+}
+set fh [open $out/metrics.txt w]
+puts $fh "die_width_um [expr {double([$die dx]) / $dbu}]"
+puts $fh "die_height_um [expr {double([$die dy]) / $dbu}]"
+puts $fh "cell_area_um2 [format %.1f $cell_area]"
+puts $fh "logic_area_um2 [format %.1f $logic_area]"
+puts $fh "transistors $transistors"
+puts $fh "max_layer $max_layer"
+puts $fh "clock_period_ns [env_or CLOCK_PERIOD 10]"
+puts $fh "optimize $optimize"
+dict for {name n} $masters {
+    puts $fh "cell $name $n"
+}
+close $fh

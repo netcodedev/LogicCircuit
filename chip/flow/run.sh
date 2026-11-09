@@ -4,7 +4,7 @@
 # e.g. chip/flow/run.sh chip/smoke/smoke.v smoke chip/smoke/out CLOCK_PORT=CLK DIE_SIZE=60
 # (Interim helper until the Rust CLI drives the flow in Phase 2.)
 set -euo pipefail
-IMAGE=openroad/orfs:26Q4-374-g2ccdcd3c2
+IMAGE=$(cat "$(dirname "$0")/IMAGE")
 ORFS=/OpenROAD-flow-scripts
 
 cd "$(dirname "$0")/../.."
