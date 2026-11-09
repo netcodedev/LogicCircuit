@@ -1,0 +1,84 @@
+// Test suite for the hex to 7-segment decoder (Seg[0..6] = a..g)
+
+TESTS FOR HEX_7SEG {
+    TEST "Digit 0" {
+        SET D[0] 0, D[1] 0, D[2] 0, D[3] 0;
+        EVAL;
+        ASSERT Seg[0] 1; ASSERT Seg[1] 1; ASSERT Seg[2] 1; ASSERT Seg[3] 1; ASSERT Seg[4] 1; ASSERT Seg[5] 1; ASSERT Seg[6] 0;
+    }
+    TEST "Digit 1" {
+        SET D[0] 1, D[1] 0, D[2] 0, D[3] 0;
+        EVAL;
+        ASSERT Seg[0] 0; ASSERT Seg[1] 1; ASSERT Seg[2] 1; ASSERT Seg[3] 0; ASSERT Seg[4] 0; ASSERT Seg[5] 0; ASSERT Seg[6] 0;
+    }
+    TEST "Digit 2" {
+        SET D[0] 0, D[1] 1, D[2] 0, D[3] 0;
+        EVAL;
+        ASSERT Seg[0] 1; ASSERT Seg[1] 1; ASSERT Seg[2] 0; ASSERT Seg[3] 1; ASSERT Seg[4] 1; ASSERT Seg[5] 0; ASSERT Seg[6] 1;
+    }
+    TEST "Digit 3" {
+        SET D[0] 1, D[1] 1, D[2] 0, D[3] 0;
+        EVAL;
+        ASSERT Seg[0] 1; ASSERT Seg[1] 1; ASSERT Seg[2] 1; ASSERT Seg[3] 1; ASSERT Seg[4] 0; ASSERT Seg[5] 0; ASSERT Seg[6] 1;
+    }
+    TEST "Digit 4" {
+        SET D[0] 0, D[1] 0, D[2] 1, D[3] 0;
+        EVAL;
+        ASSERT Seg[0] 0; ASSERT Seg[1] 1; ASSERT Seg[2] 1; ASSERT Seg[3] 0; ASSERT Seg[4] 0; ASSERT Seg[5] 1; ASSERT Seg[6] 1;
+    }
+    TEST "Digit 5" {
+        SET D[0] 1, D[1] 0, D[2] 1, D[3] 0;
+        EVAL;
+        ASSERT Seg[0] 1; ASSERT Seg[1] 0; ASSERT Seg[2] 1; ASSERT Seg[3] 1; ASSERT Seg[4] 0; ASSERT Seg[5] 1; ASSERT Seg[6] 1;
+    }
+    TEST "Digit 6" {
+        SET D[0] 0, D[1] 1, D[2] 1, D[3] 0;
+        EVAL;
+        ASSERT Seg[0] 1; ASSERT Seg[1] 0; ASSERT Seg[2] 1; ASSERT Seg[3] 1; ASSERT Seg[4] 1; ASSERT Seg[5] 1; ASSERT Seg[6] 1;
+    }
+    TEST "Digit 7" {
+        SET D[0] 1, D[1] 1, D[2] 1, D[3] 0;
+        EVAL;
+        ASSERT Seg[0] 1; ASSERT Seg[1] 1; ASSERT Seg[2] 1; ASSERT Seg[3] 0; ASSERT Seg[4] 0; ASSERT Seg[5] 0; ASSERT Seg[6] 0;
+    }
+    TEST "Digit 8" {
+        SET D[0] 0, D[1] 0, D[2] 0, D[3] 1;
+        EVAL;
+        ASSERT Seg[0] 1; ASSERT Seg[1] 1; ASSERT Seg[2] 1; ASSERT Seg[3] 1; ASSERT Seg[4] 1; ASSERT Seg[5] 1; ASSERT Seg[6] 1;
+    }
+    TEST "Digit 9" {
+        SET D[0] 1, D[1] 0, D[2] 0, D[3] 1;
+        EVAL;
+        ASSERT Seg[0] 1; ASSERT Seg[1] 1; ASSERT Seg[2] 1; ASSERT Seg[3] 1; ASSERT Seg[4] 0; ASSERT Seg[5] 1; ASSERT Seg[6] 1;
+    }
+    TEST "Digit A" {
+        SET D[0] 0, D[1] 1, D[2] 0, D[3] 1;
+        EVAL;
+        ASSERT Seg[0] 1; ASSERT Seg[1] 1; ASSERT Seg[2] 1; ASSERT Seg[3] 0; ASSERT Seg[4] 1; ASSERT Seg[5] 1; ASSERT Seg[6] 1;
+    }
+    TEST "Digit B" {
+        SET D[0] 1, D[1] 1, D[2] 0, D[3] 1;
+        EVAL;
+        ASSERT Seg[0] 0; ASSERT Seg[1] 0; ASSERT Seg[2] 1; ASSERT Seg[3] 1; ASSERT Seg[4] 1; ASSERT Seg[5] 1; ASSERT Seg[6] 1;
+    }
+    TEST "Digit C" {
+        SET D[0] 0, D[1] 0, D[2] 1, D[3] 1;
+        EVAL;
+        ASSERT Seg[0] 1; ASSERT Seg[1] 0; ASSERT Seg[2] 0; ASSERT Seg[3] 1; ASSERT Seg[4] 1; ASSERT Seg[5] 1; ASSERT Seg[6] 0;
+    }
+    TEST "Digit D" {
+        SET D[0] 1, D[1] 0, D[2] 1, D[3] 1;
+        EVAL;
+        ASSERT Seg[0] 0; ASSERT Seg[1] 1; ASSERT Seg[2] 1; ASSERT Seg[3] 1; ASSERT Seg[4] 1; ASSERT Seg[5] 0; ASSERT Seg[6] 1;
+    }
+    TEST "Digit E" {
+        SET D[0] 0, D[1] 1, D[2] 1, D[3] 1;
+        EVAL;
+        ASSERT Seg[0] 1; ASSERT Seg[1] 0; ASSERT Seg[2] 0; ASSERT Seg[3] 1; ASSERT Seg[4] 1; ASSERT Seg[5] 1; ASSERT Seg[6] 1;
+    }
+    TEST "Digit F" {
+        SET D[0] 1, D[1] 1, D[2] 1, D[3] 1;
+        EVAL;
+        ASSERT Seg[0] 1; ASSERT Seg[1] 0; ASSERT Seg[2] 0; ASSERT Seg[3] 0; ASSERT Seg[4] 1; ASSERT Seg[5] 1; ASSERT Seg[6] 1;
+    }
+}

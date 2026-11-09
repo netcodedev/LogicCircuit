@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::{CircuitBuilder, CldlDefinition, IoPinDef, PinRef};
 
 /// A single IO pin of a circuit or part. `width` is `Some(n)` for an n-bit bus.
@@ -17,6 +19,8 @@ pub struct PartView {
     /// True if the part has its own definition with sub-parts (i.e. it can be
     /// opened one level deeper). False for the NAND primitive.
     pub expandable: bool,
+    /// NAND gates in one instance of this part (0 if its type is unknown).
+    pub nand_count: usize,
 }
 
 /// One side of a `CONNECT`. `part` is `None` when the pin belongs to the
@@ -52,6 +56,47 @@ pub struct ConnectionView {
     pub width: Option<usize>,
 }
 
+/// How far `CircuitBuilder::flatten` expands the hierarchy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FlatLevel {
+    /// Down to the NAND gates the simulation runs on.
+    Nand,
+    /// Down to basic blocks (definitions from the `primitive` directory).
+    Basic,
+}
+
+/// One pin of a flattened block. `nets` holds one net index per bit (LSB
+/// first), indexing `FlatCircuit::nets`.
+#[derive(Debug, Clone)]
+pub struct FlatPin {
+    pub name: String,
+    pub output: bool,
+    pub width: Option<usize>,
+    pub nets: Vec<usize>,
+}
+
+/// One block of a flattened circuit: a NAND gate or a basic block.
+#[derive(Debug, Clone)]
+pub struct FlatBlock {
+    /// Hierarchical instance path, e.g. "Cpu.Datapath.Alu.FA0.HA1.G1".
+    pub id: String,
+    /// Part type, e.g. "NAND", "XOR", "AND_4B".
+    pub kind: String,
+    pub pins: Vec<FlatPin>,
+}
+
+/// A circuit reduced to blocks and the nets connecting them.
+#[derive(Debug, Clone)]
+pub struct FlatCircuit {
+    /// One wire-map key per net (usable to read the net's value).
+    pub nets: Vec<String>,
+    pub blocks: Vec<FlatBlock>,
+    /// Top-level input bits (bus bits as "Name.i") and their nets.
+    pub inputs: Vec<(String, usize)>,
+    /// Top-level output bits and their nets.
+    pub outputs: Vec<(String, usize)>,
+}
+
 /// A single, non-recursive level of a circuit definition: its own IO pins,
 /// its direct parts and the connections between them.
 #[derive(Debug, Clone)]
@@ -61,6 +106,8 @@ pub struct CircuitView {
     pub outputs: Vec<PinView>,
     pub parts: Vec<PartView>,
     pub connections: Vec<ConnectionView>,
+    /// NAND gates in the whole circuit.
+    pub nand_count: usize,
 }
 
 fn pin_views(pins: &[IoPinDef]) -> Vec<PinView> {
@@ -80,10 +127,34 @@ impl CircuitBuilder {
         names
     }
 
+    /// Number of NAND gates one instance of `name` is built from, i.e. the
+    /// number of gates `build(name)` creates. `None` if `name` or any part
+    /// type below it is unknown.
+    pub fn nand_count(&self, name: &str) -> Option<usize> {
+        self.count_nands(name, &mut HashMap::new())
+    }
+
+    fn count_nands(&self, name: &str, memo: &mut HashMap<String, usize>) -> Option<usize> {
+        if name == "NAND" {
+            return Some(1);
+        }
+        if let Some(&n) = memo.get(name) {
+            return Some(n);
+        }
+        let def = self.definitions.get(name)?;
+        let mut total = 0;
+        for part in &def.parts {
+            total += self.count_nands(&part.part_type, memo)?;
+        }
+        memo.insert(name.to_string(), total);
+        Some(total)
+    }
+
     /// Describes one level of the named circuit for visualization.
     /// Returns `None` if no such definition exists.
     pub fn describe(&self, name: &str) -> Option<CircuitView> {
         let def = self.definitions.get(name)?;
+        let mut memo = HashMap::new();
 
         let parts = def
             .parts
@@ -100,6 +171,7 @@ impl CircuitBuilder {
                         inputs: vec![bit("in1"), bit("in2")],
                         outputs: vec![bit("out")],
                         expandable: false,
+                        nand_count: 1,
                     }
                 } else {
                     let sub_def = self.definitions.get(&part.part_type);
@@ -109,6 +181,7 @@ impl CircuitBuilder {
                         inputs: sub_def.map_or_else(Vec::new, |d| pin_views(&d.inputs)),
                         outputs: sub_def.map_or_else(Vec::new, |d| pin_views(&d.outputs)),
                         expandable: sub_def.is_some_and(|d| !d.parts.is_empty()),
+                        nand_count: self.count_nands(&part.part_type, &mut memo).unwrap_or(0),
                     }
                 }
             })
@@ -138,6 +211,7 @@ impl CircuitBuilder {
             outputs: pin_views(&def.outputs),
             parts,
             connections,
+            nand_count: self.count_nands(name, &mut memo).unwrap_or(0),
         })
     }
 }
@@ -159,5 +233,29 @@ fn endpoint(pin_ref: &PinRef, def: &CldlDefinition) -> EndpointView {
         part: None,
         pin: pin_ref.base_name.clone(),
         index: pin_ref.index,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    #[test]
+    fn nand_count_matches_built_gates() {
+        let mut builder = CircuitBuilder::new();
+        builder
+            .load_circuits_from_path(Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/circuits")))
+            .unwrap();
+        for name in builder.circuit_names() {
+            let counted = builder.nand_count(&name).unwrap();
+            assert_eq!(counted, builder.build(&name).gate_count(), "{name}");
+            let nands = builder.flatten(&name, FlatLevel::Nand).unwrap().blocks;
+            assert_eq!(counted, nands.len(), "{name}");
+            // Basic blocks must add up to the same number of NANDs.
+            let basic = builder.flatten(&name, FlatLevel::Basic).unwrap().blocks;
+            let via_basic: usize = basic.iter().map(|b| builder.nand_count(&b.kind).unwrap()).sum();
+            assert_eq!(counted, via_basic, "{name}");
+        }
     }
 }

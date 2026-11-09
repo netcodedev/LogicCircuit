@@ -1,12 +1,12 @@
 // Test suite for the 4-Bit Control Unit
 
 TESTS FOR CONTROL_UNIT_4B {
-    TEST "OPCODE: NOP (0000)" {
+    TEST "OPCODE: HALT (0000)" {
         SET Opcode[3] 0, Opcode[2] 0, Opcode[1] 0, Opcode[0] 0;
         EVAL;
 
         // --- Assert Internal Decoder ---
-        ASSERT Decoder.O[0] 1; // NOP
+        ASSERT Decoder.O[0] 1; // HALT
         ASSERT Decoder.O[1] 0;
         ASSERT Decoder.O[2] 0;
         ASSERT Decoder.O[3] 0;
@@ -164,7 +164,7 @@ TESTS FOR CONTROL_UNIT_4B {
         ASSERT ALUCin 0;
     }
 
-    TEST "OPCODE: UNUSED (0110)" {
+    TEST "OPCODE: OUT (0110)" {
         SET Opcode[3] 0, Opcode[2] 1, Opcode[1] 1, Opcode[0] 0;
         EVAL;
 
@@ -330,5 +330,55 @@ TESTS FOR CONTROL_UNIT_4B {
         ASSERT ALUSel[0] 0;
         ASSERT ALUSel[1] 0;
         ASSERT ALUCin 0;
+    }
+
+    TEST "Program-flow signals: HALT (0000)" {
+        SET Opcode[3] 0, Opcode[2] 0, Opcode[1] 0, Opcode[0] 0;
+        EVAL;
+        ASSERT Halt 1;
+        ASSERT OutEnable 0;
+        ASSERT Jump 0;
+        ASSERT Branch 0;
+        ASSERT WriteEnable 0;
+    }
+
+    TEST "Program-flow signals: OUT (0110)" {
+        SET Opcode[3] 0, Opcode[2] 1, Opcode[1] 1, Opcode[0] 0;
+        EVAL;
+        ASSERT Halt 0;
+        ASSERT OutEnable 1;
+        ASSERT Jump 0;
+        ASSERT Branch 0;
+        ASSERT WriteEnable 0;
+    }
+
+    TEST "Program-flow signals: JMP (0111)" {
+        SET Opcode[3] 0, Opcode[2] 1, Opcode[1] 1, Opcode[0] 1;
+        EVAL;
+        ASSERT Halt 0;
+        ASSERT OutEnable 0;
+        ASSERT Jump 1;
+        ASSERT Branch 0;
+        ASSERT WriteEnable 0;
+    }
+
+    TEST "Program-flow signals: BRZ (1000)" {
+        SET Opcode[3] 1, Opcode[2] 0, Opcode[1] 0, Opcode[0] 0;
+        EVAL;
+        ASSERT Halt 0;
+        ASSERT OutEnable 0;
+        ASSERT Jump 0;
+        ASSERT Branch 1;
+        ASSERT WriteEnable 0;
+    }
+
+    TEST "Program-flow signals: ADD (0001)" {
+        SET Opcode[3] 0, Opcode[2] 0, Opcode[1] 0, Opcode[0] 1;
+        EVAL;
+        ASSERT Halt 0;
+        ASSERT OutEnable 0;
+        ASSERT Jump 0;
+        ASSERT Branch 0;
+        ASSERT WriteEnable 1;
     }
 }

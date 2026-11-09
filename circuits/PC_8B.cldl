@@ -1,0 +1,38 @@
+CIRCUIT PC_8B {
+    // 8-bit program counter.
+    // Each rising CLK edge with Enable = 1: PC <- Jump ? Target : PC + 1.
+    // With Enable = 0 the PC keeps its value. Starts at 0 (REGISTER_8B
+    // initialises to 0).
+    //
+    // Enable is active-high on purpose: while a surrounding circuit is still
+    // being built, an undriven Enable reads 0, so INIT clock pulses of parts
+    // built later cannot advance the PC.
+
+    INPUT Target[8];    // Jump target address
+    INPUT Jump;         // 1 = load Target instead of PC + 1
+    INPUT Enable;       // 1 = update PC on the clock edge, 0 = hold
+    INPUT CLK;
+
+    OUTPUT Addr[8];     // Current PC
+
+    // PC_Reg is declared first so its INIT runs before the incrementer and
+    // mux gates that drive its Data inputs exist.
+    PART PC_Reg: REGISTER_8B;
+    PART Incrementer: ADDER_8B;
+    PART NextMux: MUX_8B_2_1;   // S=0 -> PC + 1, S=1 -> Target
+    PART C_TRUE: NOR;           // Constant 1 (VCC), NOR(0,0) = 1
+
+    CONNECT PC_Reg.Q -> Addr;
+
+    // PC + 1: B is left unconnected (0), Cin is tied to 1.
+    CONNECT PC_Reg.Q -> Incrementer.A;
+    CONNECT C_TRUE.out -> Incrementer.Cin;
+
+    CONNECT Jump -> NextMux.S;
+    CONNECT Incrementer.S -> NextMux.A;
+    CONNECT Target -> NextMux.B;
+    CONNECT NextMux.Out -> PC_Reg.Data;
+
+    CONNECT Enable -> PC_Reg.Load;
+    CONNECT CLK -> PC_Reg.CLK;
+}

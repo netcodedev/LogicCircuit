@@ -23,6 +23,7 @@ CIRCUIT DATAPATH_8B {
     // --- Flag Outputs (to Control Unit) ---
     OUTPUT ALU_Cout;        // ALU Carry Out flag
     OUTPUT ALU_Z;           // ALU Zero flag
+    OUTPUT DataOutA[8];     // Register read port A (for OUT and BRZ)
 
     // --- Core Components ---
     PART RegFile: REG_FILE_16x8;
@@ -74,4 +75,5 @@ CIRCUIT DATAPATH_8B {
     // 5. Datapath Outputs
     CONNECT Alu.Cout -> ALU_Cout;
     CONNECT Alu.Z -> ALU_Z;
+    CONNECT RegFile.DataOutA -> DataOutA;
 }

@@ -6,8 +6,8 @@ use pest::{Parser, iterators::Pair};
 use crate::{
     circuit::{Circuit, NandGate, Wire, wire},
     cldl::{
-        CIRCUIT_DIR, CldlDefinition, CldlParser, ConnectionDef, InitCommand, InitValue, IoPinDef,
-        PartDef, PinRef, PinValue, SeqStep,
+        CIRCUIT_DIR, CldlDefinition, CldlParser, ConnectionDef, FlatBlock, FlatCircuit, FlatLevel,
+        FlatPin, InitCommand, InitValue, IoPinDef, PartDef, PinRef, PinValue, SeqStep,
     },
 };
 
@@ -37,7 +37,8 @@ impl CircuitBuilder {
                             let cldl_string =
                                 file.contents_utf8().expect("Circuit file not valid UTF-8");
                             match parse_cldl(cldl_string.trim()) {
-                                Ok(def) => {
+                                Ok(mut def) => {
+                                    def.category = category_of(file.path());
                                     if definitions.contains_key(&def.name) {
                                         eprintln!(
                                             "Warning: Duplicate circuit definition found for '{}'. Overwriting.",
@@ -82,7 +83,8 @@ impl CircuitBuilder {
             if path.is_file() && path.extension().map_or(false, |s| s == "cldl") {
                 let cldl_string = fs::read_to_string(&path)?;
                 match parse_cldl(cldl_string.trim()) {
-                    Ok(def) => {
+                    Ok(mut def) => {
+                        def.category = category_of(&path);
                         if self.definitions.contains_key(&def.name) {
                             eprintln!(
                                 "Warning: Overwriting definition for '{}' from file.",
@@ -131,27 +133,7 @@ impl CircuitBuilder {
         });
 
         // === Planning pass: collect wire equivalence classes, gates and inits ===
-        let mut plan = BuildPlan::default();
-
-        // Register the top-level IO pins so they always resolve to a wire, even
-        // if left unconnected.
-        self.register_io_keys(top_def, "", &mut plan);
-
-        // Top-level connections.
-        self.apply_connections(top_def, "", &mut plan);
-
-        // Recursively plan every part.
-        for part in &top_def.parts {
-            self.plan_part(&part.part_type, &part.instance_name, &mut plan);
-        }
-
-        // Top-level initialization runs last, after every part is planned.
-        if !top_def.initialization.is_empty() {
-            plan.events.push(BuildEvent::Init {
-                prefix: String::new(),
-                commands: top_def.initialization.clone(),
-            });
-        }
+        let mut plan = self.plan_circuit(top_def);
 
         // === Materialization pass: one shared Wire per equivalence class ===
         let wire_map = plan.materialize();
@@ -237,6 +219,132 @@ impl CircuitBuilder {
         circuit.set_wire_map(wire_map);
 
         circuit
+    }
+
+    /// Runs the planning pass for a top-level definition.
+    fn plan_circuit(&self, top_def: &CldlDefinition) -> BuildPlan {
+        let mut plan = BuildPlan::default();
+
+        // Register the top-level IO pins so they always resolve to a wire, even
+        // if left unconnected.
+        self.register_io_keys(top_def, "", &mut plan);
+
+        // Top-level connections.
+        self.apply_connections(top_def, "", &mut plan);
+
+        // Recursively plan every part.
+        for part in &top_def.parts {
+            self.plan_part(&part.part_type, &part.instance_name, &mut plan);
+        }
+
+        // Top-level initialization runs last, after every part is planned.
+        if !top_def.initialization.is_empty() {
+            plan.events.push(BuildEvent::Init {
+                prefix: String::new(),
+                commands: top_def.initialization.clone(),
+            });
+        }
+        plan
+    }
+
+    /// True for definitions loaded from the `primitive` directory (NOT, AND,
+    /// OR, XOR_8B, ...): the basic blocks of `FlatLevel::Basic`.
+    pub fn is_basic(&self, name: &str) -> bool {
+        self.definitions
+            .get(name)
+            .is_some_and(|d| d.category.as_deref() == Some("primitive"))
+    }
+
+    /// Flattens the named circuit down to `level`: parts are expanded until
+    /// they are NAND gates (`FlatLevel::Nand`) or basic blocks
+    /// (`FlatLevel::Basic`, see `is_basic`). Nets come from the same planning
+    /// pass as `build`, so they are exactly the wires that are simulated.
+    pub fn flatten(&self, name: &str, level: FlatLevel) -> Option<FlatCircuit> {
+        let top_def = self.definitions.get(name)?;
+        let mut plan = self.plan_circuit(top_def);
+
+        // Number the equivalence classes in key order so the result is
+        // deterministic. A net's key is its shortest member (ties: smallest),
+        // which favours the most top-level name.
+        let mut keys: Vec<String> = plan.union.ids.keys().cloned().collect();
+        keys.sort_by(|a, b| a.len().cmp(&b.len()).then_with(|| a.cmp(b)));
+        let mut net_of_root: HashMap<usize, usize> = HashMap::new();
+        let mut nets: Vec<String> = Vec::new();
+        for key in &keys {
+            let id = plan.union.ids[key];
+            let root = plan.union.find(id);
+            net_of_root.entry(root).or_insert_with(|| {
+                nets.push(key.clone());
+                nets.len() - 1
+            });
+        }
+        let mut net = |key: &str| {
+            let id = plan.union.ids[key];
+            net_of_root[&plan.union.find(id)]
+        };
+        let bits = |base: &str, width: Option<usize>| -> Vec<String> {
+            match width {
+                Some(w) => (0..w).map(|i| format!("{base}.{i}")).collect(),
+                None => vec![base.to_string()],
+            }
+        };
+
+        let mut found = Vec::new();
+        self.collect_blocks(top_def, "", level, &mut found);
+        let blocks = found
+            .into_iter()
+            .map(|(id, kind)| {
+                let pins: Vec<(String, bool, Option<usize>)> = match self.definitions.get(&kind) {
+                    _ if kind == "NAND" => vec![
+                        ("in1".into(), false, None),
+                        ("in2".into(), false, None),
+                        ("out".into(), true, None),
+                    ],
+                    Some(def) => def
+                        .inputs
+                        .iter()
+                        .map(|p| (p.name.clone(), false, p.width))
+                        .chain(def.outputs.iter().map(|p| (p.name.clone(), true, p.width)))
+                        .collect(),
+                    None => Vec::new(),
+                };
+                let pins = pins
+                    .into_iter()
+                    .map(|(pin, output, width)| FlatPin {
+                        nets: bits(&format!("{id}.{pin}"), width).iter().map(|k| net(k)).collect(),
+                        name: pin,
+                        output,
+                        width,
+                    })
+                    .collect();
+                FlatBlock { id, kind, pins }
+            })
+            .collect();
+
+        let io_bits = |pins: &[IoPinDef]| -> Vec<String> {
+            pins.iter().flat_map(|p| bits(&p.name, p.width)).collect()
+        };
+        let inputs = io_bits(&top_def.inputs).into_iter().map(|k| { let n = net(&k); (k, n) }).collect();
+        let outputs = io_bits(&top_def.outputs).into_iter().map(|k| { let n = net(&k); (k, n) }).collect();
+
+        Some(FlatCircuit { nets, blocks, inputs, outputs })
+    }
+
+    /// Collects (instance path, type) of every part that is not expanded
+    /// further at `level`, in build (DFS) order.
+    fn collect_blocks(&self, def: &CldlDefinition, prefix: &str, level: FlatLevel, out: &mut Vec<(String, String)>) {
+        for part in &def.parts {
+            let path = if prefix.is_empty() {
+                part.instance_name.clone()
+            } else {
+                format!("{prefix}.{}", part.instance_name)
+            };
+            let stop = part.part_type == "NAND" || (level == FlatLevel::Basic && self.is_basic(&part.part_type));
+            match self.definitions.get(&part.part_type) {
+                Some(sub) if !stop => self.collect_blocks(sub, &path, level, out),
+                _ => out.push((path, part.part_type.clone())),
+            }
+        }
     }
 
     /// Recursively records a part's structure into `plan` as an ordered stream
@@ -867,7 +975,13 @@ fn parse_cldl(cldl_string: &str) -> Result<CldlDefinition, pest::error::Error<Ru
         parts,
         connections,
         initialization,
+        category: None,
     })
+}
+
+/// The name of the directory containing `path`, used as a definition's category.
+fn category_of(path: &Path) -> Option<String> {
+    path.parent()?.file_name()?.to_str().map(str::to_string)
 }
 
 /// Helper function to execute initialization using the wire_map

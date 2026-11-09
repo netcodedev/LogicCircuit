@@ -18,6 +18,11 @@ impl Circuit {
         &self.name
     }
 
+    /// Number of NAND gates the circuit was built from.
+    pub fn gate_count(&self) -> usize {
+        self.gates.len()
+    }
+
     pub fn add_gate(&mut self, gate: Box<dyn LogicGate>) {
         self.gates.push(gate);
     }

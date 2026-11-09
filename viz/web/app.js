@@ -1,10 +1,29 @@
 import init, { Sim } from './pkg/logic_circuit_viz.js';
+import { layoutFlat, symbolInputX, SYMBOL_W } from './flat.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const HEADER = 34;   // part title area
 const ROW = 16;      // vertical spacing between ports
 const PORT = 6;      // port square size
 const TAP_W = 8;     // splitter / merger bar width
+const DIGIT_PART = 'HEX_7SEG';
+const DIGIT_W = 40, DIGIT_H = 70;
+
+// Segments a..g of a DIGIT_W x DIGIT_H digit, as [x, y, w, h].
+const SEGMENTS = [
+  [6, 0, 28, 7], [33, 6, 7, 26], [33, 38, 7, 26], [6, 63, 28, 7],
+  [0, 38, 7, 26], [0, 6, 7, 26], [6, 31.5, 28, 7],
+];
+
+// Draws one 7-segment digit at (x, y); returns the 7 segment elements.
+function drawDigit(parent, x, y) {
+  const g = el('g', { transform: `translate(${x},${y})`, class: 'digit' }, parent);
+  return SEGMENTS.map(([sx, sy, w, h]) => el('rect', { x: sx, y: sy, width: w, height: h, rx: 3, class: 'seg' }, g));
+}
+
+function showSegments(segs, vals) {
+  segs.forEach((seg, i) => seg.classList.toggle('on', vals[i] === 1));
+}
 
 const $ = (id) => document.getElementById(id);
 const statusEl = $('status');
@@ -13,6 +32,9 @@ await init();
 const sim = new Sim();
 const elk = new ELK();
 const names = JSON.parse(sim.circuit_names());
+const nandCounts = JSON.parse(sim.nand_counts());
+const fmtCount = (n) => n.toLocaleString('de-DE');
+const nandLabel = (n) => `${fmtCount(n)} NAND`;
 const views = new Map();    // type -> CircuitView JSON
 const layouts = new Map();  // "type|mode" -> { graph, meta }
 
@@ -21,6 +43,15 @@ const layouts = new Map();  // "type|mode" -> { graph, meta }
 const STRIPES_KEY = 'lc-viz-stripes';
 let stripes = false;
 try { stripes = localStorage.getItem(STRIPES_KEY) === '1'; } catch {}
+
+// View mode: 'parts' (the CLDL hierarchy), 'basic' (flattened to basic
+// blocks like NOT, AND, OR_4B) or 'nand' (flattened to NAND gates).
+const MODE_KEY = 'lc-viz-mode';
+const VIEW_MODES = ['parts', 'basic', 'nand'];
+let viewMode = 'parts';
+try { const m = localStorage.getItem(MODE_KEY); if (VIEW_MODES.includes(m)) viewMode = m; } catch {}
+const flats = new Map();  // "mode|type" -> flattened netlist JSON
+let currentGraph = null;  // { width, height } of what is drawn, for fit()
 
 // Per-bit stripe thickness; narrower for wide buses so a 16-bit bus stays readable.
 const stripeWidth = (bits) => Math.max(1.2, Math.min(2.5, 16 / bits));
@@ -52,6 +83,11 @@ function pinKeys(base, width) {
 // ---------------------------------------------------------------- layout
 
 function textWidth(s, px) { return s.length * px * 0.62; }
+
+// Second line of a part node: its type and how many NANDs one instance uses.
+function partSubtitle(part) {
+  return part.type === 'NAND' ? 'NAND' : `${part.type} · ${nandLabel(part.nands)}`;
+}
 
 function pinLabel(p) { return p.width != null ? `${p.name}[${p.width}]` : p.name; }
 
@@ -108,9 +144,11 @@ async function layout(type) {
     const id = `p:${part.name}`;
     const maxIn = Math.max(0, ...part.inputs.map((p) => textWidth(pinLabel(p), 10)));
     const maxOut = Math.max(0, ...part.outputs.map((p) => textWidth(pinLabel(p), 10)));
-    const w = Math.max(90, textWidth(part.name, 12) + 24, textWidth(part.type, 10) + 24, maxIn + maxOut + 30);
+    const w = Math.max(90, textWidth(part.name, 12) + 24, textWidth(partSubtitle(part), 10) + 24, maxIn + maxOut + 30);
     const rows = Math.max(part.inputs.length, part.outputs.length, 1);
-    const h = HEADER + rows * row + 4;
+    // A HEX_7SEG part shows its digit below the ports.
+    const digitY = part.type === DIGIT_PART ? HEADER + rows * row + 6 : null;
+    const h = digitY != null ? digitY + DIGIT_H + 10 : HEADER + rows * row + 4;
     const ports = [];
     part.inputs.forEach((p, i) => {
       const pid = `${id}#${p.name}`;
@@ -123,7 +161,7 @@ async function layout(type) {
       meta.ports.set(pid, { local: `${part.name}.${p.name}`, width: p.width, label: pinLabel(p), side: 'E', row: i });
     });
     children.push({ id, width: w, height: h, layoutOptions: { 'elk.portConstraints': 'FIXED_POS' }, ports });
-    meta.nodes.set(id, { kind: 'part', part });
+    meta.nodes.set(id, { kind: 'part', part, digitY });
   }
 
   // Width of an endpoint's pin (bus width or null), used to pick wire keys.
@@ -297,7 +335,9 @@ function renderStripedEdge(e, sec, pts, keys, edgeLayer, labelLayer) {
 
 async function render() {
   const top = stack[stack.length - 1];
+  if (viewMode !== 'parts') return renderFlat(top);
   const { graph, meta, ms } = await layout(top.type);
+  currentGraph = graph;
   const vp = $('viewport');
   vp.replaceChildren();
   probes = [];
@@ -360,9 +400,13 @@ async function render() {
       g.setAttribute('class', `node${part.expandable ? ' expandable' : ''}`);
       el('rect', { class: 'body', width: n.width, height: n.height, rx: 6 }, g);
       el('text', { x: n.width / 2, y: 15, 'text-anchor': 'middle', class: 'title' }, g).textContent = part.name;
-      el('text', { x: n.width / 2, y: 27, 'text-anchor': 'middle', class: 'type' }, g).textContent = part.type;
+      el('text', { x: n.width / 2, y: 27, 'text-anchor': 'middle', class: 'type' }, g).textContent = partSubtitle(part);
       el('title', {}, g).textContent = part.expandable ? `${part.name}: ${part.type} — Doppelklick zum Öffnen` : `${part.name}: ${part.type}`;
       if (part.expandable) g.addEventListener('dblclick', (ev) => { ev.stopPropagation(); enter(part.name, part.type); });
+      if (m.digitY != null) {
+        const segs = drawDigit(g, n.width / 2 - DIGIT_W / 2, m.digitY);
+        probes.push({ keys: pinKeys(fullKey(`${part.name}.Seg`), 7), apply(vals) { showSegments(segs, vals); } });
+      }
     }
     for (const p of n.ports || []) {
       const pm = meta.ports.get(p.id);
@@ -385,24 +429,163 @@ async function render() {
 
   renderCrumbs();
   fit();
+  probesChanged();
   refresh();
   const nodes = graph.children.length, edges = graph.edges.length;
-  statusEl.textContent = `${top.type} · ${nodes} Knoten · ${edges} Verbindungen · Layout ${ms.toFixed(0)} ms`;
+  statusEl.textContent = `${top.type} · ${nandLabel(view(top.type).nands)} · ${nodes} Knoten · ${edges} Verbindungen · Layout ${ms.toFixed(0)} ms`;
 }
+
+// ---------------------------------------------------------------- flat views
+
+function flatOf(type) {
+  const key = `${viewMode}|${type}`;
+  if (!flats.has(key)) flats.set(key, JSON.parse(sim.flatten(type, viewMode)));
+  return flats.get(key);
+}
+
+async function renderFlat(top) {
+  const flat = flatOf(top.type);
+  const unit = viewMode === 'nand' ? 'NANDs' : 'Blöcke';
+  const key = `flat|${viewMode}|${top.type}`;
+  if (!layouts.has(key)) {
+    statusEl.textContent = `Layout ${top.type}: ${fmtCount(flat.blocks.length)} ${unit}…`;
+    await new Promise((r) => setTimeout(r, 20)); // let the status paint first
+    const t0 = performance.now();
+    const lay = await layoutFlat(flat, elk);
+    layouts.set(key, { lay, ms: performance.now() - t0 });
+  }
+  const { lay, ms } = layouts.get(key);
+  currentGraph = lay;
+
+  const vp = $('viewport');
+  vp.replaceChildren();
+  probes = [];
+  const edgeLayer = el('g', {}, vp);
+  const nodeLayer = el('g', {}, vp);
+  const settable = stack.length === 1;
+
+  // Everything that shows a net's value: [element, base class, state prefix].
+  const onNet = new Map();
+  const watch = (net, elem, base, prefix) => {
+    if (!onNet.has(net)) onNet.set(net, []);
+    onNet.get(net).push([elem, base, prefix]);
+  };
+
+  // One path per net (all its driver -> load edges).
+  const netPaths = new Map();
+  const addPath = (net, d) => netPaths.set(net, (netPaths.get(net) || '') + d + ' ');
+  for (const e of lay.edges) {
+    if (e.d) addPath(e.net, e.d);
+  }
+  // Extend input wires from the pin to the symbol's (possibly curved) outline.
+  for (const n of lay.nodes) {
+    if (!n.symbol) continue;
+    for (const p of n.ports) {
+      if (p.output) continue;
+      const lead = symbolInputX(n.symbol, (p.y * 24) / n.h);
+      if (lead > 1) addPath(p.net, `M${n.x},${n.y + p.y} L${n.x + lead},${n.y + p.y}`);
+    }
+  }
+  for (const [net, d] of netPaths) {
+    const p = el('path', { d, class: 'edge flat-net e0' }, edgeLayer);
+    p.dataset.net = net;
+    watch(net, p, 'edge flat-net', 'e');
+  }
+  for (const e of lay.edges) {
+    for (const j of e.junctions) watch(e.net, el('circle', { cx: j.x, cy: j.y, r: 2 }, edgeLayer), 'junction', 's');
+  }
+
+  for (const n of lay.nodes) {
+    if (n.kind === 'block' && n.symbol) {
+      // Logic symbol, coloured by its output.
+      const u = el('use', {
+        href: `#sym-${n.symbol}`, x: n.x, y: n.y, width: SYMBOL_W, height: n.h,
+        preserveAspectRatio: 'none', class: 'gate s0',
+      }, nodeLayer);
+      u.dataset.block = n.block;
+      watch(n.ports.find((p) => p.output).net, u, 'gate', 's');
+    } else if (n.kind === 'block') {
+      // Multi-bit block (e.g. AND_4B): box with one port per bit.
+      const g = el('g', { transform: `translate(${n.x},${n.y})`, class: 'node flat-box' }, nodeLayer);
+      g.dataset.block = n.block;
+      el('rect', { class: 'body', width: n.w, height: n.h, rx: 4 }, g);
+      el('text', { x: n.w / 2, y: 13, 'text-anchor': 'middle', class: 'type' }, g).textContent = n.type;
+      for (const p of n.ports) {
+        const sq = el('rect', { x: p.output ? p.x - 1 : p.x - 3, y: p.y - 2, width: 4, height: 4, class: 'port s0' }, g);
+        watch(p.net, sq, 'port', 's');
+        el('text', { x: p.output ? n.w - 5 : 5, y: p.y + 3, 'text-anchor': p.output ? 'end' : 'start', class: 'bitlabel' }, g)
+          .textContent = p.label;
+      }
+    } else {
+      const canSet = n.kind === 'in' && settable;
+      const g = el('g', { transform: `translate(${n.x},${n.y})`, class: `node io flat-io${canSet ? ' settable' : ''}` }, nodeLayer);
+      el('rect', { class: 'body', width: n.w, height: n.h, rx: n.h / 2 }, g);
+      el('text', { x: 8, y: n.h / 2 + 4 }, g).textContent = n.label;
+      const val = el('text', { x: n.w - 7, y: n.h / 2 + 4, 'text-anchor': 'end' }, g);
+      probes.push({ keys: [fullKey(n.key)], apply(v) { val.textContent = v[0] === 2 ? '?' : v[0]; } });
+      if (canSet) g.addEventListener('click', () => toggleInput(n.key));
+    }
+  }
+
+  // One probe per net updates everything attached to it.
+  for (const [net, items] of onNet) {
+    probes.push({
+      keys: [fullKey(flat.nets[net])],
+      apply(v) { for (const [elem, base, prefix] of items) elem.setAttribute('class', `${base} ${prefix}${v[0]}`); },
+    });
+  }
+
+  renderCrumbs();
+  fit();
+  probesChanged();
+  refresh();
+  const nands = viewMode === 'basic' ? ` · ${nandLabel(view(top.type).nands)}` : '';
+  flatStatus = `${top.type} · ${fmtCount(flat.blocks.length)} ${unit}${nands} · ${fmtCount(netPaths.size)} Netze · Layout ${lay.router} ${ms.toFixed(0)} ms`;
+  statusEl.textContent = flatStatus;
+}
+
+// Hovering a block or wire in a flat view shows what it is in the status bar.
+let flatStatus = '';
+$('viewport').addEventListener('mouseover', (e) => {
+  if (viewMode === 'parts') return;
+  const flat = flats.get(`${viewMode}|${stack[stack.length - 1].type}`);
+  if (!flat) return;
+  const val = (k) => ['0', '1', '?'][sim.values(fullKey(k))[0]];
+  const blockEl = e.target.closest('[data-block]');
+  if (blockEl) {
+    const b = flat.blocks[Number(blockEl.dataset.block)];
+    const outs = b.pins.filter((p) => p.output)
+      .map((p) => `${p.name} = ${p.nets.map((n) => val(flat.nets[n])).reverse().join('')}`).join(', ');
+    statusEl.textContent = `${b.kind} ${b.id} · ${outs}`;
+  } else if (e.target.dataset.net != null) {
+    const k = flat.nets[Number(e.target.dataset.net)];
+    statusEl.textContent = `Netz ${k} = ${val(k)}`;
+  }
+});
+$('viewport').addEventListener('mouseout', () => { if (viewMode !== 'parts') statusEl.textContent = flatStatus; });
 
 // ---------------------------------------------------------------- simulation
 
+// The probe key list is rebuilt only when probes change (the flat view of a
+// big circuit has thousands of them).
+let allProbes = null;
 let allKeys = '';
 let probeOffsets = [];
 
+function probesChanged() {
+  allProbes = null;
+}
+
 function refresh() {
-  const all = [...probes, ...sidebarProbes];
-  probeOffsets = [];
-  const keys = [];
-  for (const p of all) { probeOffsets.push(keys.length); keys.push(...p.keys); }
-  allKeys = keys.join('\n');
+  if (!allProbes) {
+    allProbes = [...probes, ...sidebarProbes];
+    probeOffsets = [];
+    const keys = [];
+    for (const p of allProbes) { probeOffsets.push(keys.length); for (const k of p.keys) keys.push(k); }
+    allKeys = keys.join('\n');
+  }
   const vals = sim.values(allKeys);
-  all.forEach((p, i) => p.apply(Array.from(vals.subarray(probeOffsets[i], probeOffsets[i] + p.keys.length))));
+  allProbes.forEach((p, i) => p.apply(p.keys.length === 1 ? [vals[probeOffsets[i]]] : Array.from(vals.subarray(probeOffsets[i], probeOffsets[i] + p.keys.length))));
 }
 
 function topInputKeys(name) {
@@ -423,15 +606,54 @@ function setBus(name, value) {
   refresh();
 }
 
+// Inline number entry for a bus input (window.prompt is not available in
+// every embedding browser). Enter applies, Escape or leaving the field cancels.
+function editBusValue(valEl, pin) {
+  if (valEl.querySelector('input')) return;
+  const input = document.createElement('input');
+  input.className = 'val-edit';
+  input.value = valEl.textContent;
+  valEl.replaceChildren(input);
+  input.focus();
+  input.select();
+  // refresh() rewrites valEl, which removes the input and fires blur; the
+  // flag keeps that blur from closing a second time.
+  let done = false;
+  const finish = (value) => {
+    if (done) return;
+    done = true;
+    if (value == null) refresh();
+    else setBus(pin.name, value);
+  };
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const n = Number(input.value.trim());
+      if (Number.isInteger(n) && n >= 0 && n <= 2 ** pin.width - 1) finish(n);
+      else input.classList.add('bad');
+    } else if (e.key === 'Escape') {
+      finish(null);
+    }
+  });
+  input.addEventListener('blur', () => finish(null));
+}
+
 function clockName() {
   return view(stack[0].type).inputs.find((p) => p.width == null && /^clk$/i.test(p.name))?.name;
 }
 
 $('pulse').addEventListener('click', () => {
+  if (sim.is_runnable()) { stopRun(); stepProgram(); return; }
   const clk = clockName();
   sim.set_input(clk, true); sim.eval();
   sim.set_input(clk, false); sim.eval();
   refresh();
+});
+
+$('viewmode').value = viewMode;
+$('viewmode').addEventListener('change', (e) => {
+  viewMode = e.target.value;
+  try { localStorage.setItem(MODE_KEY, viewMode); } catch {}
+  render();
 });
 
 $('stripes').checked = stripes;
@@ -442,13 +664,17 @@ $('stripes').addEventListener('change', (e) => {
 });
 
 $('reset').addEventListener('click', () => {
+  stopRun();
   sim.build(stack[0].type);
+  resetStats();
   refresh();
+  updateProgramView();
 });
 
 function buildSidebar() {
   const v = view(stack[0].type);
   sidebarProbes = [];
+  probesChanged();
   const mk = (container, pins, settable) => {
     container.replaceChildren();
     if (!pins.length) container.innerHTML = '<div class="io-row" style="color:var(--muted)">—</div>';
@@ -474,11 +700,8 @@ function buildSidebar() {
       bits.append(...cells);
       if (settable && p.width != null) {
         val.style.cursor = 'pointer';
-        val.title = 'Klicken, um einen Zahlenwert einzugeben';
-        val.addEventListener('click', () => {
-          const s = prompt(`Wert für ${p.name} (dezimal oder 0x…):`);
-          if (s != null && s.trim() !== '') setBus(p.name, Number(s.trim()));
-        });
+        val.title = 'Klicken, um einen Zahlenwert einzugeben (dezimal, 0x… oder 0b…)';
+        val.addEventListener('click', () => editBusValue(val, p));
       }
       const head = document.createElement('div');
       head.className = 'io-head';
@@ -497,10 +720,202 @@ function buildSidebar() {
       });
     }
   };
-  mk($('inputs'), v.inputs, true);
+  const runnable = sim.is_runnable();
+  // On a runnable circuit the instruction memory drives Instruction.
+  mk($('inputs'), v.inputs.filter((p) => !(runnable && p.name === 'Instruction')), true);
   mk($('outputs'), v.outputs, false);
   $('pulse').hidden = !clockName();
+  $('pulse').textContent = runnable ? 'Takt (1 Befehl)' : 'Takt ↑↓';
+  $('program-panel').hidden = !runnable;
+  $('prog-split').hidden = !runnable;
+  buildDisplay(v);
 }
+
+// ---------------------------------------------------------------- display
+
+// Top-level outputs named Seg<n>[7] are shown as 7-segment digits, highest
+// n on the left.
+function buildDisplay(v) {
+  const digits = v.outputs
+    .filter((p) => p.width === 7 && /^Seg\d+$/.test(p.name))
+    .sort((a, b) => Number(b.name.slice(3)) - Number(a.name.slice(3)));
+  $('display-section').hidden = !digits.length;
+  const svg = $('display');
+  svg.replaceChildren();
+  const gap = 14;
+  svg.setAttribute('viewBox', `-8 -8 ${digits.length * (DIGIT_W + gap) - gap + 16} ${DIGIT_H + 16}`);
+  digits.forEach((p, i) => {
+    const segs = drawDigit(svg, i * (DIGIT_W + gap), 0);
+    sidebarProbes.push({ keys: pinKeys(p.name, 7), apply(vals) { showSegments(segs, vals); } });
+  });
+}
+
+// ---------------------------------------------------------------- program
+
+const examples = JSON.parse(sim.examples());
+let program = null;   // { words, lines, listing } of the loaded program
+let runFrameId = null;  // requestAnimationFrame id while running
+
+// Clock rate in instructions per second, remembered per browser.
+const HZ_KEY = 'lc-viz-hz';
+const MAX_HZ = 100000;
+try { const v = localStorage.getItem(HZ_KEY); if (v) $('speed').value = v; } catch {}
+function clockHz() {
+  const hz = Number($('speed').value);
+  return Number.isFinite(hz) && hz > 0 ? Math.min(hz, MAX_HZ) : 1;
+}
+
+for (const ex of examples) {
+  const o = document.createElement('option');
+  o.value = ex.name;
+  o.textContent = ex.name;
+  $('examples').appendChild(o);
+}
+$('examples').addEventListener('change', (e) => {
+  const ex = examples.find((x) => x.name === e.target.value);
+  if (ex) { $('source').value = ex.source; loadProgram(); }
+});
+
+function loadProgram() {
+  stopRun();
+  const r = JSON.parse(sim.assemble($('source').value));
+  const errEl = $('asm-error');
+  if (!r.ok) {
+    errEl.textContent = `Zeile ${r.line}: ${r.message}`;
+    errEl.hidden = false;
+    return;
+  }
+  errEl.hidden = true;
+  program = r;
+  sim.build(stack[0].type);          // fresh registers, PC = 0
+  resetStats();
+  sim.set_rom(Uint16Array.from(r.words));
+  renderListing();
+  refresh();
+  updateProgramView();
+}
+
+function renderListing() {
+  const src = $('source').value.split('\n');
+  const list = $('listing');
+  list.replaceChildren();
+  program.words.forEach((w, addr) => {
+    const row = document.createElement('div');
+    row.className = 'lrow';
+    row.title = src[program.lines[addr] - 1]?.trim() ?? '';
+    const hex = (n, d) => n.toString(16).toUpperCase().padStart(d, '0');
+    row.innerHTML = `<span class="addr">${hex(addr, 2)}</span><span class="word">${hex(w, 4)}</span><span></span>`;
+    row.lastChild.textContent = program.listing[addr];
+    list.appendChild(row);
+  });
+}
+
+function updateProgramView() {
+  if (!sim.is_runnable()) return;
+  const pc = sim.pc();
+  const halted = sim.halted();
+  const rows = $('listing').children;
+  for (let i = 0; i < rows.length; i++) rows[i].classList.toggle('cur', i === pc);
+  rows[pc]?.scrollIntoView({ block: 'nearest' });
+  const pcHex = pc.toString(16).toUpperCase().padStart(2, '0');
+  $('prog-status').textContent = halted
+    ? `Angehalten (HALT) bei PC 0x${pcHex}`
+    : `PC 0x${pcHex} · nächster Befehl: ${program ? (program.listing[pc] ?? 'HALT') : '—'}`;
+  $('step').disabled = halted;
+  $('run').disabled = halted;
+}
+
+function stepProgram() {
+  const ran = sim.step();
+  if (ran) { stats.cycles++; showStats(); }
+  refresh();
+  updateProgramView();
+  return ran;
+}
+
+// The run loop is frame-based: each animation frame executes as many
+// instructions as the clock rate asks for since the last frame, then redraws
+// once. Simulation time per frame is capped, so a rate above what the
+// simulator manages just runs as fast as it can instead of freezing the page.
+const FRAME_BUDGET_MS = 12;
+
+// Execution statistics since the program was loaded or the CPU rebuilt:
+// wall-clock time spent running (pauses excluded), executed instructions, and
+// the instructions executed while running (manual steps take no run time, so
+// they are left out of the average rate).
+const stats = { ms: 0, cycles: 0, runCycles: 0, since: null };  // since = start of current run
+
+function resetStats() {
+  stats.ms = 0;
+  stats.cycles = 0;
+  stats.runCycles = 0;
+  stats.since = runFrameId ? performance.now() : null;
+  showStats();
+}
+
+function showStats(now = performance.now()) {
+  const ms = stats.ms + (stats.since != null ? now - stats.since : 0);
+  const time = ms >= 1000 ? `${(ms / 1000).toFixed(2)} s` : `${Math.round(ms)} ms`;
+  const rate = ms > 0 && stats.runCycles > 0 ? ` · ≈ ${formatHz((stats.runCycles * 1000) / ms)}` : '';
+  $('timer').textContent = `⏱ ${time} · ${stats.cycles} ${stats.cycles === 1 ? 'Befehl' : 'Befehle'}${rate}`;
+}
+let run = null;  // { last, carry }
+
+function runFrame(now) {
+  const hz = clockHz();
+  run.carry += ((now - run.last) * hz) / 1000;
+  run.last = now;
+  let due = Math.floor(run.carry);
+  run.carry -= due;
+  const deadline = performance.now() + FRAME_BUDGET_MS;
+  let halted = false;
+  while (due-- > 0) {
+    if (!sim.step()) { halted = true; break; }
+    stats.cycles++;
+    stats.runCycles++;
+    if (sim.halted()) { halted = true; break; }
+    if (performance.now() > deadline) { run.carry = 0; break; }
+  }
+  refresh();
+  updateProgramView();
+  // Stop the clock at the moment HALT was reached, not at the end of the frame.
+  if (halted) stopRun(performance.now());
+  else { showStats(now); runFrameId = requestAnimationFrame(runFrame); }
+}
+
+function formatHz(hz) {
+  return hz >= 1000 ? `${(hz / 1000).toFixed(1)} kHz` : `${hz.toFixed(hz < 10 ? 1 : 0)} Hz`;
+}
+
+function startRun() {
+  if (runFrameId || sim.halted()) return;
+  const now = performance.now();
+  // Start with one instruction due so the first step happens immediately.
+  run = { last: now, carry: 1 };
+  runFrameId = requestAnimationFrame(runFrame);
+  stats.since = now;
+  $('run').textContent = '⏸ Stopp';
+}
+
+function stopRun(at = performance.now()) {
+  if (stats.since != null) {
+    stats.ms += at - stats.since;
+    stats.since = null;
+    showStats();
+  }
+  if (runFrameId) cancelAnimationFrame(runFrameId);
+  runFrameId = null;
+  $('run').textContent = '▶ Start';
+}
+
+$('load').addEventListener('click', loadProgram);
+$('step').addEventListener('click', () => { stopRun(); stepProgram(); });
+$('run').addEventListener('click', () => (runFrameId ? stopRun() : startRun()));
+// The run loop reads the rate every frame, so changes apply immediately.
+$('speed').addEventListener('change', () => {
+  $('speed').value = clockHz();
+  try { localStorage.setItem(HZ_KEY, $('speed').value); } catch {}
+});
 
 // ---------------------------------------------------------------- navigation
 
@@ -535,14 +950,27 @@ function go() {
 function select(type) {
   stack = [{ instance: null, type }];
   statusEl.textContent = `Baue ${type}…`;
+  stopRun();
   sim.build(type);
+  resetStats();
   buildSidebar();
-  for (const d of $('list').children) d.classList.toggle('sel', d.textContent === type);
+  if (sim.is_runnable()) {
+    if (!program && examples.length) {
+      const ex = examples.find((x) => x.name === 'countdown') ?? examples[0];
+      $('examples').value = ex.name;
+      $('source').value = ex.source;
+      loadProgram();
+    } else if (program) {
+      renderListing();
+      updateProgramView();
+    }
+  }
+  for (const d of $('list').children) d.classList.toggle('sel', d.dataset.name === type);
 }
 
 function fromHash() {
   const parts = decodeURIComponent(location.hash.slice(1)).split('/').filter(Boolean);
-  const top = names.includes(parts[0]) ? parts[0] : (names.includes('CPU_8B') ? 'CPU_8B' : names[0]);
+  const top = names.includes(parts[0]) ? parts[0] : (names.includes('COMPUTER_8B') ? 'COMPUTER_8B' : names[0]);
   if (!stack.length || stack[0].type !== top) select(top);
   stack = [stack[0]];
   for (const inst of parts.slice(1)) {
@@ -560,7 +988,15 @@ function renderList() {
   list.replaceChildren();
   for (const n of names.filter((n) => n.toLowerCase().includes(q))) {
     const d = document.createElement('div');
+    d.dataset.name = n;
     d.textContent = n;
+    if (n in nandCounts) {
+      const c = document.createElement('span');
+      c.className = 'count';
+      c.textContent = fmtCount(nandCounts[n]);
+      c.title = `${nandLabel(nandCounts[n])}`;
+      d.appendChild(c);
+    }
     if (stack[0] && stack[0].type === n) d.className = 'sel';
     d.addEventListener('click', () => { select(n); go(); });
     list.appendChild(d);
@@ -575,9 +1011,8 @@ let tf = { x: 0, y: 0, k: 1 };
 const applyTf = () => $('viewport').setAttribute('transform', `translate(${tf.x},${tf.y}) scale(${tf.k})`);
 
 function fit() {
-  const entry = stack.length && layouts.get(`${stack[stack.length - 1].type}|${stripes}`);
-  if (!entry) return;
-  const { graph } = entry;
+  const graph = currentGraph;
+  if (!graph) return;
   const r = svg.getBoundingClientRect();
   const k = Math.min(r.width / graph.width, r.height / graph.height, 1.6);
   tf = { k, x: (r.width - graph.width * k) / 2, y: (r.height - graph.height * k) / 2 };
@@ -619,6 +1054,46 @@ window.addEventListener('resize', fit);
 window.addEventListener('hashchange', () => {
   const want = stack.map((s, i) => (i === 0 ? s.type : s.instance)).join('/');
   if (decodeURIComponent(location.hash.slice(1)) !== want) fromHash();
+});
+
+// ---------------------------------------------------------------- resizable panels
+
+// Drag handles for the sidebar width and the program panel height. Sizes
+// live in CSS variables on :root and are remembered per browser.
+const SIZES_KEY = 'lc-viz-sizes';
+const sizes = (() => { try { return JSON.parse(localStorage.getItem(SIZES_KEY)) || {}; } catch { return {}; } })();
+const applySizes = () => {
+  if (sizes.side) document.documentElement.style.setProperty('--side-w', `${sizes.side}px`);
+  if (sizes.prog) document.documentElement.style.setProperty('--prog-h', `${sizes.prog}px`);
+};
+applySizes();
+
+function makeSplitter(handle, axis, measure) {
+  handle.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    handle.setPointerCapture(e.pointerId);
+    handle.classList.add('active');
+    document.body.classList.add('resizing', axis === 'x' ? 'col' : 'row');
+    const move = (ev) => { measure(ev); applySizes(); };
+    const up = () => {
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', up);
+      handle.classList.remove('active');
+      document.body.classList.remove('resizing', 'col', 'row');
+      try { localStorage.setItem(SIZES_KEY, JSON.stringify(sizes)); } catch {}
+    };
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', up);
+  });
+}
+
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+makeSplitter($('side-split'), 'x', (e) => {
+  sizes.side = Math.round(clamp(e.clientX, 200, Math.min(640, window.innerWidth - 300)));
+});
+makeSplitter($('prog-split'), 'y', (e) => {
+  const bottom = $('workspace').getBoundingClientRect().bottom;
+  sizes.prog = Math.round(clamp(bottom - e.clientY, 120, window.innerHeight * 0.75));
 });
 
 // ---------------------------------------------------------------- start

@@ -9,6 +9,10 @@ CIRCUIT CONTROL_UNIT_4B {
     OUTPUT MemToReg;    // 1 = RegFile DataIn selects MemDataIn, 0 = selects ALU.Result
     OUTPUT ALUSel[2];   // Selects ALU operation (00=ADD, 01=AND, 10=OR, 11=XOR)
     OUTPUT ALUCin;      // Carry-in for the ALU (1 for SUB/SUBI)
+    OUTPUT Halt;        // 1 = HALT (opcode 0): stop the program counter
+    OUTPUT OutEnable;   // 1 = OUT (opcode 6): latch register A into the output register
+    OUTPUT Jump;        // 1 = JMP (opcode 7): unconditional jump
+    OUTPUT Branch;      // 1 = BRZ (opcode 8): jump if register A is zero
 
     // --- Parts ---
     PART Decoder: DECODER_4_16;
@@ -126,4 +130,10 @@ CIRCUIT CONTROL_UNIT_4B {
     CONNECT Decoder.O[13] -> ALUSEL1_OR1.D; // XORI
     CONNECT ALUSEL1_OR1.Out -> ALUSEL1_NOT_FINAL.in;
     CONNECT ALUSEL1_NOT_FINAL.out -> ALUSel[1];
+
+    // --- Program-flow / IO signals (single opcodes, straight from the decoder) ---
+    CONNECT Decoder.O[0] -> Halt;
+    CONNECT Decoder.O[6] -> OutEnable;
+    CONNECT Decoder.O[7] -> Jump;
+    CONNECT Decoder.O[8] -> Branch;
 }

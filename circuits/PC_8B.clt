@@ -1,0 +1,43 @@
+// Test suite for the 8-bit program counter
+
+TESTS FOR PC_8B {
+    TEST "Starts at 0 and increments" {
+        SET Jump 0, Enable 1;
+        EVAL;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 1; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0;
+    }
+    TEST "Jump loads Target" {
+        SET Target[0] 1, Target[1] 0, Target[2] 1, Target[3] 0, Target[4] 0, Target[5] 1, Target[6] 0, Target[7] 1;
+        SET Jump 1, Enable 1;
+        EVAL;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 1; ASSERT Addr[6] 0; ASSERT Addr[7] 1;
+        SET Jump 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 1; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 1; ASSERT Addr[6] 0; ASSERT Addr[7] 1;
+    }
+    TEST "Enable 0 keeps PC (also against Jump)" {
+        SET Enable 0, Jump 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 1; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 1; ASSERT Addr[6] 0; ASSERT Addr[7] 1;
+        SET Jump 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 1; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 1; ASSERT Addr[6] 0; ASSERT Addr[7] 1;
+        SET Enable 1, Jump 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 1; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 1; ASSERT Addr[6] 0; ASSERT Addr[7] 1;
+    }
+    TEST "Wraps from 0xFF to 0x00" {
+        SET Target[0] 1, Target[1] 1, Target[2] 1, Target[3] 1, Target[4] 1, Target[5] 1, Target[6] 1, Target[7] 1;
+        SET Jump 1, Enable 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 1; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 1; ASSERT Addr[5] 1; ASSERT Addr[6] 1; ASSERT Addr[7] 1;
+        SET Jump 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0;
+    }
+}

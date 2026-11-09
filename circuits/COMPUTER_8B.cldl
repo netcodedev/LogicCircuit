@@ -1,0 +1,38 @@
+CIRCUIT COMPUTER_8B {
+    // CPU_8B with a two-digit hex 7-segment display on its output register.
+    // Instruction memory is supplied from outside via PC -> Instruction.
+
+    INPUT Instruction[16];
+    INPUT MemDataIn[8];
+    INPUT CLK;
+
+    OUTPUT PC[8];
+    OUTPUT Halted;
+    OUTPUT Out[8];
+    OUTPUT Seg1[7];     // High digit (Out[7..4]), segments a..g
+    OUTPUT Seg0[7];     // Low digit (Out[3..0]), segments a..g
+
+    PART Cpu: CPU_8B;
+    PART Digit1: HEX_7SEG;
+    PART Digit0: HEX_7SEG;
+
+    CONNECT Instruction -> Cpu.Instruction;
+    CONNECT MemDataIn -> Cpu.MemDataIn;
+    CONNECT CLK -> Cpu.CLK;
+
+    CONNECT Cpu.PC -> PC;
+    CONNECT Cpu.Halted -> Halted;
+    CONNECT Cpu.Out -> Out;
+
+    CONNECT Cpu.Out[0] -> Digit0.D[0];
+    CONNECT Cpu.Out[1] -> Digit0.D[1];
+    CONNECT Cpu.Out[2] -> Digit0.D[2];
+    CONNECT Cpu.Out[3] -> Digit0.D[3];
+    CONNECT Cpu.Out[4] -> Digit1.D[0];
+    CONNECT Cpu.Out[5] -> Digit1.D[1];
+    CONNECT Cpu.Out[6] -> Digit1.D[2];
+    CONNECT Cpu.Out[7] -> Digit1.D[3];
+
+    CONNECT Digit1.Seg -> Seg1;
+    CONNECT Digit0.Seg -> Seg0;
+}

@@ -4,7 +4,7 @@ use std::collections::HashMap;
 mod circuit_builder;
 mod view;
 
-pub use view::{CircuitView, ConnectionView, EndpointView, PartView, PinView};
+pub use view::{CircuitView, ConnectionView, EndpointView, FlatBlock, FlatCircuit, FlatLevel, FlatPin, PartView, PinView};
 
 #[cfg(debug_assertions)]
 const _GRAMMAR: &str = include_str!("cldl.pest");
@@ -93,6 +93,9 @@ pub struct CldlDefinition {
     parts: Vec<PartDef>,
     connections: Vec<ConnectionDef>,
     initialization: Vec<InitCommand>,
+    /// Name of the directory the definition was loaded from (e.g. "primitive",
+    /// "memory"), if it came from a file.
+    category: Option<String>,
 }
 
 /// This struct holds all known circuit definitions and can build them.

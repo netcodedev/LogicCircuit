@@ -1,7 +1,20 @@
 CIRCUIT CPU_8B {
     // Top-level 8-bit CPU: 8-bit DATAPATH_8B + the (width-independent)
-    // CONTROL_UNIT_4B. Instructions remain a 16-bit fixed format with 4-bit
-    // fields; the 4-bit immediate is zero-extended into the 8-bit datapath.
+    // CONTROL_UNIT_4B, an 8-bit program counter and an output register.
+    // Instructions remain a 16-bit fixed format with 4-bit fields; the 4-bit
+    // immediate is zero-extended into the 8-bit datapath.
+    //
+    // Instruction memory is external: the CPU drives PC, and whatever is
+    // attached (test harness, Rust ROM, later a RAM) answers on Instruction.
+    //
+    //   op   mnemonic         [15..12] [11..8] [7..4] [3..0]
+    //   0    HALT              0000     -       -      -       PC holds
+    //   1-5  ADD..XOR Rd,Ra,Rb  op       Rd      Ra     Rb
+    //   6    OUT Ra            0110     -       Ra     -       Out <- Ra
+    //   7    JMP addr          0111     -       addr[7..0]
+    //   8    BRZ Ra, addr      1000     Ra      addr[7..0]     jump if Ra == 0
+    //   9-13 ADDI..XORI        op       Rd      Ra     Imm
+    //   15   LW Rd             1111     Rd      -      -       Rd <- MemDataIn
 
     // --- Inputs ---
     INPUT Instruction[16]; // 16-bit instruction word
@@ -11,12 +24,38 @@ CIRCUIT CPU_8B {
     // --- Outputs ---
     OUTPUT ALU_Cout;
     OUTPUT ALU_Z;
+    OUTPUT PC[8];          // Address of the current instruction
+    OUTPUT Halted;         // 1 while the current instruction is HALT
+    OUTPUT Out[8];         // Output register (written by OUT)
 
     // --- Parts ---
+    // Registers are declared first so their INIT (which pulses CLK) runs
+    // before any gate that drives their inputs exists. Their Load inputs stay
+    // 0 while later parts are built (PcUnit.Enable is driven by HaltNot, which
+    // is declared last), so later INIT clock pulses leave them untouched.
+    PART PcUnit: PC_8B;
+    PART OutReg: REGISTER_8B;
     PART Datapath: DATAPATH_8B;
     // The control unit only decodes the 4-bit opcode into control signals and
     // is independent of data width, so the existing unit is reused as-is.
     PART Control: CONTROL_UNIT_4B;
+
+    // Register-A address: Instruction[7..4] normally, Instruction[11..8] for
+    // BRZ (whose low byte is the jump target).
+    PART RegAMux: MUX_4B_2_1;
+
+    // Zero test on register A for BRZ: Zero = NOR(A[3..0]) AND NOR(A[7..4]).
+    PART ZeroLo: NOR4;
+    PART ZeroHi: NOR4;
+    PART ZeroAnd: AND;
+
+    // Take the jump if JMP, or BRZ and register A is zero.
+    PART BranchAnd: AND;
+    PART TakeOr: OR;
+
+    // PC advances unless the current instruction is HALT. Must stay the last
+    // part (see above).
+    PART HaltNot: NOT;
 
     // --- Connections ---
 
@@ -36,11 +75,17 @@ CIRCUIT CPU_8B {
     CONNECT Instruction[9]  -> Datapath.WriteAddr[1];
     CONNECT Instruction[8]  -> Datapath.WriteAddr[0];
 
-    // ReadAddrA (Ra) = Instruction[7..4]
-    CONNECT Instruction[7] -> Datapath.ReadAddrA[3];
-    CONNECT Instruction[6] -> Datapath.ReadAddrA[2];
-    CONNECT Instruction[5] -> Datapath.ReadAddrA[1];
-    CONNECT Instruction[4] -> Datapath.ReadAddrA[0];
+    // ReadAddrA (Ra) = Instruction[7..4], or Instruction[11..8] for BRZ
+    CONNECT Instruction[4] -> RegAMux.A[0];
+    CONNECT Instruction[5] -> RegAMux.A[1];
+    CONNECT Instruction[6] -> RegAMux.A[2];
+    CONNECT Instruction[7] -> RegAMux.A[3];
+    CONNECT Instruction[8] -> RegAMux.B[0];
+    CONNECT Instruction[9] -> RegAMux.B[1];
+    CONNECT Instruction[10] -> RegAMux.B[2];
+    CONNECT Instruction[11] -> RegAMux.B[3];
+    CONNECT Control.Branch -> RegAMux.S;
+    CONNECT RegAMux.Out -> Datapath.ReadAddrA;
 
     // ReadAddrB (Rb) = Instruction[3..0]
     CONNECT Instruction[3] -> Datapath.ReadAddrB[3];
@@ -65,4 +110,42 @@ CIRCUIT CPU_8B {
     // 4. Datapath flag outputs -> CPU outputs
     CONNECT Datapath.ALU_Cout -> ALU_Cout;
     CONNECT Datapath.ALU_Z    -> ALU_Z;
+
+    // 5. Program counter
+    CONNECT Datapath.DataOutA[0] -> ZeroLo.A;
+    CONNECT Datapath.DataOutA[1] -> ZeroLo.B;
+    CONNECT Datapath.DataOutA[2] -> ZeroLo.C;
+    CONNECT Datapath.DataOutA[3] -> ZeroLo.D;
+    CONNECT Datapath.DataOutA[4] -> ZeroHi.A;
+    CONNECT Datapath.DataOutA[5] -> ZeroHi.B;
+    CONNECT Datapath.DataOutA[6] -> ZeroHi.C;
+    CONNECT Datapath.DataOutA[7] -> ZeroHi.D;
+    CONNECT ZeroLo.Out -> ZeroAnd.in1;
+    CONNECT ZeroHi.Out -> ZeroAnd.in2;
+
+    CONNECT Control.Branch -> BranchAnd.in1;
+    CONNECT ZeroAnd.out -> BranchAnd.in2;
+    CONNECT Control.Jump -> TakeOr.in1;
+    CONNECT BranchAnd.out -> TakeOr.in2;
+
+    CONNECT Instruction[0] -> PcUnit.Target[0];
+    CONNECT Instruction[1] -> PcUnit.Target[1];
+    CONNECT Instruction[2] -> PcUnit.Target[2];
+    CONNECT Instruction[3] -> PcUnit.Target[3];
+    CONNECT Instruction[4] -> PcUnit.Target[4];
+    CONNECT Instruction[5] -> PcUnit.Target[5];
+    CONNECT Instruction[6] -> PcUnit.Target[6];
+    CONNECT Instruction[7] -> PcUnit.Target[7];
+    CONNECT TakeOr.out -> PcUnit.Jump;
+    CONNECT Control.Halt -> HaltNot.in;
+    CONNECT HaltNot.out -> PcUnit.Enable;
+    CONNECT CLK -> PcUnit.CLK;
+    CONNECT PcUnit.Addr -> PC;
+    CONNECT Control.Halt -> Halted;
+
+    // 6. Output register (OUT Ra)
+    CONNECT Datapath.DataOutA -> OutReg.Data;
+    CONNECT Control.OutEnable -> OutReg.Load;
+    CONNECT CLK -> OutReg.CLK;
+    CONNECT OutReg.Q -> Out;
 }

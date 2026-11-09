@@ -1,0 +1,102 @@
+CIRCUIT HEX_7SEG {
+    // Hex digit (0-F) to 7-segment decoder.
+    // Seg[0..6] = segments a..g (1 = lit):
+    //
+    //      aaa
+    //     f   b
+    //      ggg
+    //     e   c
+    //      ddd
+    //
+    // Each segment is lit for all digits except a few, so every segment is
+    // built as NOR over the decoder lines of the digits where it is OFF.
+    // Glyphs: 0 1 2 3 4 5 6 7 8 9 A b C d E F
+
+    INPUT D[4];
+    OUTPUT Seg[7];
+
+    PART Decoder: DECODER_4_16;
+    PART C_TRUE: NOR; // Constant 1 (VCC), NOR(0,0) = 1
+
+    // a: off for 1, 4, b, d
+    PART SegA: NOR4;
+    // b: off for 5, 6, b, C, E, F
+    PART SegB_Lo: NOR4;
+    PART SegB_Hi: NOR;
+    PART SegB: AND;
+    // c: off for 2, C, E, F
+    PART SegC: NOR4;
+    // d: off for 1, 4, 7, A, F
+    PART SegD_Lo: NOR4;
+    PART SegD_Hi: NOR; // in2 unconnected (0) -> acts as NOT
+    PART SegD: AND;
+    // e: off for 1, 3, 4, 5, 7, 9
+    PART SegE_Lo: NOR4;
+    PART SegE_Hi: NOR;
+    PART SegE: AND;
+    // f: off for 1, 2, 3, 7, d
+    PART SegF_Lo: NOR4;
+    PART SegF_Hi: NOR; // in2 unconnected (0) -> acts as NOT
+    PART SegF: AND;
+    // g: off for 0, 1, 7, C
+    PART SegG: NOR4;
+
+    CONNECT C_TRUE.out -> Decoder.Enable;
+    CONNECT D -> Decoder.A;
+
+    CONNECT Decoder.O[1] -> SegA.A;
+    CONNECT Decoder.O[4] -> SegA.B;
+    CONNECT Decoder.O[11] -> SegA.C;
+    CONNECT Decoder.O[13] -> SegA.D;
+    CONNECT SegA.Out -> Seg[0];
+
+    CONNECT Decoder.O[5] -> SegB_Lo.A;
+    CONNECT Decoder.O[6] -> SegB_Lo.B;
+    CONNECT Decoder.O[11] -> SegB_Lo.C;
+    CONNECT Decoder.O[12] -> SegB_Lo.D;
+    CONNECT Decoder.O[14] -> SegB_Hi.in1;
+    CONNECT Decoder.O[15] -> SegB_Hi.in2;
+    CONNECT SegB_Lo.Out -> SegB.in1;
+    CONNECT SegB_Hi.out -> SegB.in2;
+    CONNECT SegB.out -> Seg[1];
+
+    CONNECT Decoder.O[2] -> SegC.A;
+    CONNECT Decoder.O[12] -> SegC.B;
+    CONNECT Decoder.O[14] -> SegC.C;
+    CONNECT Decoder.O[15] -> SegC.D;
+    CONNECT SegC.Out -> Seg[2];
+
+    CONNECT Decoder.O[1] -> SegD_Lo.A;
+    CONNECT Decoder.O[4] -> SegD_Lo.B;
+    CONNECT Decoder.O[7] -> SegD_Lo.C;
+    CONNECT Decoder.O[10] -> SegD_Lo.D;
+    CONNECT Decoder.O[15] -> SegD_Hi.in1;
+    CONNECT SegD_Lo.Out -> SegD.in1;
+    CONNECT SegD_Hi.out -> SegD.in2;
+    CONNECT SegD.out -> Seg[3];
+
+    CONNECT Decoder.O[1] -> SegE_Lo.A;
+    CONNECT Decoder.O[3] -> SegE_Lo.B;
+    CONNECT Decoder.O[4] -> SegE_Lo.C;
+    CONNECT Decoder.O[5] -> SegE_Lo.D;
+    CONNECT Decoder.O[7] -> SegE_Hi.in1;
+    CONNECT Decoder.O[9] -> SegE_Hi.in2;
+    CONNECT SegE_Lo.Out -> SegE.in1;
+    CONNECT SegE_Hi.out -> SegE.in2;
+    CONNECT SegE.out -> Seg[4];
+
+    CONNECT Decoder.O[1] -> SegF_Lo.A;
+    CONNECT Decoder.O[2] -> SegF_Lo.B;
+    CONNECT Decoder.O[3] -> SegF_Lo.C;
+    CONNECT Decoder.O[7] -> SegF_Lo.D;
+    CONNECT Decoder.O[13] -> SegF_Hi.in1;
+    CONNECT SegF_Lo.Out -> SegF.in1;
+    CONNECT SegF_Hi.out -> SegF.in2;
+    CONNECT SegF.out -> Seg[5];
+
+    CONNECT Decoder.O[0] -> SegG.A;
+    CONNECT Decoder.O[1] -> SegG.B;
+    CONNECT Decoder.O[7] -> SegG.C;
+    CONNECT Decoder.O[12] -> SegG.D;
+    CONNECT SegG.Out -> Seg[6];
+}

@@ -1,0 +1,69 @@
+// Program-flow test for COMPUTER_8B: the harness acts as instruction memory,
+// feeding the word at the address the CPU drives on PC.
+//
+//   0: ADDI R1, R0, 2   9102
+//   1: OUT  R1          6010
+//   2: BRZ  R1, 5       8105
+//   3: SUBI R1, R1, 2   A112
+//   4: JMP  2           7002
+//   5: HALT             0000
+
+TESTS FOR COMPUTER_8B {
+    TEST "Loop with OUT, BRZ, JMP and HALT" {
+        EVAL;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0;
+        // PC=0: instruction 0x9102
+        SET Instruction[0] 0, Instruction[1] 1, Instruction[2] 0, Instruction[3] 0, Instruction[4] 0, Instruction[5] 0, Instruction[6] 0, Instruction[7] 0, Instruction[8] 1, Instruction[9] 0, Instruction[10] 0, Instruction[11] 0, Instruction[12] 1, Instruction[13] 0, Instruction[14] 0, Instruction[15] 1;
+        EVAL;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0;
+        ASSERT Halted 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0;
+        // PC=1: instruction 0x6010
+        SET Instruction[0] 0, Instruction[1] 0, Instruction[2] 0, Instruction[3] 0, Instruction[4] 1, Instruction[5] 0, Instruction[6] 0, Instruction[7] 0, Instruction[8] 0, Instruction[9] 0, Instruction[10] 0, Instruction[11] 0, Instruction[12] 0, Instruction[13] 1, Instruction[14] 1, Instruction[15] 0;
+        EVAL;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0;
+        ASSERT Halted 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0;
+        ASSERT Out[0] 0; ASSERT Out[1] 1; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0;
+        ASSERT Seg0[0] 1; ASSERT Seg0[1] 1; ASSERT Seg0[2] 0; ASSERT Seg0[3] 1; ASSERT Seg0[4] 1; ASSERT Seg0[5] 0; ASSERT Seg0[6] 1;
+        // PC=2: instruction 0x8105
+        SET Instruction[0] 1, Instruction[1] 0, Instruction[2] 1, Instruction[3] 0, Instruction[4] 0, Instruction[5] 0, Instruction[6] 0, Instruction[7] 0, Instruction[8] 1, Instruction[9] 0, Instruction[10] 0, Instruction[11] 0, Instruction[12] 0, Instruction[13] 0, Instruction[14] 0, Instruction[15] 1;
+        EVAL;
+        ASSERT PC[0] 0; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0;
+        ASSERT Halted 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0;
+        // PC=3: instruction 0xA112
+        SET Instruction[0] 0, Instruction[1] 1, Instruction[2] 0, Instruction[3] 0, Instruction[4] 1, Instruction[5] 0, Instruction[6] 0, Instruction[7] 0, Instruction[8] 1, Instruction[9] 0, Instruction[10] 0, Instruction[11] 0, Instruction[12] 0, Instruction[13] 1, Instruction[14] 0, Instruction[15] 1;
+        EVAL;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0;
+        ASSERT Halted 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0;
+        // PC=4: instruction 0x7002
+        SET Instruction[0] 0, Instruction[1] 1, Instruction[2] 0, Instruction[3] 0, Instruction[4] 0, Instruction[5] 0, Instruction[6] 0, Instruction[7] 0, Instruction[8] 0, Instruction[9] 0, Instruction[10] 0, Instruction[11] 0, Instruction[12] 1, Instruction[13] 1, Instruction[14] 1, Instruction[15] 0;
+        EVAL;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0;
+        ASSERT Halted 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0;
+        // PC=2: instruction 0x8105
+        SET Instruction[0] 1, Instruction[1] 0, Instruction[2] 1, Instruction[3] 0, Instruction[4] 0, Instruction[5] 0, Instruction[6] 0, Instruction[7] 0, Instruction[8] 1, Instruction[9] 0, Instruction[10] 0, Instruction[11] 0, Instruction[12] 0, Instruction[13] 0, Instruction[14] 0, Instruction[15] 1;
+        EVAL;
+        ASSERT PC[0] 0; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0;
+        ASSERT Halted 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0;
+        // PC=5: HALT keeps the PC
+        SET Instruction[0] 0, Instruction[1] 0, Instruction[2] 0, Instruction[3] 0, Instruction[4] 0, Instruction[5] 0, Instruction[6] 0, Instruction[7] 0, Instruction[8] 0, Instruction[9] 0, Instruction[10] 0, Instruction[11] 0, Instruction[12] 0, Instruction[13] 0, Instruction[14] 0, Instruction[15] 0;
+        EVAL;
+        ASSERT Halted 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0;
+        ASSERT Out[0] 0; ASSERT Out[1] 1; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0;
+    }
+}
