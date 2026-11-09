@@ -202,9 +202,27 @@ Eingängen/Flipflops und Ausgängen/Flipflops (neu in `cargo run -- nands`).
 
 ## Phase 4 – CPU_16B und COMPUTER_16B
 
-- [ ] `CPU_16B` mit Reset, Datenspeicher-Ports, `InstructionNext`
-- [ ] `COMPUTER_16B` mit `Seg3..Seg0`
-- [ ] Programmablauf-Tests (Sprünge, CALL/RET, Speicher, Flags)
+- [x] `CPU_16B` (**20.091 NANDs**, Tiefe 104 NAND-Stufen): Ports
+      `Instruction[16]`, `InstructionNext[16]`, `MemDataIn[16]`, `In[16]`, `CLK`,
+      `Reset` → `PC[16]`, `MemAddr[16]`, `MemDataOut[16]`, `MemWrite`, `Out[16]`,
+      `Halted`, `SP[16]`, `FlagZ/N/C/V`. Synchroner Reset für PC, SP, Flags, Out;
+      sperrt Register- und Speicherschreiben. Alle Bauteile mit Registern vor
+      dem Steuerwerk deklariert, `HaltNot` zuletzt (INIT-Reihenfolge)
+- [x] `COMPUTER_16B` (**20.755 NANDs**) mit `HEX_DISPLAY_16B` (`Seg3..Seg0`)
+- [x] Programmablauf-Tests (`circuits/CPU_16B.clt`): sechs Programme,
+      erzeugt mit einem unabhängigen Referenzmodell der ISA (Einmal-Skript im
+      Scratchpad, nicht im Repo). Das Harness liefert die Wörter bei PC und PC+1
+      und beantwortet Speicherzugriffe; geprüft werden nach jedem Takt PC und
+      jede Änderung von Out, SP und Flags, dazu Adresse und Daten jedes
+      Speicherzugriffs:
+      Arithmetik/Logik/Flags inkl. 32-Bit-ADC/SBC (31 Schritte), Schieben und
+      Rotieren (17), Schleife und alle Arten bedingter Sprünge (47), Speicher,
+      Stack, verschachteltes CALL/RET, CALLR, JR (34), IN/NOP (4), Fibonacci bis
+      46.368 (122). Gegenprobe: ein absichtlich falsches ASSERT schlägt fehl
+- [x] Aufteilung (NANDs): Registerfile 12.308 (61 %), PC 1.096, ALU 1.091,
+      Schieber 890, SP 839, Steuerwerk 774, Ausgaberegister 596, fünf 4:1-Muxe
+      je 384, Anzeige 664
+- [x] **2026-11-09:** `cargo test` (39), `test` (427), `-d circuits test` (181), `verify-verilog` 82 Suiten in 4 Varianten grün (CPU_16B: 6.558 Prüfungen je Variante)
 
 ## Phase 5 – Software und Viewer
 
