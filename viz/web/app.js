@@ -774,23 +774,30 @@ async function renderChip() {
     $('own-route').click();
     return;
   }
+  // With viz-serve's API: list the design's runs and load the chosen one
+  // (layouts can also be built from here). Without it: layouts/<NAME>.bin.
+  const api = await chipApiAvailable();
+  $('chip-build').hidden = !api;
+  if (api) {
+    if (chipRunsFor !== name) await refreshChipRuns(name);
+    resumeChipJob();
+    const run = $('chip-run').value;
+    if (!run) {
+      showNoLayout(name, true);
+      return;
+    }
+    if (chipLoaded !== name || chipLoadedRun !== run) {
+      await loadChipRun(name, run);
+      return;
+    }
+    hookChipProbes();
+    return;
+  }
   if (chipLoaded !== name) {
     let res = null;
     try { res = await fetch(`layouts/${name}.bin`); } catch {}
     if (!res || !res.ok) {
-      chipLoaded = null;
-      chipView.clear();
-      chipView.invalidate();
-      $('chip-layers').replaceChildren();
-      $('chip-metrics').replaceChildren();
-      chipMessage(`Für <b>${name}</b> gibt es noch kein Layout.<br>
-        <code>cargo run -- chip build ${name}</code><br>
-        <code>cargo run -- chip extract ${name}</code><br>
-        <code>viz/build.sh</code><br>
-        oder eine <code>layout.bin</code> hierher ziehen.`);
-      statusEl.textContent = `${name} · kein Layout`;
-      probes = [];
-      probesChanged();
+      showNoLayout(name, false);
       return;
     }
     loadChipBuffer(await res.arrayBuffer());
@@ -798,7 +805,132 @@ async function renderChip() {
   hookChipProbes();
 }
 
+function showNoLayout(name, api) {
+  chipLoaded = null;
+  chipLoadedRun = null;
+  chipView.clear();
+  chipView.invalidate();
+  $('chip-layers').replaceChildren();
+  $('chip-metrics').replaceChildren();
+  chipMessage(api
+    ? `Für <b>${name}</b> gibt es noch kein Layout.<br>
+       Links unter <b>Chip bauen</b> mit OpenROAD erzeugen,<br>
+       oder den <b>eigenen Router</b> nutzen.`
+    : `Für <b>${name}</b> gibt es noch kein Layout.<br>
+       <code>cargo run -- chip build ${name}</code><br>
+       <code>cargo run -- chip extract ${name}</code><br>
+       <code>viz/build.sh</code><br>
+       oder eine <code>layout.bin</code> hierher ziehen.`);
+  statusEl.textContent = `${name} · kein Layout`;
+  probes = [];
+  probesChanged();
+}
+
+// ---------------------------------------------------------------- chip builds (viz-serve API)
+
+let chipApi = null;        // null = not probed yet
+let chipRunsFor = null;    // design whose runs are in #chip-run
+let chipLoadedRun = null;
+let chipJobTimer = null;
+
+async function chipApiAvailable() {
+  if (chipApi === null) {
+    try { chipApi = (await fetch('api/health')).ok; } catch { chipApi = false; }
+  }
+  return chipApi;
+}
+
+async function refreshChipRuns(name, select) {
+  const sel = $('chip-run');
+  let runs = [];
+  try { runs = (await (await fetch(`api/chip/runs?name=${encodeURIComponent(name)}`)).json()).runs || []; } catch {}
+  chipRunsFor = name;
+  const keep = select ?? sel.value;
+  sel.replaceChildren();
+  for (const r of runs) {
+    const o = document.createElement('option');
+    o.value = r.run;
+    const m = r.metrics;
+    o.textContent = m?.fmax_mhz ? `${r.run} · ${m.fmax_mhz.toFixed(0)} MHz` : r.run;
+    sel.appendChild(o);
+  }
+  const names = runs.map((r) => r.run);
+  sel.value = names.includes(keep) ? keep : names.includes('basic-met5') ? 'basic-met5' : names[0] ?? '';
+}
+
+async function loadChipRun(name, run) {
+  statusEl.textContent = `Lade Layout ${name} / ${run}…`;
+  const res = await fetch(`api/chip/layout?name=${encodeURIComponent(name)}&run=${encodeURIComponent(run)}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    statusEl.textContent = `Layout ${run}: ${err.error ?? res.status}`;
+    return;
+  }
+  loadChipBuffer(await res.arrayBuffer());
+  chipLoadedRun = run;
+  hookChipProbes();
+}
+
+$('chip-run').addEventListener('change', () => loadChipRun(stack[0].type, $('chip-run').value));
+
+$('chip-build-start').addEventListener('click', async () => {
+  const name = stack[0].type;
+  const params = new URLSearchParams({
+    name,
+    max_layer: $('chip-build-layer').value,
+    level: $('chip-build-level').value,
+    util: $('chip-build-util').value,
+    optimize: $('chip-build-opt').checked ? '1' : '0',
+    keep_latches: $('chip-build-latches').checked ? '1' : '0',
+  });
+  const res = await fetch(`api/chip/build?${params}`, { method: 'POST', headers: { 'X-LogicCircuit': '1' } });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    $('chip-job').textContent = body.error ?? `Fehler ${res.status}`;
+    return;
+  }
+  pollChipJob();
+});
+
+// Picks up a build that is still running (e.g. after a page reload).
+async function resumeChipJob() {
+  if (chipJobTimer) return;
+  try {
+    const job = await (await fetch('api/chip/job')).json();
+    if (job.state === 'running') pollChipJob();
+  } catch {}
+}
+
+function pollChipJob() {
+  clearInterval(chipJobTimer);
+  $('chip-build-start').disabled = true;
+  const tick = async () => {
+    let job;
+    try { job = await (await fetch('api/chip/job')).json(); } catch { return; }
+    const box = $('chip-job');
+    if (job.state === 'running') {
+      box.textContent = `Baue ${job.name} / ${job.run} … ${job.elapsed_s.toFixed(0)} s\n${job.step}`;
+      return;
+    }
+    clearInterval(chipJobTimer);
+    chipJobTimer = null;
+    $('chip-build-start').disabled = false;
+    if (job.state === 'done') {
+      box.textContent = `Fertig: ${job.run} in ${job.elapsed_s.toFixed(0)} s`;
+      if (job.name === stack[0].type && viewMode === 'chip') {
+        await refreshChipRuns(job.name, job.run);
+        await loadChipRun(job.name, job.run);
+      }
+    } else if (job.state === 'error') {
+      box.textContent = `Fehlgeschlagen: ${job.error}`;
+    }
+  };
+  chipJobTimer = setInterval(tick, 1000);
+  tick();
+}
+
 function loadChipBuffer(buffer) {
+  chipLoadedRun = null;
   statusEl.textContent = 'Layout wird aufgebaut…';
   const t0 = performance.now();
   const header = chipView.load(buffer);

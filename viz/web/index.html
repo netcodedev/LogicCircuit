@@ -164,6 +164,17 @@
   .layer-row input { margin: 0; accent-color: var(--accent); }
   .swatch { width: 12px; height: 12px; border-radius: 3px; }
   .layer-kind { color: var(--muted); font-size: 10px; }
+  #chip-build .prog-row { display: flex; gap: 8px; align-items: center; margin: 4px 0; }
+  #chip-build .prog-row select { flex: 1; min-width: 0; font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; }
+  .chip-label { font-size: 12px; color: var(--muted); width: 36px; }
+  #chip-build-form { margin: 6px 0; font-size: 12px; }
+  #chip-build-form summary { cursor: pointer; color: var(--accent); margin-bottom: 6px; }
+  .build-grid { display: grid; grid-template-columns: 76px 1fr; gap: 6px; align-items: center; margin-bottom: 6px; color: var(--muted); }
+  .build-grid select, .build-grid input { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; }
+  .build-grid input { width: 64px; }
+  #chip-build-start { margin-top: 6px; }
+  #chip-build-start:disabled { opacity: .5; cursor: default; }
+  #chip-job { white-space: pre-wrap; font: 11px ui-monospace, monospace; color: var(--muted); margin: 6px 0; word-break: break-word; }
   .chip-hint { margin-top: 8px; font-size: 11px; color: var(--muted); line-height: 1.5; }
   .seg { fill: var(--seg-off); transition: fill .08s; }
   .seg.on { fill: var(--seg-on); filter: drop-shadow(0 0 3px var(--seg-on)); }
@@ -219,6 +230,24 @@
   </section>
   <section id="chip-section" hidden>
     <h2>Chip</h2>
+    <div id="chip-build" hidden>
+      <div class="prog-row"><span class="chip-label">Lauf</span><select id="chip-run" title="Gebaute Layouts dieses Designs"></select></div>
+      <details id="chip-build-form">
+        <summary>Chip bauen (OpenROAD)</summary>
+        <div class="build-grid">
+          <span>Lagen</span>
+          <select id="chip-build-layer"><option value="met5" selected>bis met5</option><option value="met4">bis met4</option><option value="met3">bis met3</option><option value="met2">bis met2</option></select>
+          <span>Stufe</span>
+          <select id="chip-build-level"><option value="basic" selected>Basis-Blöcke</option><option value="nand">nur NANDs</option></select>
+          <span>Auslastung</span>
+          <span><input id="chip-build-util" type="number" min="10" max="90" step="5" value="40"> %</span>
+        </div>
+        <label class="toggle"><input type="checkbox" id="chip-build-opt"> optimieren (Buffer, Zellgrößen)</label>
+        <label class="toggle"><input type="checkbox" id="chip-build-latches"> eigene Latches statt Flipflop-Zellen</label>
+        <button id="chip-build-start" class="primary">Bauen</button>
+      </details>
+      <div id="chip-job"></div>
+    </div>
     <div id="chip-metrics"></div>
     <label class="slider">Explode <input type="range" id="chip-explode" min="0" max="20" step="0.5" value="0"></label>
     <label class="slider">Z-Überhöhung <input type="range" id="chip-zscale" min="1" max="40" step="1" value="5"></label>

@@ -65,7 +65,23 @@ if {[env_or DIE_SIZE ""] ne ""} {
     set h [expr {[llength $wh] > 1 ? [lindex $wh 1] : $w}]
     initialize_floorplan -die_area "0 0 $w $h" -core_area "5 5 [expr {$w - 5}] [expr {$h - 5}]" -site unithd
 } else {
-    initialize_floorplan -utilization [env_or CORE_UTIL 30] -aspect_ratio 1 -core_space 5 -site unithd
+    # Size the core by utilisation, but not below MIN_CORE um: the power grid
+    # needs room for its straps (pitch ~27 um), tiny designs would not fit.
+    set min_core 60
+    set block [ord::get_db_block]
+    set dbu [$block getDbUnitsPerMicron]
+    set cell_area 0.0
+    foreach inst [$block getInsts] {
+        set m [$inst getMaster]
+        set cell_area [expr {$cell_area + double([$m getWidth]) * [$m getHeight] / $dbu / $dbu}]
+    }
+    set util [env_or CORE_UTIL 30]
+    if {sqrt($cell_area / ($util / 100.0)) < $min_core} {
+        set d [expr {$min_core + 10}]
+        initialize_floorplan -die_area "0 0 $d $d" -core_area "5 5 [expr {$d - 5}] [expr {$d - 5}]" -site unithd
+    } else {
+        initialize_floorplan -utilization $util -aspect_ratio 1 -core_space 5 -site unithd
+    }
 }
 source $platform/make_tracks.tcl
 
