@@ -100,6 +100,15 @@ impl CircuitBuilder {
         Ok(())
     }
 
+    /// Parses a single CLDL source string and adds (or overwrites) its
+    /// definition. Useful where there is no filesystem, e.g. in WASM.
+    pub fn load_cldl_str(&mut self, cldl_string: &str) -> Result<String, String> {
+        let def = parse_cldl(cldl_string.trim()).map_err(|e| e.to_string())?;
+        let name = def.name.clone();
+        self.definitions.insert(name.clone(), def);
+        Ok(name)
+    }
+
     /// Builds a new `Circuit` from the named definition and runs initialization.
     ///
     /// Wiring is resolved in two passes. First a *planning* pass walks the whole
@@ -300,7 +309,7 @@ impl CircuitBuilder {
 
     /// Finds the width of a pin *base_name* (e.g., "A" or "G1.in") within the context of `def`.
     /// Returns `Some(width)` for a bus, `None` for a single-bit pin.
-    fn get_pin_width(&self, base_name: &str, def: &CldlDefinition) -> Option<usize> {
+    pub(super) fn get_pin_width(&self, base_name: &str, def: &CldlDefinition) -> Option<usize> {
         // Case 1: Is it an IO pin of the current definition? (e.g., "A")
         if !base_name.contains('.') {
             if let Some(pin) = def.inputs.iter().find(|p| p.name == base_name) {

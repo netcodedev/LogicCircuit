@@ -3,6 +3,13 @@ name = "LogicCircuit"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+name = "logic_circuit"
+path = "src/lib.rs"
+
+[workspace]
+members = [".", "viz"]
+
 [dependencies]
 clap = { version = "4.5.50", features = ["derive"] }
 include_dir = "0.7.4"

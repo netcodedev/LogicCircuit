@@ -2,6 +2,9 @@ use include_dir::{Dir, include_dir};
 use std::collections::HashMap;
 
 mod circuit_builder;
+mod view;
+
+pub use view::{CircuitView, ConnectionView, EndpointView, PartView, PinView};
 
 #[cfg(debug_assertions)]
 const _GRAMMAR: &str = include_str!("cldl.pest");

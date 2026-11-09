@@ -1,12 +1,8 @@
 use clap::Parser;
 use std::path::{Path, PathBuf};
 
-mod circuit;
-mod cldl;
-mod clt;
-
-use crate::cldl::CircuitBuilder;
-use crate::clt::{CircuitTester, TestSummary}; // Import TestSummary
+use logic_circuit::cldl::CircuitBuilder;
+use logic_circuit::clt::{CircuitTester, TestSummary}; // Import TestSummary
 
 // --- Command Line Argument Parsing ---
 #[derive(Parser, Debug)]

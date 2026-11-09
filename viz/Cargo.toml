@@ -1,0 +1,15 @@
+[package]
+name = "logic_circuit_viz"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+logic_circuit = { package = "LogicCircuit", path = ".." }
+console_error_panic_hook = "0.1.7"
+include_dir = "0.7.4"
+serde_json = "1"
+uuid = { version = "1.18.1", features = ["js"] }
+wasm-bindgen = "0.2"

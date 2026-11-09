@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "viz",
+      "runtimeExecutable": "cargo",
+      "runtimeArgs": ["run", "-q", "-p", "logic_circuit_viz", "--bin", "viz-serve", "--", "8173"],
+      "port": 8173
+    }
+  ]
+}
