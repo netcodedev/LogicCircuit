@@ -146,7 +146,7 @@ fn parse_clt_test_suite(pair: Pair<Rule>) -> CltTestSuite {
 }
 
 /// Parses the entire content of a .clt file string into a CltFile struct
-fn parse_clt_file(file_content: &str) -> Result<CltFile, pest::error::Error<Rule>> {
+pub(super) fn parse_clt_file(file_content: &str) -> Result<CltFile, pest::error::Error<Rule>> {
     let mut file_pairs = CltParser::parse(Rule::file, file_content.trim())?;
     let file_pair = file_pairs.next().unwrap(); // Rule::file
     let suites = file_pair

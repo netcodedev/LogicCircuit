@@ -3,7 +3,35 @@ use std::path::{Path, PathBuf};
 
 use logic_circuit::cldl::CircuitBuilder;
 use logic_circuit::clt::{CircuitTester, TestSummary}; // Import TestSummary
-use logic_circuit::{isa, machine};
+use logic_circuit::cldl::FlatLevel;
+use logic_circuit::export::verilog::{CellLib, VerilogOptions, export_verilog};
+use logic_circuit::export::verify_with_iverilog;
+use logic_circuit::{clt, isa, machine};
+
+#[derive(clap::ValueEnum, Clone, Copy, Debug)]
+enum Level {
+    /// Basic blocks (NOT, AND, OR, XOR, ...) as standard cells
+    Basic,
+    /// Everything as 2-input NAND cells
+    Nand,
+}
+
+impl From<Level> for FlatLevel {
+    fn from(l: Level) -> Self {
+        match l {
+            Level::Basic => FlatLevel::Basic,
+            Level::Nand => FlatLevel::Nand,
+        }
+    }
+}
+
+#[derive(clap::ValueEnum, Clone, Copy, Debug)]
+enum Cells {
+    /// sky130_fd_sc_hd standard cells (for OpenROAD)
+    Sky130,
+    /// Self-contained LC_* cell models (for Icarus Verilog / Verilator)
+    Generic,
+}
 
 // --- Command Line Argument Parsing ---
 #[derive(Parser, Debug)]
@@ -56,6 +84,35 @@ enum Commands {
         #[arg(long, default_value_t = 1)]
         depth: usize,
     },
+    /// Export a circuit as structural gate-level Verilog.
+    /// Loads ./circuits automatically if -d is not given.
+    ExportVerilog {
+        #[arg(value_name = "COMPONENT_NAME")]
+        component_name: String,
+        #[arg(long, value_enum, default_value_t = Level::Basic)]
+        level: Level,
+        #[arg(long, value_enum, default_value_t = Cells::Sky130)]
+        cells: Cells,
+        /// Keep flip-flops as our latch gates instead of flip-flop cells.
+        #[arg(long)]
+        keep_latches: bool,
+        /// Output file (default: <COMPONENT_NAME>.v).
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+        /// Also write a TSV mapping Verilog names back to wire keys / parts.
+        #[arg(long, value_name = "FILE")]
+        names: Option<PathBuf>,
+    },
+    /// Check exported netlists against the .clt tests with Icarus Verilog.
+    /// Without a name, checks every circuit that has tests.
+    VerifyVerilog {
+        #[arg(value_name = "COMPONENT_NAME")]
+        component_name: Option<String>,
+        #[arg(long, value_enum, default_value_t = Level::Basic)]
+        level: Level,
+        #[arg(long)]
+        keep_latches: bool,
+    },
 }
 // --- End Command Line Args ---
 
@@ -88,7 +145,10 @@ fn main() {
     }
 
     // The CPU circuits live in ./circuits, which is not embedded.
-    if args.directory.is_none() && matches!(args.command, Some(Commands::Run { .. } | Commands::Nands { .. })) {
+    if args.directory.is_none() && matches!(
+        args.command,
+        Some(Commands::Run { .. } | Commands::Nands { .. } | Commands::ExportVerilog { .. } | Commands::VerifyVerilog { .. })
+    ) {
         let default_dir = Path::new("./circuits");
         if default_dir.is_dir() {
             if let Err(e) = builder.load_circuits_from_path(default_dir) {
@@ -168,6 +228,42 @@ fn main() {
         }
         Some(Commands::Run { program, top, max_steps, trace }) => {
             run_program(&builder, &program, &top, max_steps, trace);
+        }
+        Some(Commands::ExportVerilog { component_name, level, cells, keep_latches, output, names }) => {
+            let opts = VerilogOptions {
+                level: level.into(),
+                cells: match cells {
+                    Cells::Sky130 => CellLib::Sky130,
+                    Cells::Generic => CellLib::Generic,
+                },
+                keep_latches,
+            };
+            let netlist = export_verilog(&builder, &component_name, &opts).unwrap_or_else(|e| {
+                eprintln!("Error: {}", e);
+                std::process::exit(1);
+            });
+            let path = output.unwrap_or_else(|| PathBuf::from(format!("{}.v", component_name)));
+            if let Err(e) = std::fs::write(&path, &netlist.text) {
+                eprintln!("Error writing {:?}: {}", path, e);
+                std::process::exit(1);
+            }
+            let total: usize = netlist.cell_counts.values().sum();
+            println!("\nWrote {} ({} cells)", path.display(), group_digits(total));
+            for (cell, n) in &netlist.cell_counts {
+                println!("  {:<28} {:>8}", cell, group_digits(*n));
+            }
+            if let Some(names_path) = names {
+                let tsv: String = netlist.names.iter().map(|(v, k)| format!("{}\t{}\n", v, k)).collect();
+                if let Err(e) = std::fs::write(&names_path, tsv) {
+                    eprintln!("Error writing {:?}: {}", names_path, e);
+                    std::process::exit(1);
+                }
+                println!("Wrote name map {}", names_path.display());
+            }
+        }
+        Some(Commands::VerifyVerilog { component_name, level, keep_latches }) => {
+            let opts = VerilogOptions { level: level.into(), cells: CellLib::Generic, keep_latches };
+            verify_verilog(&builder, component_name.as_deref(), opts);
         }
         Some(Commands::Nands { component_name, depth }) => match component_name {
             Some(name) => print_nand_breakdown(&builder, &name, depth),
@@ -314,4 +410,73 @@ fn print_parts(builder: &CircuitBuilder, name: &str, total: usize, level: usize,
             print_parts(builder, &part.part_type, total, level + 1, depth);
         }
     }
+}
+
+/// Collects all .clt test suites below the given directories.
+fn collect_suites(dirs: &[&Path]) -> Vec<clt::CltTestSuite> {
+    fn walk(dir: &Path, out: &mut Vec<clt::CltTestSuite>) {
+        let Ok(entries) = std::fs::read_dir(dir) else { return };
+        let mut paths: Vec<PathBuf> = entries.flatten().map(|e| e.path()).collect();
+        paths.sort();
+        for path in paths {
+            if path.is_dir() {
+                walk(&path, out);
+            } else if path.extension().is_some_and(|e| e == "clt") {
+                match std::fs::read_to_string(&path).map_err(|e| e.to_string()).and_then(|s| clt::parse_clt(&s)) {
+                    Ok(file) => out.extend(file.suites),
+                    Err(e) => eprintln!("Skipping {:?}: {}", path, e),
+                }
+            }
+        }
+    }
+    let mut out = Vec::new();
+    for dir in dirs {
+        walk(dir, &mut out);
+    }
+    out
+}
+
+fn verify_verilog(builder: &CircuitBuilder, only: Option<&str>, opts: VerilogOptions) {
+    let suites: Vec<_> = collect_suites(&[Path::new("./src/circuits"), Path::new("./circuits")])
+        .into_iter()
+        .filter(|s| only.is_none_or(|n| s.circuit_name == n))
+        .collect();
+    if suites.is_empty() {
+        eprintln!("No .clt tests found{}.", only.map(|n| format!(" for '{}'", n)).unwrap_or_default());
+        std::process::exit(1);
+    }
+    let work = std::env::temp_dir().join("logiccircuit-verify");
+    println!("\nVerifying exported netlists with Icarus Verilog (work dir {})", work.display());
+    println!("  {:<20} {:>7} {:>9} {:>8}", "Circuit", "Checks", "Failures", "Skipped");
+    let mut failed = 0;
+    for suite in &suites {
+        match verify_with_iverilog(builder, suite, opts, &work) {
+            Ok(r) => {
+                let mark = if r.failures.is_empty() { "✅" } else { "❌" };
+                println!(
+                    "  {:<20} {:>7} {:>9} {:>8}  {}",
+                    suite.circuit_name,
+                    r.checks,
+                    r.failures.len(),
+                    r.skipped.len(),
+                    mark
+                );
+                for f in r.failures.iter().take(5) {
+                    println!("      {}", f);
+                }
+                if !r.failures.is_empty() {
+                    failed += 1;
+                }
+            }
+            Err(e) => {
+                println!("  {:<20} error: {}", suite.circuit_name, e.lines().next().unwrap_or(""));
+                failed += 1;
+            }
+        }
+    }
+    if failed > 0 {
+        println!("\n{} of {} suites failed.", failed, suites.len());
+        std::process::exit(1);
+    }
+    println!("\nAll {} suites match our simulator.", suites.len());
 }

@@ -71,25 +71,39 @@ externe Toolchain braucht (Export, Statistiken, Darstellung), gibt es in beiden.
 
 ## Phase 1 – Verilog-Export
 
-- [ ] `src/export/verilog.rs`: strukturelles Verilog aus `flatten()`
-  - [ ] ein Modul pro Top-Level-Schaltung, Ports = CLDL-Ein- und Ausgänge (Busse als Vektoren)
-  - [ ] ein `wire` pro Netz; Namen aus unseren Netzschlüsseln ableiten
-        (`Cpu.Datapath.Alu.FA0.sum` → gültiger Verilog-Bezeichner), damit wir
-        Layout-Netze später wieder unseren Simulationsdrähten zuordnen können
-  - [ ] Zellinstanzen mit Instanznamen = Hierarchiepfad (für die Rückverfolgung)
-  - [ ] nicht getriebene Netze (lesen 0) an eine Tie-Low-Zelle hängen (`sky130_fd_sc_hd__conb_1`)
-- [ ] Zwei Zellbibliotheken:
-  - [ ] `generic`: eigene Verilog-Module `LC_NAND2`, `LC_NOT`, `LC_AND2`, … (zum Simulieren mit Icarus/Verilator)
-  - [ ] `sky130`: Zuordnung auf `sky130_fd_sc_hd`-Zellen
-        (NAND→`nand2_1`, NOT→`inv_1`, AND→`and2_1`, AND3→`and3_1`, OR→`or2_1`,
-        NOR→`nor2_1`, NOR4→`nor4_1`, XOR→`xor2_1`, XNOR→`xnor2_1`;
-        Mehrbit-Blöcke wie `AND_4B` bitweise auflösen)
-- [ ] CLI: `export-verilog <NAME> [--level nand|basic] [--cells generic|sky130] [-o DATEI]`
-- [ ] Browser: Button „Verilog herunterladen“ für die aktuelle Ebene (läuft komplett in WASM)
-- [ ] **Gegenprobe:** aus den `.clt`-Tests eine Verilog-Testbench erzeugen
-      (`export-testbench`) und den exportierten Code mit Icarus Verilog
-      laufen lassen; Ergebnisse müssen mit unserem Simulator übereinstimmen
-- [ ] Rust-Tests: Export ist deterministisch, jede Zelle hat alle Pins verbunden
+- [x] `src/export/verilog.rs`: strukturelles Verilog aus `flatten_until()`
+  - [x] ein Modul pro Top-Level-Schaltung, Ports = CLDL-Ein- und Ausgänge (Busse als Vektoren)
+  - [x] ein `wire` pro Netz (`n_<Schlüssel>`, `.` → `__`); Netze mit Ein-/Ausgangsbit heißen wie der Port
+  - [x] Zellinstanzen `u_<Hierarchiepfad>`; Rückweg über `--names` (TSV: Verilog-Name → Schlüssel/Pfad)
+  - [x] nicht getriebene Netze (lesen 0) an Tie-Low-Zellen (`conb_1` LO), weitere Ausgangsbits eines Netzes über Buffer
+- [x] Zwei Zellbibliotheken:
+  - [x] `generic`: `LC_*`-Module werden angehängt (Datei simuliert eigenständig). Jede
+        Zelle startet mit dem Wert unseres Simulators nach dem Bauen (`INIT`) und hat
+        1–3 ps Laufzeit (`DELAY`) – ohne Laufzeit schwingen über Kreuz gekoppelte
+        Latches in Icarus endlos
+  - [x] `sky130`: nand2, inv, and2, and3, or2, nor2, nor4, xor2, xnor2 (`_1`);
+        Mehrbit-Blöcke bitweise; `DFLIP_FLOP` → `dfxtp_1` bzw. `dfxbp_1`, wenn nQ gebraucht wird
+- [x] CLI: `export-verilog <NAME> [--level basic|nand] [--cells sky130|generic] [--keep-latches] [-o DATEI] [--names DATEI]`
+- [x] Browser: Button „Verilog ↓“ (Zellbibliothek wählbar; Stufe NAND in der NAND-Ansicht, sonst Basis-Blöcke)
+- [x] **Gegenprobe:** `verify-verilog [NAME] [--level] [--keep-latches]` erzeugt aus den
+      `.clt`-Suiten Testbenches und lässt sie mit Icarus laufen (Zeitlimit 120 s pro
+      Simulation). **Ergebnis 2026-11-09: alle 46 Suiten in allen vier Varianten
+      (basic/nand × Flipflop-Zellen/eigene Latches) identisch zu unserem Simulator**
+- [x] Rust-Tests: Export deterministisch für alle Schaltungen und Varianten,
+      NAND-Stufe ohne Flipflops = exakt `nand_count` nand2-Zellen, Icarus-Probe für
+      FULL_ADDER, REGISTER_4B (Latches) und COMPUTER_8B (übersprungen ohne iverilog)
+- [x] **Durch OpenROAD:** `COMPUTER_8B` (Basis-Blöcke, sky130) – 2.181 Zellen
+      (971 and2, 457 inv, 453 or2, 136 dfxtp, …), Die 199 × 199 µm,
+      43 % Auslastung, 32 mm Leitung (met1 16,5 mm, met2 14,4 mm, met3 0,8 mm,
+      met4 0,5 mm), 11.467 Vias, 0 DRC-Verstöße, 24 s. Timing: −0,16 ns Slack bei
+      10 ns Takt → knapp 98 MHz
+
+**Erkenntnisse für Phase 2:**
+- OpenROADs Verilog-Leser versteht `input wire [..]` nicht – Ports ohne `wire` deklarieren.
+- Ohne `repair_design` treiben Minimalzellen Netze mit bis zu 131 Pins
+  (`Instruction[0]`, Registeradresse). Option `--optimize` vorsehen, die Buffer
+  einfügen und Zellen vergrößern darf (ändert dann die Netzliste).
+- Der kritische Pfad läuft vom Opcode-Eingang über Steuerwerk und ALU in ein Register.
 
 ## Phase 2 – Platzierung und Verdrahtung (CLI)
 

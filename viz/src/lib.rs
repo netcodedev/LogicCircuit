@@ -1,6 +1,7 @@
 use include_dir::{Dir, DirEntry, include_dir};
 use logic_circuit::circuit::Circuit;
 use logic_circuit::cldl::{CircuitBuilder, CircuitView, EndpointView, FlatLevel, PinView};
+use logic_circuit::export::verilog::{CellLib, VerilogOptions, export_verilog};
 use logic_circuit::{isa, machine};
 use serde_json::{Value, json};
 use wasm_bindgen::prelude::*;
@@ -117,6 +118,17 @@ impl Sim {
             .to_string(),
             None => "null".to_string(),
         }
+    }
+
+    /// Structural Verilog of `name`. `level`: "basic" or "nand"; `cells`:
+    /// "sky130" or "generic".
+    pub fn export_verilog(&self, name: &str, level: &str, cells: &str, keep_latches: bool) -> Result<String, JsError> {
+        let opts = VerilogOptions {
+            level: if level == "nand" { FlatLevel::Nand } else { FlatLevel::Basic },
+            cells: if cells == "generic" { CellLib::Generic } else { CellLib::Sky130 },
+            keep_latches,
+        };
+        export_verilog(&self.builder, name, &opts).map(|n| n.text).map_err(|e| JsError::new(&e))
     }
 
     /// JSON object mapping every circuit name to its NAND gate count.

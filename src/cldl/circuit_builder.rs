@@ -260,6 +260,13 @@ impl CircuitBuilder {
     /// (`FlatLevel::Basic`, see `is_basic`). Nets come from the same planning
     /// pass as `build`, so they are exactly the wires that are simulated.
     pub fn flatten(&self, name: &str, level: FlatLevel) -> Option<FlatCircuit> {
+        self.flatten_until(name, &|part_type: &str| level == FlatLevel::Basic && self.is_basic(part_type))
+    }
+
+    /// Like `flatten`, but parts are kept as blocks wherever `stop(part_type)`
+    /// is true (NAND gates always are). Used e.g. to keep flip-flops whole
+    /// for cell mapping.
+    pub fn flatten_until(&self, name: &str, stop: &dyn Fn(&str) -> bool) -> Option<FlatCircuit> {
         let top_def = self.definitions.get(name)?;
         let mut plan = self.plan_circuit(top_def);
 
@@ -290,7 +297,7 @@ impl CircuitBuilder {
         };
 
         let mut found = Vec::new();
-        self.collect_blocks(top_def, "", level, &mut found);
+        self.collect_blocks(top_def, "", stop, &mut found);
         let blocks = found
             .into_iter()
             .map(|(id, kind)| {
@@ -327,21 +334,23 @@ impl CircuitBuilder {
         let inputs = io_bits(&top_def.inputs).into_iter().map(|k| { let n = net(&k); (k, n) }).collect();
         let outputs = io_bits(&top_def.outputs).into_iter().map(|k| { let n = net(&k); (k, n) }).collect();
 
-        Some(FlatCircuit { nets, blocks, inputs, outputs })
+        let aliases = keys.iter().map(|k| (k.clone(), net(k))).collect();
+
+        Some(FlatCircuit { nets, blocks, inputs, outputs, aliases })
     }
 
     /// Collects (instance path, type) of every part that is not expanded
-    /// further at `level`, in build (DFS) order.
-    fn collect_blocks(&self, def: &CldlDefinition, prefix: &str, level: FlatLevel, out: &mut Vec<(String, String)>) {
+    /// further (NAND, or `stop` is true), in build (DFS) order.
+    fn collect_blocks(&self, def: &CldlDefinition, prefix: &str, stop: &dyn Fn(&str) -> bool, out: &mut Vec<(String, String)>) {
         for part in &def.parts {
             let path = if prefix.is_empty() {
                 part.instance_name.clone()
             } else {
                 format!("{prefix}.{}", part.instance_name)
             };
-            let stop = part.part_type == "NAND" || (level == FlatLevel::Basic && self.is_basic(&part.part_type));
+            let keep = part.part_type == "NAND" || stop(&part.part_type);
             match self.definitions.get(&part.part_type) {
-                Some(sub) if !stop => self.collect_blocks(sub, &path, level, out),
+                Some(sub) if !keep => self.collect_blocks(sub, &path, stop, out),
                 _ => out.push((path, part.part_type.clone())),
             }
         }

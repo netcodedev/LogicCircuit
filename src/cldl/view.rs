@@ -95,6 +95,8 @@ pub struct FlatCircuit {
     pub inputs: Vec<(String, usize)>,
     /// Top-level output bits and their nets.
     pub outputs: Vec<(String, usize)>,
+    /// Every wire key of the build (e.g. "Cpu.Datapath.Alu.Z") and its net.
+    pub aliases: HashMap<String, usize>,
 }
 
 /// A single, non-recursive level of a circuit definition: its own IO pins,

@@ -2,6 +2,11 @@ use pest_derive::Parser;
 
 mod circuit_tester;
 
+/// Parses the content of a .clt file.
+pub fn parse_clt(content: &str) -> Result<CltFile, String> {
+    circuit_tester::parse_clt_file(content).map_err(|e| e.to_string())
+}
+
 // --- CLT AST (Intermediate Structs) ---
 
 /// Represents a pin reference from CLT, potentially indexed.

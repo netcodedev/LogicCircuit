@@ -114,6 +114,8 @@
   .gate.s2 { color: var(--unk); }
   .flat-box rect.body { fill: var(--node); stroke: var(--node-stroke); }
   .flat-box .type { font-size: 10px; fill: var(--text); }
+  .export-row { display: flex; gap: 6px; margin-top: 10px; }
+  .export-row select { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; }
   .view-mode select { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; margin-left: 4px; }
   /* Constant 1px wires at any zoom: thousands of nets otherwise merge into a solid mass. */
   .edge.flat-net { stroke-width: 1; vector-effect: non-scaling-stroke; }
@@ -164,6 +166,13 @@
       <button id="reset">Neu bauen</button>
     </div>
     <label class="toggle"><input type="checkbox" id="stripes"> Busse als Bit-Streifen</label>
+    <div class="export-row">
+      <select id="export-cells" title="Zellbibliothek">
+        <option value="sky130">sky130</option>
+        <option value="generic">generisch</option>
+      </select>
+      <button id="export-verilog" title="Die aktuelle Ebene als Gatter-Netzliste herunterladen (Stufe: NANDs in der NAND-Ansicht, sonst Basis-Blöcke)">Verilog ↓</button>
+    </div>
     <label class="toggle view-mode" title="Wie weit die aktuelle Ebene aufgelöst wird">Ansicht
       <select id="viewmode">
         <option value="parts">Bauteile</option>

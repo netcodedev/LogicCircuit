@@ -649,6 +649,24 @@ $('pulse').addEventListener('click', () => {
   refresh();
 });
 
+// Download the current level as structural Verilog (computed in WASM).
+$('export-verilog').addEventListener('click', () => {
+  const type = stack[stack.length - 1].type;
+  const level = viewMode === 'nand' ? 'nand' : 'basic';
+  const cells = $('export-cells').value;
+  try {
+    const text = sim.export_verilog(type, level, cells, false);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
+    a.download = `${type}_${level}_${cells}.v`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    statusEl.textContent = `${a.download} exportiert (${fmtCount(text.split('\n').length)} Zeilen)`;
+  } catch (e) {
+    statusEl.textContent = `Export fehlgeschlagen: ${e.message ?? e}`;
+  }
+});
+
 $('viewmode').value = viewMode;
 $('viewmode').addEventListener('change', (e) => {
   viewMode = e.target.value;
