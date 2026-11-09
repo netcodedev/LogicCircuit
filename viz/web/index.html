@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>LogicCircuit Viewer</title>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
 <style>
   :root {
     --bg: #0f1216; --panel: #161a20; --panel-2: #1c2129; --line: #2a313b;
@@ -131,6 +137,20 @@
   .stripe.e0 { stroke: var(--lo); } .stripe.e1 { stroke: var(--hi); } .stripe.e2 { stroke: var(--unk); }
   .striped:hover .stripe-bg { stroke: var(--accent); }
   .stripe-dot { fill: var(--muted); }
+  #chip3d { position: absolute; inset: 0; }
+  #chip3d canvas { display: block; }
+  #chip-message { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px 20px; line-height: 1.8; color: var(--text); max-width: 460px; }
+  #chip-message code { font: 12px ui-monospace, monospace; background: var(--panel-2); padding: 1px 6px; border-radius: 4px; }
+  #chip-metrics .kv { display: flex; justify-content: space-between; font: 12px ui-monospace, monospace; margin: 2px 0; }
+  #chip-metrics .kv span:first-child { color: var(--muted); }
+  .slider { display: grid; grid-template-columns: 96px 1fr; align-items: center; gap: 6px; margin: 6px 0; font-size: 12px; color: var(--muted); }
+  .slider input { width: 100%; accent-color: var(--accent); }
+  #chip-layers { margin-top: 8px; display: grid; gap: 2px; }
+  .layer-row { display: grid; grid-template-columns: 16px 12px 1fr auto; align-items: center; gap: 6px; font: 12px ui-monospace, monospace; cursor: pointer; }
+  .layer-row input { margin: 0; accent-color: var(--accent); }
+  .swatch { width: 12px; height: 12px; border-radius: 3px; }
+  .layer-kind { color: var(--muted); font-size: 10px; }
+  .chip-hint { margin-top: 8px; font-size: 11px; color: var(--muted); line-height: 1.5; }
   .seg { fill: var(--seg-off); transition: fill .08s; }
   .seg.on { fill: var(--seg-on); filter: drop-shadow(0 0 3px var(--seg-on)); }
   #display { width: 100%; height: 96px; background: #07090b; border-radius: 8px; padding: 6px; display: block; }
@@ -178,8 +198,19 @@
         <option value="parts">Bauteile</option>
         <option value="basic">Basis-Blöcke</option>
         <option value="nand">Nur NANDs</option>
+        <option value="chip">Chip 3D</option>
       </select>
     </label>
+  </section>
+  <section id="chip-section" hidden>
+    <h2>Chip</h2>
+    <div id="chip-metrics"></div>
+    <label class="slider">Explode <input type="range" id="chip-explode" min="0" max="20" step="0.5" value="0"></label>
+    <label class="slider">Z-Überhöhung <input type="range" id="chip-zscale" min="1" max="40" step="1" value="5"></label>
+    <label class="slider">Schnitt <input type="range" id="chip-cut" min="0" max="1" step="0.01" value="1"></label>
+    <label class="toggle"><input type="checkbox" id="chip-power"> Power-Grid (VDD/VSS)</label>
+    <div id="chip-layers"></div>
+    <div class="chip-hint">Klick auf Leitung: Netz hervorheben · Esc: zurück · F: einpassen · layout.bin hierher ziehen</div>
   </section>
   <section id="display-section" hidden><h2>Anzeige</h2><svg id="display"></svg></section>
   <section><h2>Eingänge</h2><div id="inputs"></div></section>
@@ -229,6 +260,8 @@
       </defs>
       <g id="viewport"></g>
     </svg>
+    <div id="chip3d" hidden></div>
+    <div id="chip-message" hidden></div>
     <div id="status">Lade…</div>
     <div id="hint">Doppelklick auf Bauteil: hineinzoomen · Mausrad: Zoom · Ziehen: verschieben</div>
   </div>

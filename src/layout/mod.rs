@@ -127,6 +127,9 @@ pub struct Layout {
     pub instances: Vec<Instance>,
     pub nets: Vec<NetInfo>,
     pub routes: Vec<RouteRect>,
+    /// Extra information for viewers (e.g. the run's metrics), copied into
+    /// the header as "metrics".
+    pub metrics: Option<Value>,
 }
 
 /// Result of the extraction checks.
@@ -283,7 +286,7 @@ pub fn extract(src: &Sources) -> Result<(Layout, Checks), String> {
         }
     }
 
-    Ok((Layout { design, dbu_per_micron: def.dbu_per_micron, die: def.die, masters, instances, nets, routes }, checks))
+    Ok((Layout { design, dbu_per_micron: def.dbu_per_micron, die: def.die, masters, instances, nets, routes, metrics: None }, checks))
 }
 
 /// "Instruction[3]" -> "Instruction.3", "CLK" -> "CLK" (our key format).
@@ -422,6 +425,7 @@ impl Layout {
             "instance_names": self.instances.iter().map(|i| &i.name).collect::<Vec<_>>(),
             "instance_paths": self.instances.iter().map(|i| &i.path).collect::<Vec<_>>(),
             "nets": self.nets.iter().map(|n| json!({ "name": n.name, "key": n.key, "special": n.special })).collect::<Vec<_>>(),
+            "metrics": self.metrics,
         });
         (header, sections)
     }
@@ -531,6 +535,7 @@ mod tests {
             instances: vec![Instance { name: "u_a".into(), path: Some("A".into()), master: 0, x: 3, y: 4, orient: Orient::FS }],
             nets: vec![NetInfo { name: "n_x".into(), key: Some("X".into()), special: false }],
             routes: vec![RouteRect { layer: 7, net: 0, x0: 1, y0: 2, x1: 3, y1: 4 }],
+            metrics: None,
         };
         let (header, ints) = read_binary(&layout.write_binary()).unwrap();
         let section = |name: &str| -> Vec<i32> {

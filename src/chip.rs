@@ -449,11 +449,17 @@ pub fn extract(root: &Path, run_dir: &Path) -> Result<(crate::layout::Layout, cr
         .find(|p| p.extension().is_some_and(|e| e == "def"))
         .ok_or_else(|| format!("no DEF in {}", run_dir.display()))?;
     let names = run_dir.join("names.tsv");
-    crate::layout::extract(&crate::layout::Sources {
+    let (mut layout, checks) = crate::layout::extract(&crate::layout::Sources {
         def: &def,
         tech_lef: &platform.join("sky130_fd_sc_hd.tlef"),
         cell_lef: &platform.join("sky130_fd_sc_hd_merged.lef"),
         cell_gds: &platform.join("sky130_fd_sc_hd.gds"),
         names: names.is_file().then_some(names.as_path()),
-    })
+    })?;
+    // The run's metrics travel with the layout, for viewers.
+    if let Ok(m) = read_metrics(run_dir) {
+        let json: serde_json::Value = serde_json::from_str(&to_json(&layout.design, std::slice::from_ref(&m))).map_err(|e| e.to_string())?;
+        layout.metrics = json["runs"].get(0).cloned();
+    }
+    Ok((layout, checks))
 }

@@ -47,9 +47,11 @@ try { stripes = localStorage.getItem(STRIPES_KEY) === '1'; } catch {}
 // View mode: 'parts' (the CLDL hierarchy), 'basic' (flattened to basic
 // blocks like NOT, AND, OR_4B) or 'nand' (flattened to NAND gates).
 const MODE_KEY = 'lc-viz-mode';
-const VIEW_MODES = ['parts', 'basic', 'nand'];
+const VIEW_MODES = ['parts', 'basic', 'nand', 'chip'];
 let viewMode = 'parts';
 try { const m = localStorage.getItem(MODE_KEY); if (VIEW_MODES.includes(m)) viewMode = m; } catch {}
+// ?mode=chip (etc.) in the URL wins, e.g. for links opened by `chip view`.
+{ const m = new URLSearchParams(location.search).get('mode'); if (VIEW_MODES.includes(m)) viewMode = m; }
 const flats = new Map();  // "mode|type" -> flattened netlist JSON
 let currentGraph = null;  // { width, height } of what is drawn, for fit()
 
@@ -335,6 +337,8 @@ function renderStripedEdge(e, sec, pts, keys, edgeLayer, labelLayer) {
 
 async function render() {
   const top = stack[stack.length - 1];
+  if (viewMode === 'chip') return renderChip();
+  leaveChip();
   if (viewMode !== 'parts') return renderFlat(top);
   const { graph, meta, ms } = await layout(top.type);
   currentGraph = graph;
@@ -664,6 +668,206 @@ $('export-verilog').addEventListener('click', () => {
     statusEl.textContent = `${a.download} exportiert (${fmtCount(text.split('\n').length)} Zeilen)`;
   } catch (e) {
     statusEl.textContent = `Export fehlgeschlagen: ${e.message ?? e}`;
+  }
+});
+
+// ---------------------------------------------------------------- chip 3D
+
+// The 3D view (three.js) is only loaded when "Chip 3D" is chosen. It shows
+// the layout extracted for the top-level circuit (layouts/<NAME>.bin, copied
+// there by viz/build.sh) or a layout.bin dropped onto the view.
+let chipModule = null;
+let chipView = null;
+let chipLoaded = null; // design name of the loaded layout
+let chipStatus = '';
+
+function leaveChip() {
+  $('canvas').style.display = '';
+  $('chip3d').hidden = true;
+  $('chip-section').hidden = true;
+}
+
+function chipMessage(html) {
+  $('chip-message').innerHTML = html;
+  $('chip-message').hidden = !html;
+}
+
+async function renderChip() {
+  $('canvas').style.display = 'none';
+  $('chip3d').hidden = false;
+  $('chip-section').hidden = false;
+  renderCrumbs();
+  const name = stack[0].type;
+  if (!chipModule) {
+    statusEl.textContent = '3D-Ansicht wird geladen…';
+    try {
+      chipModule = await import('./chip3d.js');
+    } catch (e) {
+      chipMessage(`three.js konnte nicht geladen werden: ${e.message}`);
+      return;
+    }
+  }
+  if (!chipView) {
+    try {
+      chipView = new chipModule.ChipView($('chip3d'), { onHover: chipHover, onPick: chipPick });
+    } catch (e) {
+      chipMessage(`Die 3D-Ansicht braucht WebGL, das in diesem Browser nicht verfügbar ist.<br>
+        Öffne den Viewer in einem normalen Browser, oder nutze <code>cargo run -- chip render</code>.`);
+      statusEl.textContent = 'WebGL nicht verfügbar';
+      return;
+    }
+    chipView.setBackground(getComputedStyle(document.body).backgroundColor);
+  }
+  if (chipLoaded !== name) {
+    let res = null;
+    try { res = await fetch(`layouts/${name}.bin`); } catch {}
+    if (!res || !res.ok) {
+      chipLoaded = null;
+      chipView.clear();
+      chipView.invalidate();
+      $('chip-layers').replaceChildren();
+      $('chip-metrics').replaceChildren();
+      chipMessage(`Für <b>${name}</b> gibt es noch kein Layout.<br>
+        <code>cargo run -- chip build ${name}</code><br>
+        <code>cargo run -- chip extract ${name}</code><br>
+        <code>viz/build.sh</code><br>
+        oder eine <code>layout.bin</code> hierher ziehen.`);
+      statusEl.textContent = `${name} · kein Layout`;
+      probes = [];
+      probesChanged();
+      return;
+    }
+    loadChipBuffer(await res.arrayBuffer());
+  }
+  hookChipProbes();
+}
+
+function loadChipBuffer(buffer) {
+  statusEl.textContent = 'Layout wird aufgebaut…';
+  const t0 = performance.now();
+  const header = chipView.load(buffer);
+  chipView.setShowPower($('chip-power').checked);
+  chipView.setZScale(Number($('chip-zscale').value));
+  chipView.setExplode(Number($('chip-explode').value));
+  chipView.fit();
+  chipLoaded = header.design;
+  chipView.keyed = null;
+  chipMessage('');
+  buildChipPanel(header);
+  const shapes = header.sections.reduce((a, s) => a + (s.stride ? s.length / s.stride : 0), 0);
+  chipStatus = `${header.design} · ${fmtCount(header.instance_names.length)} Zellen · ${fmtCount(shapes)} Formen · Aufbau ${(performance.now() - t0).toFixed(0)} ms`;
+  statusEl.textContent = chipStatus;
+}
+
+// Live values: one probe over all nets that map to a simulator wire. Only
+// when the layout belongs to the simulated top-level circuit.
+function hookChipProbes() {
+  probes = [];
+  if (chipLoaded && chipLoaded === stack[0].type) {
+    const keyed = chipView.keyedNets();
+    chipView.keyed = keyed;
+    probes.push({ keys: keyed.map(([, k]) => k), apply(v) { chipView.updateValues(v); } });
+  } else if (chipLoaded) {
+    chipStatus += ' · keine Live-Werte (andere Schaltung)';
+    statusEl.textContent = chipStatus;
+  }
+  probesChanged();
+  refresh();
+}
+
+function chipHover(hit) {
+  if (!hit) { statusEl.textContent = chipStatus; return; }
+  const val = (v) => (v === 1 ? '1' : v === 0 ? '0' : '–');
+  statusEl.textContent = hit.kind === 'net'
+    ? `Netz ${hit.info.name}${hit.info.key ? ` → ${hit.info.key}` : ''} · ${hit.layer} · Wert ${val(hit.value)}`
+    : `${hit.master.replace('sky130_fd_sc_hd__', '')} · ${hit.path ?? hit.name} · ${hit.layer}`;
+}
+
+function chipPick(hit) {
+  if (hit?.kind === 'net' && chipView.highlight === hit.net) {
+    statusEl.textContent = `Hervorgehoben: Netz ${hit.info.name}${hit.info.key ? ` → ${hit.info.key}` : ''} (Esc: zurück)`;
+  }
+}
+
+function buildChipPanel(header) {
+  const m = header.metrics;
+  const box = $('chip-metrics');
+  box.replaceChildren();
+  if (m) {
+    const rows = [
+      ['Lauf', m.run],
+      ['Die', `${m.die_um[0].toFixed(0)} × ${m.die_um[1].toFixed(0)} µm`],
+      ['Zellen', fmtCount(m.logic_cells)],
+      ['Transistoren', fmtCount(m.transistors)],
+      ['Leitung', `${(m.wire_total_um / 1000).toLocaleString('de-DE', { maximumFractionDigits: 1 })} mm`],
+      ['Vias', fmtCount(m.vias ?? 0)],
+      ['fmax', m.fmax_mhz ? `${m.fmax_mhz.toFixed(0)} MHz` : '–'],
+    ];
+    for (const [k, v] of rows) {
+      const row = document.createElement('div');
+      row.className = 'kv';
+      row.innerHTML = `<span></span><span></span>`;
+      row.children[0].textContent = k;
+      row.children[1].textContent = v;
+      box.appendChild(row);
+    }
+  }
+  const list = $('chip-layers');
+  list.replaceChildren();
+  for (const l of chipView.layers) {
+    if (!l.meshes.length) continue;
+    const label = document.createElement('label');
+    label.className = 'layer-row';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = l.visible;
+    cb.addEventListener('change', () => chipView.setLayerVisible(l.name, cb.checked));
+    const sw = document.createElement('span');
+    sw.className = 'swatch';
+    sw.style.background = l.color;
+    const name = document.createElement('span');
+    name.textContent = l.name;
+    const kind = document.createElement('span');
+    kind.className = 'layer-kind';
+    kind.textContent = { well: 'Wanne', device: 'Bauelement', contact: 'Kontakt', routing: 'Leitung', cut: 'Via' }[l.kind] ?? l.kind;
+    label.append(cb, sw, name, kind);
+    list.appendChild(label);
+  }
+}
+
+for (const [id, fn] of [['chip-explode', (v) => chipView?.setExplode(v)], ['chip-zscale', (v) => chipView?.setZScale(v)], ['chip-cut', (v) => chipView?.setCut(v)]]) {
+  $(id).addEventListener('input', (e) => fn(Number(e.target.value)));
+}
+
+$('chip-power').addEventListener('change', (e) => chipView?.setShowPower(e.target.checked));
+
+// Initial chip settings from the URL (?explode=6&zscale=10&power=1), e.g. from `chip view`.
+{
+  const q = new URLSearchParams(location.search);
+  for (const [param, id] of [['explode', 'chip-explode'], ['zscale', 'chip-zscale'], ['cut', 'chip-cut']]) {
+    if (q.has(param)) $(id).value = q.get(param);
+  }
+  if (q.has('power')) $('chip-power').checked = q.get('power') === '1';
+}
+
+// Drop a layout.bin onto the view.
+$('main').addEventListener('dragover', (e) => { if (viewMode === 'chip') e.preventDefault(); });
+$('main').addEventListener('drop', async (e) => {
+  if (viewMode !== 'chip') return;
+  e.preventDefault();
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  try {
+    loadChipBuffer(await file.arrayBuffer());
+  } catch (err) {
+    chipMessage(`${file.name}: ${err.message}`);
+    return;
+  }
+  if (chipLoaded !== stack[0].type && names.includes(chipLoaded)) {
+    select(chipLoaded); // simulate the dropped design for live values
+    go();
+  } else {
+    hookChipProbes();
   }
 });
 
@@ -1036,10 +1240,11 @@ function fit() {
   tf = { k, x: (r.width - graph.width * k) / 2, y: (r.height - graph.height * k) / 2 };
   applyTf();
 }
-$('fit').addEventListener('click', fit);
+$('fit').addEventListener('click', () => (viewMode === 'chip' ? chipView?.fit() : fit()));
 window.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT') return;
-  if (e.key === 'f' || e.key === 'F') fit();
+  if (e.key === 'f' || e.key === 'F') (viewMode === 'chip' ? chipView?.fit() : fit());
+  if (e.key === 'Escape' && viewMode === 'chip') chipView?.setHighlight(null);
   if (e.key === 'Backspace' && stack.length > 1) { stack.pop(); go(); }
 });
 

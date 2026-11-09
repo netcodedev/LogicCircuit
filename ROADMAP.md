@@ -177,16 +177,29 @@ externe Toolchain braucht (Export, Statistiken, Darstellung), gibt es in beiden.
 
 ## Phase 4 – 3D-Anzeige im Browser
 
-- [ ] Neuer Viewer-Modus „Chip 3D“ (three.js, Version pinnen)
-- [ ] Layout-Datei laden: zur Build-Zeit einbetten und per Drag-and-drop
-- [ ] Geometrie pro Lage zusammenfassen (Instanced/Merged Meshes), damit
-      Zehntausende Formen flüssig laufen
-- [ ] Bedienung: Orbit/Zoom, Lagen einzeln ein-/ausblenden, „Explode“-Regler
-      zieht die Lagen auseinander, Schnitt in Z-Richtung
-- [ ] Hover/Klick auf Leitung oder Zelle → Netzname, Hierarchiepfad, aktueller Wert
-- [ ] **Live-Signale:** Simulation (Programm-Panel) läuft weiter; Netze auf 1 leuchten im Chip
-- [ ] Netz hervorheben: ein Signal durch alle Lagen und Vias verfolgen
-- [ ] Kennzahlen aus Phase 2 im Panel anzeigen
+- [x] Viewer-Modus „Chip 3D“ (`viz/web/chip3d.js`, three.js 0.170.0 über Import-Map,
+      wird erst bei Bedarf geladen); `?mode=chip&explode=..&zscale=..&cut=..&power=1`
+      in der URL setzt Modus und Ansicht
+- [x] Layout-Datei laden: `viz/build.sh` kopiert `chip/<NAME>/basic-met5/layout.bin`
+      (sonst den neuesten Lauf) nach `viz/web/layouts/<NAME>.bin`; zusätzlich Drag-and-drop
+      einer `layout.bin` (wechselt die Simulation auf das Design, wenn es bekannt ist)
+- [x] Geometrie: pro Zelltyp und Lage eine zusammengeführte Geometrie (Rechtecke als
+      Quader, Polygone extrudiert), gezeichnet als InstancedMesh über alle Platzierungen
+      inkl. Orientierung; Routing als instanzierte Einheitsquader mit Farbe pro Instanz.
+      COMPUTER_8B: rund 175 Draw-Calls für 6.262 Zellen und 55.000 Leitungsstücke
+- [x] Bedienung: Orbit/Zoom/Pan, Lagen einzeln ein-/ausblenden, Explode-Regler,
+      Z-Überhöhung, Schnitt von oben (Clipping-Ebene), Power-Grid ein/aus (standardmäßig
+      aus – die met4/met5-Streifen verdecken sonst die Logik), F/Einpassen
+- [x] Hover über Leitung oder Zelle → Netzname, Simulationsschlüssel, Lage, Wert bzw.
+      Zelltyp und Hierarchiepfad in der Statuszeile
+- [x] **Live-Signale:** ein Probe über alle zugeordneten Netze; Leitungen von Netzen auf 1
+      werden grün, sobald die Simulation (Programm-Panel) läuft
+- [x] Netz hervorheben: Klick färbt ein Netz durch alle Lagen gelb und blendet den Rest
+      ab, Esc hebt es auf
+- [x] Kennzahlen (Lauf, Die, Zellen, Transistoren, Leitung, Vias, fmax) im Panel – sie
+      reisen im Kopf von `layout.bin` mit (`chip extract` übernimmt sie aus dem Lauf)
+- [x] Ohne WebGL (z. B. im eingebetteten Browser der Claude-App) erscheint ein Hinweis;
+      geprüft per Headless-Chromium mit Software-WebGL (SwiftShader)
 
 ## Phase 5 – Ausgabe in der CLI
 
