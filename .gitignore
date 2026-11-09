@@ -2,3 +2,9 @@
 *.dot
 *.log
 /viz/web/pkg
+
+# Plugin/tooling state (not part of the project)
+.claude-flow/
+ruvector.db
+/.claude/proven-config.json
+/.claude/.proven-config-version
