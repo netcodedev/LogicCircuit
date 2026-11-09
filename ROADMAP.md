@@ -218,8 +218,33 @@ externe Toolchain braucht (Export, Statistiken, Darstellung), gibt es in beiden.
 
 ## Phase 6 – Optional / später
 
-- [ ] Eigenen Platzierer und Router in Rust (Labyrinth-Router mit
-      Negotiated Congestion auf einem 3D-Gitter) – läuft dann auch komplett im Browser
+- [x] Eigener Platzierer und Router in Rust (`src/pnr/`), ohne OpenROAD und PDK, in
+      der CLI (`chip route <NAME> --layers 2..5`) und per WASM im Browser (Chip-Panel:
+      „Eigener Router“, URL `?mode=chip&own=3`):
+  - Zellen aus der flachen Netzliste (Basis-Blöcke, Flipflops als Block), eine
+    Gitterspalte pro Pin, in Zeilen; Start in Bauordnung, dann Simulated Annealing mit
+    Tausch gleich breiter Zellen in räumlicher Nachbarschaft (HPWL; nie schlechter als
+    der Start)
+  - 3D-Gitter, Lagen abwechselnd waagerecht/senkrecht, Vias; Lage 0 über den Zellen
+    belegt, daher Verdrahtungskanäle zwischen den Zeilen (mehr bei wenigen Lagen)
+  - Mehrpin-Netze als Baum (A* zum nächsten Baumknoten), PathFinder (Gegenwarts- und
+    Verlaufskosten) mit wachsendem Suchfenster; bleibt es illegal, wird mit breiteren
+    Kanälen und geringerer Auslastung neu platziert
+  - Ergebnis im selben `layout.bin`-Format (Netze tragen direkt die
+    Simulationsschlüssel → Live-Signale, `chip render`, `chip view --run own-L3`)
+  - COMPUTER_8B (2.110 Zellen, 2.299 Netze), alle legal (kein Gitterpunkt doppelt belegt):
+
+    | Lagen | Die | Auslastung | Leitung | Vias | Zeit |
+    |---|---|---|---|---|---|
+    | 5 | 154 × 152 µm | 70 % | 68 mm | 13.963 | 3 s |
+    | 4 | 176 × 174 µm | 60 % | 78 mm | 13.873 | 38 s |
+    | 3 | 197 × 202 µm | 60 % | 92 mm | 14.276 | 21 s |
+    | 2 | 293 × 297 µm | 51 % | 139 mm | 14.653 | 26 s |
+
+    Hier zeigt sich der Lageneffekt, den OpenROAD mit seinen echten Zellen verdeckte:
+    mit 2 statt 5 Lagen braucht der Chip 3,7× so viel Fläche und doppelt so viel
+    Leitung. (Lehrmodell: Gitterregeln statt echter Design-Rules; OpenROAD kommt mit
+    5 Lagen auf 32 mm.)
 - [x] Transistoransicht ohne PDK (Ansicht „Transistoren“): jedes NAND als CMOS-Zelle –
       PMOS A/B parallel von VDD zum Ausgang, NMOS A/B in Reihe nach GND; leitende
       Transistoren leuchten live (NMOS bei Gate 1, PMOS bei Gate 0), Ausgangsknoten und

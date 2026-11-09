@@ -436,6 +436,13 @@ pub fn platform_dir(root: &Path) -> Result<PathBuf, String> {
 
 /// Picks a run of `name`: the given one, else `basic-met5`, else the first.
 pub fn resolve_run(root: &Path, name: &str, run: Option<&str>) -> Result<PathBuf, String> {
+    // Runs of our own router have a layout.bin but no OpenROAD metrics.
+    if let Some(r) = run {
+        let dir = chip_dir(root, name).join(r);
+        if dir.join("layout.bin").is_file() && !dir.join("metrics.txt").is_file() {
+            return Ok(dir);
+        }
+    }
     let all = runs(root, name);
     let pick = match run {
         Some(r) => all.iter().find(|m| m.run == r),

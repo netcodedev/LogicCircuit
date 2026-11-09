@@ -766,6 +766,14 @@ async function renderChip() {
     }
     chipView.setBackground(getComputedStyle(document.body).backgroundColor);
   }
+  // ?own=3: lay out the circuit with our own router instead of loading a file.
+  const ownParam = new URLSearchParams(location.search).get('own');
+  if (ownParam && !renderChip.ownDone) {
+    renderChip.ownDone = true;
+    $('own-layers').value = ownParam;
+    $('own-route').click();
+    return;
+  }
   if (chipLoaded !== name) {
     let res = null;
     try { res = await fetch(`layouts/${name}.bin`); } catch {}
@@ -888,6 +896,26 @@ for (const [id, fn] of [['chip-explode', (v) => chipView?.setExplode(v)], ['chip
 }
 
 $('chip-power').addEventListener('change', (e) => chipView?.setShowPower(e.target.checked));
+
+// Our own placer/router, run in WASM on the simulated top-level circuit.
+$('own-route').addEventListener('click', async () => {
+  if (!chipView) return;
+  const name = stack[0].type;
+  const layers = Number($('own-layers').value);
+  statusEl.textContent = `Platziere und verdrahte ${name} mit ${layers} Lagen (eigener Router)…`;
+  await new Promise((r) => setTimeout(r, 30)); // let the status paint
+  const t0 = performance.now();
+  try {
+    const bytes = sim.route_layout(name, layers, 0.7, 1.0);
+    const ms = performance.now() - t0;
+    loadChipBuffer(bytes.slice().buffer);
+    hookChipProbes();
+    chipStatus += ` · eigener Router: ${(ms / 1000).toFixed(1)} s`;
+    statusEl.textContent = chipStatus;
+  } catch (e) {
+    statusEl.textContent = `Eigener Router: ${e.message ?? e}`;
+  }
+});
 
 // Initial chip settings from the URL (?explode=6&zscale=10&power=1), e.g. from `chip view`.
 {

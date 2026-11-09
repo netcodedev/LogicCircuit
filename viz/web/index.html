@@ -224,6 +224,13 @@
     <label class="slider">Z-Überhöhung <input type="range" id="chip-zscale" min="1" max="40" step="1" value="5"></label>
     <label class="slider">Schnitt <input type="range" id="chip-cut" min="0" max="1" step="0.01" value="1"></label>
     <label class="toggle"><input type="checkbox" id="chip-power"> Power-Grid (VDD/VSS)</label>
+    <div class="export-row" title="Ohne OpenROAD im Browser platzieren und verdrahten (eigener Router)">
+      <select id="own-layers">
+        <option value="2">2 Lagen</option><option value="3" selected>3 Lagen</option>
+        <option value="4">4 Lagen</option><option value="5">5 Lagen</option>
+      </select>
+      <button id="own-route">Eigener Router</button>
+    </div>
     <div id="chip-layers"></div>
     <div class="chip-hint">Klick auf Leitung: Netz hervorheben · Esc: zurück · F: einpassen · layout.bin hierher ziehen</div>
   </section>

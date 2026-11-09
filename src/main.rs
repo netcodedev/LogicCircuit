@@ -196,6 +196,29 @@ enum ChipCommand {
         #[arg(short, long)]
         output: Option<PathBuf>,
     },
+    /// Place and route with our own tools (no OpenROAD/PDK): row placement
+    /// with simulated annealing, maze routing with negotiated congestion.
+    /// Writes chip/<NAME>/own-L<layers>/layout.bin.
+    Route {
+        #[arg(value_name = "COMPONENT_NAME")]
+        component_name: String,
+        /// Routing layers (2..5).
+        #[arg(long, default_value_t = 3)]
+        layers: i32,
+        #[arg(long, value_enum, default_value_t = Level::Basic)]
+        level: Level,
+        #[arg(long)]
+        keep_latches: bool,
+        /// Core utilisation (0..1).
+        #[arg(long, default_value_t = 0.7)]
+        util: f64,
+        /// Placement effort (annealing moves, relative).
+        #[arg(long, default_value_t = 1.0)]
+        effort: f64,
+        /// Maximum negotiation iterations of the router.
+        #[arg(long, default_value_t = 40)]
+        iterations: usize,
+    },
     /// Open the 3D view of a run in the browser (starts viz-serve if needed).
     View {
         #[arg(value_name = "COMPONENT_NAME")]
@@ -406,6 +429,21 @@ fn main() {
             ChipCommand::Render { component_name, run, layers, iso, power, explode, zscale, width, format, output } => {
                 let r = chip_render(&component_name, run.as_deref(), layers.as_deref(), iso, power, explode, zscale, width, format, output);
                 if let Err(e) = r {
+                    eprintln!("Error: {}", e);
+                    std::process::exit(1);
+                }
+            }
+            ChipCommand::Route { component_name, layers, level, keep_latches, util, effort, iterations } => {
+                let opts = logic_circuit::pnr::Options {
+                    level: level.into(),
+                    keep_latches,
+                    layers,
+                    utilization: util,
+                    effort,
+                    max_iterations: iterations,
+                    ..Default::default()
+                };
+                if let Err(e) = chip_route(&builder, &component_name, &opts) {
                     eprintln!("Error: {}", e);
                     std::process::exit(1);
                 }
@@ -832,7 +870,15 @@ fn chip_render(
     let ext = if fmt == render::Format::Png { "png" } else { "svg" };
     let out = output.unwrap_or_else(|| run_dir.join(format!("{}-{}.{}", name, if iso { "iso" } else { "top" }, ext)));
 
-    let (layout, _) = chip::extract(root, &run_dir)?;
+    // OpenROAD runs are extracted from their DEF; our own router's runs only
+    // have layout.bin.
+    let has_def = std::fs::read_dir(&run_dir).map_err(|e| e.to_string())?.flatten().any(|e| e.path().extension().is_some_and(|x| x == "def"));
+    let layout = if has_def {
+        chip::extract(root, &run_dir)?.0
+    } else {
+        let data = std::fs::read(run_dir.join("layout.bin")).map_err(|e| e.to_string())?;
+        logic_circuit::layout::Layout::from_binary(&data)?
+    };
     let opts = render::RenderOptions { layers: layers.clone(), iso, power, explode, zscale, width_px: width, ..Default::default() };
     let started = std::time::Instant::now();
     let bytes = render::render(&layout, &opts, fmt)?;
@@ -904,4 +950,62 @@ fn parse_die_size(s: &str) -> Result<(f64, f64), String> {
         Some((w, h)) => Ok((num(w)?, num(h)?)),
         None => num(s).map(|d| (d, d)),
     }
+}
+
+fn chip_route(builder: &CircuitBuilder, name: &str, opts: &logic_circuit::pnr::Options) -> Result<(), String> {
+    println!("\nPlacing and routing {} with our own router ({} layers) …", name, opts.layers);
+    let (layout, r) = logic_circuit::pnr::place_and_route(builder, name, opts)?;
+    let dir = chip::chip_dir(Path::new("."), name).join(format!("own-L{}", opts.layers));
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let out = dir.join("layout.bin");
+    std::fs::write(&out, layout.write_binary()).map_err(|e| e.to_string())?;
+    let die = layout.metrics.as_ref().map(|m| m["die_um"].clone()).unwrap_or_default();
+    println!(
+        "  {} cells, {} nets; grid {} x {} x {} (channel {} tracks); die {:.0} x {:.0} um",
+        group_digits(r.cells),
+        group_digits(r.nets),
+        r.grid.0,
+        r.grid.1,
+        r.grid.2,
+        r.channel_tracks,
+        die[0].as_f64().unwrap_or(0.0),
+        die[1].as_f64().unwrap_or(0.0)
+    );
+    if r.attempts > 1 {
+        println!(
+            "  needed {} attempts: utilisation lowered to {:.0} %, {} channel tracks",
+            r.attempts,
+            r.utilization * 100.0,
+            r.channel_tracks
+        );
+    }
+    println!(
+        "  placement: HPWL {} -> {} tracks ({:.0} ms)",
+        group_digits(r.hpwl_before as usize),
+        group_digits(r.hpwl_after as usize),
+        r.place_ms
+    );
+    let total: f64 = r.wire_per_layer.values().sum();
+    println!(
+        "  routing: {} iterations, {} um wire, {} vias ({:.0} ms)",
+        r.iterations,
+        group_digits(total as usize),
+        group_digits(r.vias),
+        r.route_ms
+    );
+    for (layer, um) in &r.wire_per_layer {
+        println!("    {:<6} {:>10} um", layer, group_digits(*um as usize));
+    }
+    let ok = r.overflow == 0 && r.failed_nets.is_empty();
+    println!(
+        "  {} {} overlapping grid nodes, {} unrouted nets",
+        if ok { "✅" } else { "❌" },
+        r.overflow,
+        r.failed_nets.len()
+    );
+    println!("Wrote {} (3D: chip view {} --run own-L{})", out.display(), name, opts.layers);
+    if !ok {
+        return Err("routing is not legal (try more layers, lower --util or more --iterations)".into());
+    }
+    Ok(())
 }

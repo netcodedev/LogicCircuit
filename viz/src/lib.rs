@@ -131,6 +131,21 @@ impl Sim {
         export_verilog(&self.builder, name, &opts).map(|n| n.text).map_err(|e| JsError::new(&e))
     }
 
+    /// Places and routes `name` with our own router (see logic_circuit::pnr)
+    /// and returns the layout in the binary format of `chip extract`.
+    pub fn route_layout(&self, name: &str, layers: i32, utilization: f64, effort: f64) -> Result<Vec<u8>, JsError> {
+        let opts = logic_circuit::pnr::Options { layers, utilization, effort, ..Default::default() };
+        let (layout, report) = logic_circuit::pnr::place_and_route(&self.builder, name, &opts).map_err(|e| JsError::new(&e))?;
+        if report.overflow > 0 || !report.failed_nets.is_empty() {
+            return Err(JsError::new(&format!(
+                "Verdrahtung nicht vollständig: {} überlappende Gitterpunkte, {} offene Netze – mehr Lagen versuchen",
+                report.overflow,
+                report.failed_nets.len()
+            )));
+        }
+        Ok(layout.write_binary())
+    }
+
     /// JSON object mapping every circuit name to its NAND gate count.
     pub fn nand_counts(&self) -> String {
         let counts: serde_json::Map<String, Value> = self

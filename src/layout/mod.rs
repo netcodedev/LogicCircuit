@@ -514,6 +514,94 @@ pub fn read_binary(data: &[u8]) -> Result<(Value, Vec<i32>), String> {
     Ok((header, ints))
 }
 
+impl Layout {
+    /// Reads a binary layout (see `write_binary`) back into a `Layout`.
+    pub fn from_binary(data: &[u8]) -> Result<Layout, String> {
+        let (h, ints) = read_binary(data)?;
+        let section = |name: &str| -> &[i32] {
+            h["sections"]
+                .as_array()
+                .and_then(|a| a.iter().find(|s| s["name"] == name))
+                .map(|s| {
+                    let o = s["offset"].as_u64().unwrap_or(0) as usize;
+                    let l = s["length"].as_u64().unwrap_or(0) as usize;
+                    &ints[o..o + l]
+                })
+                .unwrap_or(&[])
+        };
+        let str_of = |v: &Value| v.as_str().unwrap_or("").to_string();
+        let mut masters: Vec<Master> = h["masters"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .map(|m| Master {
+                        name: str_of(&m["name"]),
+                        width: m["width"].as_i64().unwrap_or(0) as i32,
+                        height: m["height"].as_i64().unwrap_or(0) as i32,
+                        shapes: Vec::new(),
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        for r in section("master_rects").chunks_exact(6) {
+            if let Some(m) = masters.get_mut(r[0] as usize) {
+                m.shapes.push(MasterShape::Rect { layer: r[1] as u8, x0: r[2], y0: r[3], x1: r[4], y1: r[5] });
+            }
+        }
+        let polys = section("master_polys");
+        let mut i = 0;
+        while i + 3 <= polys.len() {
+            let n = polys[i + 2] as usize;
+            let points = polys[i + 3..i + 3 + 2 * n].chunks_exact(2).map(|p| (p[0], p[1])).collect();
+            if let Some(m) = masters.get_mut(polys[i] as usize) {
+                m.shapes.push(MasterShape::Polygon { layer: polys[i + 1] as u8, points });
+            }
+            i += 3 + 2 * n;
+        }
+        let orients: Vec<String> = h["orientations"].as_array().map(|a| a.iter().map(str_of).collect()).unwrap_or_default();
+        let names = h["instance_names"].as_array().cloned().unwrap_or_default();
+        let paths = h["instance_paths"].as_array().cloned().unwrap_or_default();
+        let instances = section("instances")
+            .chunks_exact(4)
+            .enumerate()
+            .map(|(k, r)| Instance {
+                name: names.get(k).map(str_of).unwrap_or_default(),
+                path: paths.get(k).and_then(|p| p.as_str()).map(str::to_string),
+                master: r[0] as u32,
+                x: r[1],
+                y: r[2],
+                orient: Orient::parse(orients.get(r[3] as usize).map(String::as_str).unwrap_or("N")),
+            })
+            .collect();
+        let nets = h["nets"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .map(|n| NetInfo { name: str_of(&n["name"]), key: n["key"].as_str().map(str::to_string), special: n["special"].as_bool().unwrap_or(false) })
+                    .collect()
+            })
+            .unwrap_or_default();
+        let routes = section("routes")
+            .chunks_exact(6)
+            .map(|r| RouteRect { layer: r[0] as u8, net: r[1] as u32, x0: r[2], y0: r[3], x1: r[4], y1: r[5] })
+            .collect();
+        let die = h["die"].as_array().map(|d| {
+            let v = |i: usize| d.get(i).and_then(Value::as_i64).unwrap_or(0) as i32;
+            (v(0), v(1), v(2), v(3))
+        });
+        Ok(Layout {
+            design: str_of(&h["design"]),
+            dbu_per_micron: h["dbu_per_micron"].as_i64().unwrap_or(1000) as i32,
+            die: die.unwrap_or_default(),
+            masters,
+            instances,
+            nets,
+            routes,
+            metrics: (!h["metrics"].is_null()).then(|| h["metrics"].clone()),
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -550,6 +638,8 @@ mod tests {
         assert_eq!(section("routes"), vec![7, 0, 1, 2, 3, 4]);
         assert_eq!(header["nets"][0]["key"], "X");
         assert_eq!(header["instance_paths"][0], "A");
+        let back = Layout::from_binary(&layout.write_binary()).unwrap();
+        assert_eq!(back.write_binary(), layout.write_binary());
     }
 
     #[test]
