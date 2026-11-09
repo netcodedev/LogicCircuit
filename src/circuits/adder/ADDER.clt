@@ -1,0 +1,242 @@
+// Tests for the parametric ripple-carry adder ADDER<W>.
+// ADDER<4> and ADDER<8> reuse the test vectors of ADDER_4B and ADDER_8B.
+
+// Test suite for the 4-bit ripple-carry adder
+
+TESTS FOR ADDER<4> {
+    TEST "Test Case 0 + 0 + 0" {
+        // Use Pin[Index] syntax
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0;
+        SET B[0] 0, B[1] 0, B[2] 0, B[3] 0;
+        SET Cin 0;
+        EVAL;
+        ASSERT S[0] 0;
+        ASSERT S[1] 0;
+        ASSERT S[2] 0;
+        ASSERT S[3] 0;
+        ASSERT Cout 0;
+    }
+
+    TEST "Test Case 1 + 1 + 0" {
+        SET A[0] 1, A[1] 0, A[2] 0, A[3] 0; // A = 1
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0; // B = 1
+        SET Cin 0;
+        EVAL;
+        ASSERT S[0] 0; // 1+1 = 0 carry 1
+        ASSERT S[1] 1; // 0+0+carry(1) = 1 carry 0
+        ASSERT S[2] 0;
+        ASSERT S[3] 0;
+        ASSERT Cout 0; // Sum = 2 (0010)
+    }
+
+    TEST "Test Case 7 + 1 + 0 (Ripple Carry)" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 0; // A = 7 (0111)
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0; // B = 1 (0001)
+        SET Cin 0;
+        EVAL;
+        ASSERT S[0] 0; // 1+1 = 0 carry 1
+        ASSERT S[1] 0; // 1+0+carry(1) = 0 carry 1
+        ASSERT S[2] 0; // 1+0+carry(1) = 0 carry 1
+        ASSERT S[3] 1; // 0+0+carry(1) = 1 carry 0
+        ASSERT Cout 0; // Sum = 8 (1000)
+    }
+
+    TEST "Test Case 15 + 1 + 0 (Carry Out)" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1; // A = 15 (1111)
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0; // B = 1 (0001)
+        SET Cin 0;
+        EVAL;
+        ASSERT S[0] 0; // 1+1 = 0 carry 1
+        ASSERT S[1] 0; // 1+0+carry(1) = 0 carry 1
+        ASSERT S[2] 0; // 1+0+carry(1) = 0 carry 1
+        ASSERT S[3] 0; // 1+0+carry(1) = 0 carry 1
+        ASSERT Cout 1; // Sum = 0 (0000), Cout = 1
+    }
+
+    TEST "Test Case 0 + 0 + 1 (Carry In)" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0; // A = 0
+        SET B[0] 0, B[1] 0, B[2] 0, B[3] 0; // B = 0
+        SET Cin 1; // Start with Carry In = 1
+        EVAL;
+        ASSERT S[0] 1;
+        ASSERT S[1] 0;
+        ASSERT S[2] 0;
+        ASSERT S[3] 0;
+        ASSERT Cout 0; // Sum = 1 (0001)
+    }
+
+    TEST "Test Case 5 + 5 + 1 (Carry In)" {
+        SET A[0] 1, A[1] 0, A[2] 1, A[3] 0; // A = 5 (0101)
+        SET B[0] 1, B[1] 0, B[2] 1, B[3] 0; // B = 5 (0101)
+        SET Cin 1; // Start with Carry In = 1
+        EVAL;
+        ASSERT S[0] 1; // 1+1+cin(1) = 1 carry 1
+        ASSERT S[1] 1; // 0+0+carry(1) = 1 carry 0
+        ASSERT S[2] 0; // 1+1+carry(0) = 0 carry 1
+        ASSERT S[3] 1; // 0+0+carry(1) = 1 carry 0
+        ASSERT Cout 0; // Sum = 11 (1011)
+    }
+
+    TEST "Test Case 15 + 15 + 1" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1; // A = 15
+        SET B[0] 1, B[1] 1, B[2] 1, B[3] 1; // B = 15
+        SET Cin 1;
+        EVAL;
+        ASSERT S[0] 1; // 1+1+1 = 1 carry 1
+        ASSERT S[1] 1; // 1+1+1 = 1 carry 1
+        ASSERT S[2] 1; // 1+1+1 = 1 carry 1
+        ASSERT S[3] 1; // 1+1+1 = 1 carry 1
+        ASSERT Cout 1; // Sum = 15 (1111), Cout = 1
+    }
+}
+
+// Test suite for the 8-bit ripple-carry adder
+
+TESTS FOR ADDER<8> {
+    TEST "ADD: 0 + 0 + 0 = 0 (S=0, Cout=0)" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0; // A = 0
+        SET B[0] 0, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0; // B = 0
+        SET Cin 0;
+        EVAL;
+        ASSERT S[0] 0; ASSERT S[1] 0; ASSERT S[2] 0; ASSERT S[3] 0; ASSERT S[4] 0; ASSERT S[5] 0; ASSERT S[6] 0; ASSERT S[7] 0; // sum low byte = 0
+        ASSERT Cout 0;
+    }
+
+    TEST "ADD: 5 + 3 + 0 = 8 (S=8, Cout=0)" {
+        SET A[0] 1, A[1] 0, A[2] 1, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0; // A = 5
+        SET B[0] 1, B[1] 1, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0; // B = 3
+        SET Cin 0;
+        EVAL;
+        ASSERT S[0] 0; ASSERT S[1] 0; ASSERT S[2] 0; ASSERT S[3] 1; ASSERT S[4] 0; ASSERT S[5] 0; ASSERT S[6] 0; ASSERT S[7] 0; // sum low byte = 8
+        ASSERT Cout 0;
+    }
+
+    TEST "ADD: 127 + 1 + 0 = 128 (S=128, Cout=0)" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1, A[4] 1, A[5] 1, A[6] 1, A[7] 0; // A = 127
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0; // B = 1
+        SET Cin 0;
+        EVAL;
+        ASSERT S[0] 0; ASSERT S[1] 0; ASSERT S[2] 0; ASSERT S[3] 0; ASSERT S[4] 0; ASSERT S[5] 0; ASSERT S[6] 0; ASSERT S[7] 1; // sum low byte = 128
+        ASSERT Cout 0;
+    }
+
+    TEST "ADD: 240 + 15 + 0 = 255 (S=255, Cout=0)" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 1, A[5] 1, A[6] 1, A[7] 1; // A = 240
+        SET B[0] 1, B[1] 1, B[2] 1, B[3] 1, B[4] 0, B[5] 0, B[6] 0, B[7] 0; // B = 15
+        SET Cin 0;
+        EVAL;
+        ASSERT S[0] 1; ASSERT S[1] 1; ASSERT S[2] 1; ASSERT S[3] 1; ASSERT S[4] 1; ASSERT S[5] 1; ASSERT S[6] 1; ASSERT S[7] 1; // sum low byte = 255
+        ASSERT Cout 0;
+    }
+
+    TEST "ADD: 255 + 255 + 0 = 510 (S=254, Cout=1)" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1, A[4] 1, A[5] 1, A[6] 1, A[7] 1; // A = 255
+        SET B[0] 1, B[1] 1, B[2] 1, B[3] 1, B[4] 1, B[5] 1, B[6] 1, B[7] 1; // B = 255
+        SET Cin 0;
+        EVAL;
+        ASSERT S[0] 0; ASSERT S[1] 1; ASSERT S[2] 1; ASSERT S[3] 1; ASSERT S[4] 1; ASSERT S[5] 1; ASSERT S[6] 1; ASSERT S[7] 1; // sum low byte = 254
+        ASSERT Cout 1;
+    }
+
+    TEST "ADD: 200 + 100 + 0 = 300 (S=44, Cout=1)" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 1, A[4] 0, A[5] 0, A[6] 1, A[7] 1; // A = 200
+        SET B[0] 0, B[1] 0, B[2] 1, B[3] 0, B[4] 0, B[5] 1, B[6] 1, B[7] 0; // B = 100
+        SET Cin 0;
+        EVAL;
+        ASSERT S[0] 0; ASSERT S[1] 0; ASSERT S[2] 1; ASSERT S[3] 1; ASSERT S[4] 0; ASSERT S[5] 1; ASSERT S[6] 0; ASSERT S[7] 0; // sum low byte = 44
+        ASSERT Cout 1;
+    }
+
+    TEST "ADD: 100 + 50 + 1 = 151 (S=151, Cout=0)" {
+        SET A[0] 0, A[1] 0, A[2] 1, A[3] 0, A[4] 0, A[5] 1, A[6] 1, A[7] 0; // A = 100
+        SET B[0] 0, B[1] 1, B[2] 0, B[3] 0, B[4] 1, B[5] 1, B[6] 0, B[7] 0; // B = 50
+        SET Cin 1;
+        EVAL;
+        ASSERT S[0] 1; ASSERT S[1] 1; ASSERT S[2] 1; ASSERT S[3] 0; ASSERT S[4] 1; ASSERT S[5] 0; ASSERT S[6] 0; ASSERT S[7] 1; // sum low byte = 151
+        ASSERT Cout 0;
+    }
+
+    TEST "ADD: 255 + 0 + 1 = 256 (S=0, Cout=1)" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1, A[4] 1, A[5] 1, A[6] 1, A[7] 1; // A = 255
+        SET B[0] 0, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0; // B = 0
+        SET Cin 1;
+        EVAL;
+        ASSERT S[0] 0; ASSERT S[1] 0; ASSERT S[2] 0; ASSERT S[3] 0; ASSERT S[4] 0; ASSERT S[5] 0; ASSERT S[6] 0; ASSERT S[7] 0; // sum low byte = 0
+        ASSERT Cout 1;
+    }
+
+}
+
+TESTS FOR ADDER<16> {
+    TEST "ADD: 0 + 0 + 0 = 0 (Cout=0)" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 0, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 0;
+        EVAL;
+        ASSERT S[0] 0; ASSERT S[1] 0; ASSERT S[2] 0; ASSERT S[3] 0; ASSERT S[4] 0; ASSERT S[5] 0; ASSERT S[6] 0; ASSERT S[7] 0; ASSERT S[8] 0; ASSERT S[9] 0; ASSERT S[10] 0; ASSERT S[11] 0; ASSERT S[12] 0; ASSERT S[13] 0; ASSERT S[14] 0; ASSERT S[15] 0;
+        ASSERT Cout 0;
+    }
+
+    TEST "ADD: 1234 + 4321 + 0 = 5555 (Cout=0)" {
+        SET A[0] 0, A[1] 1, A[2] 0, A[3] 0, A[4] 1, A[5] 0, A[6] 1, A[7] 1, A[8] 0, A[9] 0, A[10] 1, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 1, B[6] 1, B[7] 1, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 1, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 0;
+        EVAL;
+        ASSERT S[0] 1; ASSERT S[1] 1; ASSERT S[2] 0; ASSERT S[3] 0; ASSERT S[4] 1; ASSERT S[5] 1; ASSERT S[6] 0; ASSERT S[7] 1; ASSERT S[8] 1; ASSERT S[9] 0; ASSERT S[10] 1; ASSERT S[11] 0; ASSERT S[12] 1; ASSERT S[13] 0; ASSERT S[14] 0; ASSERT S[15] 0;
+        ASSERT Cout 0;
+    }
+
+    TEST "ADD: 32767 + 1 + 0 = 32768 (Cout=0)" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1, A[4] 1, A[5] 1, A[6] 1, A[7] 1, A[8] 1, A[9] 1, A[10] 1, A[11] 1, A[12] 1, A[13] 1, A[14] 1, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 0;
+        EVAL;
+        ASSERT S[0] 0; ASSERT S[1] 0; ASSERT S[2] 0; ASSERT S[3] 0; ASSERT S[4] 0; ASSERT S[5] 0; ASSERT S[6] 0; ASSERT S[7] 0; ASSERT S[8] 0; ASSERT S[9] 0; ASSERT S[10] 0; ASSERT S[11] 0; ASSERT S[12] 0; ASSERT S[13] 0; ASSERT S[14] 0; ASSERT S[15] 1;
+        ASSERT Cout 0;
+    }
+
+    TEST "ADD: 65535 + 1 + 0 = 0 (Cout=1)" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1, A[4] 1, A[5] 1, A[6] 1, A[7] 1, A[8] 1, A[9] 1, A[10] 1, A[11] 1, A[12] 1, A[13] 1, A[14] 1, A[15] 1;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 0;
+        EVAL;
+        ASSERT S[0] 0; ASSERT S[1] 0; ASSERT S[2] 0; ASSERT S[3] 0; ASSERT S[4] 0; ASSERT S[5] 0; ASSERT S[6] 0; ASSERT S[7] 0; ASSERT S[8] 0; ASSERT S[9] 0; ASSERT S[10] 0; ASSERT S[11] 0; ASSERT S[12] 0; ASSERT S[13] 0; ASSERT S[14] 0; ASSERT S[15] 0;
+        ASSERT Cout 1;
+    }
+
+    TEST "ADD: 65535 + 65535 + 1 = 65535 (Cout=1)" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1, A[4] 1, A[5] 1, A[6] 1, A[7] 1, A[8] 1, A[9] 1, A[10] 1, A[11] 1, A[12] 1, A[13] 1, A[14] 1, A[15] 1;
+        SET B[0] 1, B[1] 1, B[2] 1, B[3] 1, B[4] 1, B[5] 1, B[6] 1, B[7] 1, B[8] 1, B[9] 1, B[10] 1, B[11] 1, B[12] 1, B[13] 1, B[14] 1, B[15] 1;
+        SET Cin 1;
+        EVAL;
+        ASSERT S[0] 1; ASSERT S[1] 1; ASSERT S[2] 1; ASSERT S[3] 1; ASSERT S[4] 1; ASSERT S[5] 1; ASSERT S[6] 1; ASSERT S[7] 1; ASSERT S[8] 1; ASSERT S[9] 1; ASSERT S[10] 1; ASSERT S[11] 1; ASSERT S[12] 1; ASSERT S[13] 1; ASSERT S[14] 1; ASSERT S[15] 1;
+        ASSERT Cout 1;
+    }
+
+    TEST "ADD: 42405 + 23130 + 0 = 65535 (Cout=0)" {
+        SET A[0] 1, A[1] 0, A[2] 1, A[3] 0, A[4] 0, A[5] 1, A[6] 0, A[7] 1, A[8] 1, A[9] 0, A[10] 1, A[11] 0, A[12] 0, A[13] 1, A[14] 0, A[15] 1;
+        SET B[0] 0, B[1] 1, B[2] 0, B[3] 1, B[4] 1, B[5] 0, B[6] 1, B[7] 0, B[8] 0, B[9] 1, B[10] 0, B[11] 1, B[12] 1, B[13] 0, B[14] 1, B[15] 0;
+        SET Cin 0;
+        EVAL;
+        ASSERT S[0] 1; ASSERT S[1] 1; ASSERT S[2] 1; ASSERT S[3] 1; ASSERT S[4] 1; ASSERT S[5] 1; ASSERT S[6] 1; ASSERT S[7] 1; ASSERT S[8] 1; ASSERT S[9] 1; ASSERT S[10] 1; ASSERT S[11] 1; ASSERT S[12] 1; ASSERT S[13] 1; ASSERT S[14] 1; ASSERT S[15] 1;
+        ASSERT Cout 0;
+    }
+
+    TEST "ADD: 255 + 3855 + 1 = 4111 (Cout=0)" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1, A[4] 1, A[5] 1, A[6] 1, A[7] 1, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 1, B[2] 1, B[3] 1, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 1, B[9] 1, B[10] 1, B[11] 1, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 1;
+        EVAL;
+        ASSERT S[0] 1; ASSERT S[1] 1; ASSERT S[2] 1; ASSERT S[3] 1; ASSERT S[4] 0; ASSERT S[5] 0; ASSERT S[6] 0; ASSERT S[7] 0; ASSERT S[8] 0; ASSERT S[9] 0; ASSERT S[10] 0; ASSERT S[11] 0; ASSERT S[12] 1; ASSERT S[13] 0; ASSERT S[14] 0; ASSERT S[15] 0;
+        ASSERT Cout 0;
+    }
+
+    TEST "ADD: 46368 + 28657 + 0 = 9489 (Cout=1)" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 1, A[6] 0, A[7] 0, A[8] 1, A[9] 0, A[10] 1, A[11] 0, A[12] 1, A[13] 1, A[14] 0, A[15] 1;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 1, B[5] 1, B[6] 1, B[7] 1, B[8] 1, B[9] 1, B[10] 1, B[11] 1, B[12] 0, B[13] 1, B[14] 1, B[15] 0;
+        SET Cin 0;
+        EVAL;
+        ASSERT S[0] 1; ASSERT S[1] 0; ASSERT S[2] 0; ASSERT S[3] 0; ASSERT S[4] 1; ASSERT S[5] 0; ASSERT S[6] 0; ASSERT S[7] 0; ASSERT S[8] 1; ASSERT S[9] 0; ASSERT S[10] 1; ASSERT S[11] 0; ASSERT S[12] 0; ASSERT S[13] 1; ASSERT S[14] 0; ASSERT S[15] 0;
+        ASSERT Cout 1;
+    }
+}

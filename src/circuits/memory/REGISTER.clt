@@ -1,0 +1,202 @@
+// Tests for the parametric register REGISTER<W>.
+// REGISTER<4> and REGISTER<8> reuse the test vectors of REGISTER_4B and REGISTER_8B.
+
+// Test suite for the 4-Bit Register circuit with Load Enable
+
+TESTS FOR REGISTER<4> { // Matches the CIRCUIT name in REGISTER_4B.cldl
+
+    TEST "Initial State Check" {
+        // Assume INIT block ran (SEQ D=0, Load=1, CLK=0->1->0;).
+        // Should result in Q=0000, nQ=1111 with CLK low, Load might be high or low depending on INIT end state.
+        // Let's explicitly set Load low after INIT check.
+        ASSERT Q[0] 0;
+        ASSERT Q[1] 0;
+        ASSERT Q[2] 0;
+        ASSERT Q[3] 0;
+        ASSERT nQ[0] 1;
+        ASSERT nQ[1] 1;
+        ASSERT nQ[2] 1;
+        ASSERT nQ[3] 1;
+        // Ensure Load is low for subsequent tests unless specified
+        SET Load 0;
+        EVAL;
+    }
+
+    TEST "Load Value 5 (0101)" {
+        // Step 1: Set Data=5, Load=1 (Enable Load), CLK=0. Output shouldn't change yet.
+        SET Data[0] 1, Data[1] 0, Data[2] 1, Data[3] 0; // Data = 5
+        SET Load 1; // Enable loading
+        SET CLK 0;  // Ensure clock is low
+        EVAL;
+        ASSERT Q[0] 0; // Still holds initial 0
+        ASSERT Q[1] 0;
+        ASSERT Q[2] 0;
+        ASSERT Q[3] 0;
+
+        // Step 2: Clock Rising Edge (0 -> 1) while Load=1. Should latch Data=5.
+        SET CLK 1;
+        EVAL;
+        ASSERT Q[0] 1;
+        ASSERT Q[1] 0;
+        ASSERT Q[2] 1;
+        ASSERT Q[3] 0;
+        ASSERT nQ[0] 0;
+        ASSERT nQ[1] 1;
+        ASSERT nQ[2] 0;
+        ASSERT nQ[3] 1;
+
+        // Step 3: Clock Falling Edge (1 -> 0). Output should hold. Load still enabled.
+        SET CLK 0;
+        EVAL;
+        ASSERT Q[0] 1; // Should hold 5
+        ASSERT Q[1] 0;
+        ASSERT Q[2] 1;
+        ASSERT Q[3] 0;
+    }
+
+    TEST "Hold Value 5 (Load=0)" {
+        // Step 1: Ensure Q=5 (Load=1, Clock pulse)
+        SET Data[0] 1, Data[1] 0, Data[2] 1, Data[3] 0; // Data = 5
+        SET Load 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Q[0] 1; ASSERT Q[1] 0; ASSERT Q[2] 1; ASSERT Q[3] 0; // Verify Q=5
+
+        // Step 2: Disable Load (Load=0), change Data to 10 (1010).
+        SET Load 0; // Disable loading
+        SET Data[0] 0, Data[1] 1, Data[2] 0, Data[3] 1; // Data = 10
+        EVAL;
+        ASSERT Q[0] 1; // Should still hold 5
+        ASSERT Q[1] 0;
+        ASSERT Q[2] 1;
+        ASSERT Q[3] 0;
+
+        // Step 3: Pulse Clock while Load=0 and Data=10. Output should still hold 5.
+        SEQ CLK 1 -> CLK 0;
+        ASSERT Q[0] 1; // Should still hold 5
+        ASSERT Q[1] 0;
+        ASSERT Q[2] 1;
+        ASSERT Q[3] 0;
+        ASSERT nQ[0] 0; // nQ should also hold
+        ASSERT nQ[1] 1;
+        ASSERT nQ[2] 0;
+        ASSERT nQ[3] 1;
+    }
+
+
+    TEST "Load Value 10 (1010)" {
+        // Step 1: Start from previous state (Q=5, Load=0, CLK=0). Set Data=10, Enable Load=1.
+        SET Data[0] 0, Data[1] 1, Data[2] 0, Data[3] 1; // Data = 10
+        SET Load 1; // Enable loading
+        EVAL;
+        ASSERT Q[0] 1; // Should still hold 5 (no clock edge yet)
+        ASSERT Q[1] 0;
+        ASSERT Q[2] 1;
+        ASSERT Q[3] 0;
+
+        // Step 2: Clock Rising Edge (0 -> 1) while Load=1. Should latch Data=10.
+        SET CLK 1;
+        EVAL;
+        ASSERT Q[0] 0;
+        ASSERT Q[1] 1;
+        ASSERT Q[2] 0;
+        ASSERT Q[3] 1;
+        ASSERT nQ[0] 1;
+        ASSERT nQ[1] 0;
+        ASSERT nQ[2] 1;
+        ASSERT nQ[3] 0;
+
+        // Step 3: Clock Falling Edge (1 -> 0). Output should hold.
+        SET CLK 0;
+        EVAL;
+        ASSERT Q[0] 0; // Should hold 10
+        ASSERT Q[1] 1;
+        ASSERT Q[2] 0;
+        ASSERT Q[3] 1;
+    }
+
+    TEST "Load all-ones (1111), hold through a clock, then clear" {
+        // Load 1111
+        SET Data[0] 1, Data[1] 1, Data[2] 1, Data[3] 1;
+        SET Load 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Q[0] 1; ASSERT Q[1] 1; ASSERT Q[2] 1; ASSERT Q[3] 1;
+        ASSERT nQ[0] 0; ASSERT nQ[1] 0; ASSERT nQ[2] 0; ASSERT nQ[3] 0;
+
+        // Hold: drive Data=0000 with Load=0 and clock; must still read 1111
+        SET Load 0;
+        SET Data[0] 0, Data[1] 0, Data[2] 0, Data[3] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Q[0] 1; ASSERT Q[1] 1; ASSERT Q[2] 1; ASSERT Q[3] 1;
+
+        // Reload 0000
+        SET Load 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Q[0] 0; ASSERT Q[1] 0; ASSERT Q[2] 0; ASSERT Q[3] 0;
+    }
+}
+
+// Test suite for the 8-bit register
+
+TESTS FOR REGISTER<8> {
+    TEST "Load 0xA5, hold through a clock, reload 0x5A, then clear" {
+        SET Data[0] 1, Data[1] 0, Data[2] 1, Data[3] 0, Data[4] 0, Data[5] 1, Data[6] 0, Data[7] 1; // Data = 165
+        SET Load 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Q[0] 1; ASSERT Q[1] 0; ASSERT Q[2] 1; ASSERT Q[3] 0; ASSERT Q[4] 0; ASSERT Q[5] 1; ASSERT Q[6] 0; ASSERT Q[7] 1; // loaded 0xA5
+        ASSERT nQ[0] 0; ASSERT nQ[1] 1; ASSERT nQ[2] 0; ASSERT nQ[3] 1; ASSERT nQ[4] 1; ASSERT nQ[5] 0; ASSERT nQ[6] 1; ASSERT nQ[7] 0; // nQ = ~Q
+
+        // Hold: drive Data=0x00 with Load=0 and clock; must still read 0xA5
+        SET Load 0;
+        SET Data[0] 0, Data[1] 0, Data[2] 0, Data[3] 0, Data[4] 0, Data[5] 0, Data[6] 0, Data[7] 0; // Data = 0
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Q[0] 1; ASSERT Q[1] 0; ASSERT Q[2] 1; ASSERT Q[3] 0; ASSERT Q[4] 0; ASSERT Q[5] 1; ASSERT Q[6] 0; ASSERT Q[7] 1; // held 0xA5
+
+        // Reload 0x5A
+        SET Data[0] 0, Data[1] 1, Data[2] 0, Data[3] 1, Data[4] 1, Data[5] 0, Data[6] 1, Data[7] 0; // Data = 90
+        SET Load 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Q[0] 0; ASSERT Q[1] 1; ASSERT Q[2] 0; ASSERT Q[3] 1; ASSERT Q[4] 1; ASSERT Q[5] 0; ASSERT Q[6] 1; ASSERT Q[7] 0; // loaded 0x5A
+    }
+
+    TEST "Load all-ones (0xFF) then clear to 0x00" {
+        SET Data[0] 1, Data[1] 1, Data[2] 1, Data[3] 1, Data[4] 1, Data[5] 1, Data[6] 1, Data[7] 1; // Data = 255
+        SET Load 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Q[0] 1; ASSERT Q[1] 1; ASSERT Q[2] 1; ASSERT Q[3] 1; ASSERT Q[4] 1; ASSERT Q[5] 1; ASSERT Q[6] 1; ASSERT Q[7] 1; // all ones
+        SET Data[0] 0, Data[1] 0, Data[2] 0, Data[3] 0, Data[4] 0, Data[5] 0, Data[6] 0, Data[7] 0; // Data = 0
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Q[0] 0; ASSERT Q[1] 0; ASSERT Q[2] 0; ASSERT Q[3] 0; ASSERT Q[4] 0; ASSERT Q[5] 0; ASSERT Q[6] 0; ASSERT Q[7] 0; // cleared
+    }
+}
+
+TESTS FOR REGISTER<16> {
+    TEST "Starts at 0" {
+        EVAL;
+        ASSERT Q[0] 0; ASSERT Q[1] 0; ASSERT Q[2] 0; ASSERT Q[3] 0; ASSERT Q[4] 0; ASSERT Q[5] 0; ASSERT Q[6] 0; ASSERT Q[7] 0; ASSERT Q[8] 0; ASSERT Q[9] 0; ASSERT Q[10] 0; ASSERT Q[11] 0; ASSERT Q[12] 0; ASSERT Q[13] 0; ASSERT Q[14] 0; ASSERT Q[15] 0;
+        ASSERT nQ[0] 1; ASSERT nQ[1] 1; ASSERT nQ[2] 1; ASSERT nQ[3] 1; ASSERT nQ[4] 1; ASSERT nQ[5] 1; ASSERT nQ[6] 1; ASSERT nQ[7] 1; ASSERT nQ[8] 1; ASSERT nQ[9] 1; ASSERT nQ[10] 1; ASSERT nQ[11] 1; ASSERT nQ[12] 1; ASSERT nQ[13] 1; ASSERT nQ[14] 1; ASSERT nQ[15] 1;
+    }
+
+    TEST "Load 0xBEEF" {
+        SET Data[0] 1, Data[1] 1, Data[2] 1, Data[3] 1, Data[4] 0, Data[5] 1, Data[6] 1, Data[7] 1, Data[8] 0, Data[9] 1, Data[10] 1, Data[11] 1, Data[12] 1, Data[13] 1, Data[14] 0, Data[15] 1;
+        SEQ Load 1, CLK 0 -> CLK 1 -> CLK 0;
+        SET Load 0;
+        EVAL;
+        ASSERT Q[0] 1; ASSERT Q[1] 1; ASSERT Q[2] 1; ASSERT Q[3] 1; ASSERT Q[4] 0; ASSERT Q[5] 1; ASSERT Q[6] 1; ASSERT Q[7] 1; ASSERT Q[8] 0; ASSERT Q[9] 1; ASSERT Q[10] 1; ASSERT Q[11] 1; ASSERT Q[12] 1; ASSERT Q[13] 1; ASSERT Q[14] 0; ASSERT Q[15] 1;
+        ASSERT nQ[0] 0; ASSERT nQ[1] 0; ASSERT nQ[2] 0; ASSERT nQ[3] 0; ASSERT nQ[4] 1; ASSERT nQ[5] 0; ASSERT nQ[6] 0; ASSERT nQ[7] 0; ASSERT nQ[8] 1; ASSERT nQ[9] 0; ASSERT nQ[10] 0; ASSERT nQ[11] 0; ASSERT nQ[12] 0; ASSERT nQ[13] 0; ASSERT nQ[14] 1; ASSERT nQ[15] 0;
+    }
+
+    TEST "Hold with Load=0" {
+        SET Data[0] 0, Data[1] 0, Data[2] 1, Data[3] 0, Data[4] 1, Data[5] 1, Data[6] 0, Data[7] 0, Data[8] 0, Data[9] 1, Data[10] 0, Data[11] 0, Data[12] 1, Data[13] 0, Data[14] 0, Data[15] 0;
+        SEQ Load 0, CLK 0 -> CLK 1 -> CLK 0;
+        EVAL;
+        ASSERT Q[0] 1; ASSERT Q[1] 1; ASSERT Q[2] 1; ASSERT Q[3] 1; ASSERT Q[4] 0; ASSERT Q[5] 1; ASSERT Q[6] 1; ASSERT Q[7] 1; ASSERT Q[8] 0; ASSERT Q[9] 1; ASSERT Q[10] 1; ASSERT Q[11] 1; ASSERT Q[12] 1; ASSERT Q[13] 1; ASSERT Q[14] 0; ASSERT Q[15] 1;
+    }
+
+    TEST "Load 0x8001" {
+        SET Data[0] 1, Data[1] 0, Data[2] 0, Data[3] 0, Data[4] 0, Data[5] 0, Data[6] 0, Data[7] 0, Data[8] 0, Data[9] 0, Data[10] 0, Data[11] 0, Data[12] 0, Data[13] 0, Data[14] 0, Data[15] 1;
+        SEQ Load 1, CLK 0 -> CLK 1 -> CLK 0;
+        SET Load 0;
+        EVAL;
+        ASSERT Q[0] 1; ASSERT Q[1] 0; ASSERT Q[2] 0; ASSERT Q[3] 0; ASSERT Q[4] 0; ASSERT Q[5] 0; ASSERT Q[6] 0; ASSERT Q[7] 0; ASSERT Q[8] 0; ASSERT Q[9] 0; ASSERT Q[10] 0; ASSERT Q[11] 0; ASSERT Q[12] 0; ASSERT Q[13] 0; ASSERT Q[14] 0; ASSERT Q[15] 1;
+    }
+}

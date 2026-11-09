@@ -1,0 +1,35 @@
+CIRCUIT REGISTER<W> {
+    // W-bit register with load-enable (same structure as REGISTER_8B).
+    // Load=1 loads Data on the clock edge; Load=0 recirculates Q (hold).
+    INPUT Data[W];
+    INPUT CLK;
+    INPUT Load;
+
+    OUTPUT Q[W];
+    OUTPUT nQ[W];
+
+    // Flip-flops first, then the load muxes (build order as in REGISTER_8B).
+    FOR i IN 0..W {
+        PART DFF[i]: DFLIP_FLOP;
+    }
+    FOR i IN 0..W {
+        PART MUX_D[i]: MUX_2_1;
+    }
+
+    FOR i IN 0..W {
+        CONNECT CLK -> DFF[i].CLK;
+        CONNECT Data[i] -> MUX_D[i].B; // load path
+        CONNECT Q[i] -> MUX_D[i].A;    // hold (feedback)
+        CONNECT Load -> MUX_D[i].S;
+        CONNECT MUX_D[i].Out -> DFF[i].D;
+        CONNECT DFF[i].Q -> Q[i];
+        CONNECT DFF[i].nQ -> nQ[i];
+    }
+
+    // Initialize to all zeros (SET on a bus without index sets every bit)
+    INIT {
+        SEQ Data 0, Load 1, CLK 0 -> CLK 1 -> CLK 0;
+        SET Load 0;
+        EVAL;
+    }
+}

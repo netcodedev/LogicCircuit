@@ -71,20 +71,36 @@ Flag-Semantik von ADC/SBC/CMP) wird in Phase 3 festgezurrt und steht dann in
 
 ## Phase 1 – CLDL erweitern
 
-- [ ] Grammatik: `FOR`-Schleifen (verschachtelt, auch um `PART`), Ausdrücke,
-      Parameterlisten `<W>` an `CIRCUIT` und Bauteiltypen
-- [ ] Elaboration vor dem Planungsschritt: parametrisierte Definitionen pro
-      Wert instanziieren (`REGISTER<16>`), Schleifen ausrollen
-- [ ] Namen in `describe`, `nand_count`, `is_basic`, `flatten_until`, Viewer-Liste,
-      Verilog-Export (`<`/`>` im Modulnamen)
-- [ ] `.clt`: `TESTS FOR REGISTER<16>`
-- [ ] Fehlermeldungen mit Zeile/Spalte (unbekannter Parameter, leere/negative
-      Bereiche, falsche Parameteranzahl)
-- [ ] Grammatik- und Builder-Tests
-- [ ] Demonstration: `ADDER<W>`, `REGISTER<W>`, `MUX_2_1_BUS<W>` mit Tests für
-      W = 4, 8, 16; `ADDER<8>` hat exakt so viele NANDs wie `ADDER_8B` und
-      besteht dieselben Testvektoren
-- [ ] alle Testläufe und `verify-verilog` (4 Varianten) grün
+- [x] Grammatik (`src/cldl/cldl.pest`): `FOR`-Schleifen (verschachtelt, auch um
+      `PART`), Ausdrücke (`+ - *`, Klammern), Parameterlisten `<W>`/`<W, N>`
+      an `CIRCUIT` und Bauteiltypen, Indizes an Bauteilen (`FA[i]`)
+- [x] Elaboration (`src/cldl/elaborate.rs`) vor dem Planungsschritt: jede
+      Datei wird zum `Template`; ohne Parameter sofort zu einer normalen
+      `CldlDefinition` ausgerollt, mit Parametern beim ersten Gebrauch pro Wert
+      (`CircuitBuilder::instantiate`, Name `REGISTER<16>`)
+- [x] Namen: alle Nachschlagestellen (`build`, `describe`, `nand_count`,
+      `is_basic`, `flatten_until`, DOT-Export) gehen über `CircuitBuilder::def`;
+      `circuit_names` listet auch die benutzten Instanzen (z. B. `ADDER<8>`);
+      Verilog-Modulname wird bereinigt (`ADDER<16>` → `ADDER_16_`)
+- [x] `INIT`: `SET Data 0` auf einen eigenen Bus ohne Index setzt alle Bits
+      (für `REGISTER<W>` ohne Schleife im INIT)
+- [x] `.clt`: `TESTS FOR REGISTER<16>` (Leerzeichen erlaubt, `ADDER< 8 >`)
+- [x] Fehlermeldungen mit Zeile/Spalte: unbekannter Parameter/Schleifenvariable,
+      rückwärts laufender Bereich, Schleifenvariable verdeckt Parameter,
+      Busbreite < 1, negativer Index, Parameterwert < 1, doppelter Parameter,
+      falsche Parameteranzahl; Syntaxfehler weiter von pest
+- [x] Grammatik- und Builder-Tests (`elaborate::tests`, 9 Tests)
+- [x] Demonstration: `ADDER<W>`, `REGISTER<W>`, `MUX_2_1_BUS<W>` mit `.clt` für
+      W = 4, 8, 16 (4 und 8 mit den Testvektoren der festen Bausteine).
+      NANDs gleich: `ADDER<8>` = `ADDER_8B` = 120, `ADDER<4>` = 60,
+      `REGISTER<8>` = 280, `MUX_2_1_BUS<8>` = 64; `ADDER<16>` = 240,
+      `REGISTER<16>` = 560. Rust-Test vergleicht `ADDER<8>` und `ADDER_8B`
+      auf 3.848 Vektoren
+- [x] **2026-11-09:** `cargo test` (38), `cargo run -- test` (242),
+      `cargo run -- -d circuits test` (74), `verify-verilog` alle 55 Suiten in
+      allen 4 Varianten grün
+- [ ] Alte feste Bausteine (`ADDER_4B/_8B`, `REGISTER_4B/_8B`, `MUX_4B/_8B_2_1`)
+      durch die parametrischen ersetzen – erst nach Zustimmung
 
 ## Phase 2 – 16-Bit-Bausteine
 

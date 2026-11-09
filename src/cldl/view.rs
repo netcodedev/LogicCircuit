@@ -124,7 +124,19 @@ fn pin_views(pins: &[IoPinDef]) -> Vec<PinView> {
 impl CircuitBuilder {
     /// Names of all known circuit definitions, sorted.
     pub fn circuit_names(&self) -> Vec<String> {
-        let mut names: Vec<String> = self.definitions.keys().cloned().collect();
+        // Elaborate the parametric parts used anywhere (e.g. `ADDER<8>`), so
+        // they are listed too. Errors surface when the circuit is built.
+        let plain: Vec<String> = self.definitions.borrow().keys().filter(|k| !k.contains('<')).cloned().collect();
+        for name in &plain {
+            let _ = self.check(name);
+        }
+        let mut names: Vec<String> = self
+            .definitions
+            .borrow()
+            .iter()
+            .filter(|(k, d)| **k == d.name)
+            .map(|(k, _)| k.clone())
+            .collect();
         names.sort();
         names
     }
@@ -143,7 +155,7 @@ impl CircuitBuilder {
         if let Some(&n) = memo.get(name) {
             return Some(n);
         }
-        let def = self.definitions.get(name)?;
+        let def = self.def(name)?;
         let mut total = 0;
         for part in &def.parts {
             total += self.count_nands(&part.part_type, memo)?;
@@ -155,7 +167,7 @@ impl CircuitBuilder {
     /// Describes one level of the named circuit for visualization.
     /// Returns `None` if no such definition exists.
     pub fn describe(&self, name: &str) -> Option<CircuitView> {
-        let def = self.definitions.get(name)?;
+        let def = self.def(name)?;
         let mut memo = HashMap::new();
 
         let parts = def
@@ -176,7 +188,8 @@ impl CircuitBuilder {
                         nand_count: 1,
                     }
                 } else {
-                    let sub_def = self.definitions.get(&part.part_type);
+                    let sub_def = self.def(&part.part_type);
+                    let sub_def = sub_def.as_deref();
                     PartView {
                         instance_name: part.instance_name.clone(),
                         part_type: part.part_type.clone(),
@@ -195,13 +208,13 @@ impl CircuitBuilder {
             .map(|conn| {
                 let width = match (conn.source_pin.index, conn.dest_pin.index) {
                     (None, None) => self
-                        .get_pin_width(&conn.source_pin.base_name, def)
-                        .or_else(|| self.get_pin_width(&conn.dest_pin.base_name, def)),
+                        .get_pin_width(&conn.source_pin.base_name, &def)
+                        .or_else(|| self.get_pin_width(&conn.dest_pin.base_name, &def)),
                     _ => None,
                 };
                 ConnectionView {
-                    source: endpoint(&conn.source_pin, def),
-                    dest: endpoint(&conn.dest_pin, def),
+                    source: endpoint(&conn.source_pin, &def),
+                    dest: endpoint(&conn.dest_pin, &def),
                     width,
                 }
             })

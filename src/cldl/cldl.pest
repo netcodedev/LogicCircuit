@@ -6,35 +6,51 @@ COMMENT    = _{ ("#" | "//") ~ (!("\r" | "\n") ~ ANY)* }
 ident = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
 // --- Number for bus widths/indices ---
 number = @{ ASCII_DIGIT+ }
-// --- Optional bus specifier like [4] ---
-bus_specifier = { "[" ~ number ~ "]" }
+
+// --- Expressions (elaboration time) ---
+// Integer arithmetic over numbers, circuit parameters and loop variables,
+// e.g. "W", "i+1", "2*(W-1)". Evaluated when a definition is elaborated.
+expr    = { term ~ (add_op ~ term)* }
+add_op  = { "+" | "-" }
+term    = { atom ~ (mul_op ~ atom)* }
+mul_op  = { "*" }
+atom    = _{ number | ident | "(" ~ expr ~ ")" }
+// Bus width, bit index or part index: "[4]", "[i+1]", "[W]"
+index = { "[" ~ expr ~ "]" }
 
 // --- Pin Definitions ---
-// A single part of a pin path, can be indexed or simple
-// e.g., "A", "A[0]", "G1"
-pin_part = { ident ~ bus_specifier? }
-// Full pin path: simple "a", indexed "A[0]", namespaced "G1.in", namespaced indexed "G1.A[0]"
-// Note: We only allow indexing on the *last* part of the pin name for simplicity now.
-// A.B[0] is allowed, A[0].B is not (could be added later if needed).
-pin = @{ ident ~ ("." ~ ident)* ~ bus_specifier? }
+// One dot-separated part of a pin path. An index on a segment before the last
+// one selects an indexed part ("FA[i].Cout" -> part "FA_3"); on the last
+// segment it selects a bus bit ("A[0]", "G1.Q[i]").
+pin_part = { ident ~ index? }
+pin = { pin_part ~ ("." ~ pin_part)* }
 
 // Value: Simple 0 or 1
 value = @{ "0" | "1" }
 
 // --- I/O Definitions ---
-// An identifier in an I/O list can now optionally specify a width
-// e.g., "a", "BusA[4]"
-io_ident = { ident ~ bus_specifier? }
+// An identifier in an I/O list can optionally specify a width
+// e.g., "a", "BusA[4]", "Data[W]"
+io_ident = { ident ~ index? }
 // INPUT a, BusA[4];
 input_def = { "INPUT" ~ io_ident ~ ("," ~ io_ident)* ~ ";" }
 // OUTPUT sum, BusOut[8];
 output_def = { "OUTPUT" ~ io_ident ~ ("," ~ io_ident)* ~ ";" }
 
-// --- Other Definitions (Unchanged) ---
-// PART G1: NAND;
-part_def = { "PART" ~ ident ~ ":" ~ ident ~ ";" }
+// --- Parts and connections ---
+// Part type with optional parameter values: "NAND", "REGISTER<16>", "ADDER<W>"
+type_args = { "<" ~ expr ~ ("," ~ expr)* ~ ">" }
+part_type = { ident ~ type_args? }
+// PART G1: NAND;  PART FA[i]: FULL_ADDER;  PART R: REGISTER<16>;
+part_def = { "PART" ~ ident ~ index? ~ ":" ~ part_type ~ ";" }
 // CONNECT a -> G1.in1; or CONNECT BusA[0] -> G1.in1; or CONNECT G1.out -> BusOut[0];
 connect_def = { "CONNECT" ~ pin ~ "->" ~ pin ~ ";" }
+
+// --- Loops (unrolled at elaboration time) ---
+// FOR i IN 0..W { ... }   (end excluded)
+// FOR i IN 0..=15 { ... } (end included)
+range_op = { "..=" | ".." }
+for_loop = { "FOR" ~ ident ~ "IN" ~ expr ~ range_op ~ expr ~ "{" ~ (part_def | connect_def | for_loop)* ~ "}" }
 
 // --- Initialization Block ---
 init_block = { "INIT" ~ "{" ~ init_command* ~ "}" }
@@ -54,12 +70,14 @@ pin_value = { pin ~ value }
 // --- Structure ---
 // The main body of a circuit definition
 circuit_body = {
-    (input_def | output_def | part_def | connect_def | init_block)*
+    (input_def | output_def | part_def | connect_def | for_loop | init_block)*
 }
 
-// The top-level circuit block: CIRCUIT Name { ... }
-circuit = { "CIRCUIT" ~ ident ~ "{" ~ circuit_body ~ "}" }
+// Width parameters of a parametric circuit: "<W>", "<W, N>"
+params = { "<" ~ ident ~ ("," ~ ident)* ~ ">" }
+
+// The top-level circuit block: CIRCUIT Name { ... } or CIRCUIT Name<W> { ... }
+circuit = { "CIRCUIT" ~ ident ~ params? ~ "{" ~ circuit_body ~ "}" }
 
 // A file contains exactly one circuit definition
 file = { SOI ~ circuit ~ EOI }
-

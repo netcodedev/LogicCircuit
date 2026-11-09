@@ -1,17 +1,17 @@
-use std::{collections::HashMap, fs, path::Path, fmt::Write};
+use std::{cell::RefCell, collections::HashMap, fs, path::Path, fmt::Write, rc::Rc};
 
 use include_dir::{Dir, DirEntry};
-use pest::{Parser, iterators::Pair};
 
 use crate::{
     circuit::{Circuit, NandGate, Wire, wire},
     cldl::{
-        CIRCUIT_DIR, CldlDefinition, CldlParser, ConnectionDef, FlatBlock, FlatCircuit, FlatLevel,
-        FlatPin, InitCommand, InitValue, IoPinDef, PartDef, PinRef, PinValue, SeqStep,
+        CIRCUIT_DIR, CldlDefinition, FlatBlock, FlatCircuit, FlatLevel, FlatPin, InitCommand,
+        InitValue, IoPinDef, PinRef,
+        elaborate::{parse_template, split_instance_name},
     },
 };
 
-use super::{CircuitBuilder, Rule};
+use super::CircuitBuilder;
 
 impl CircuitBuilder {
     const PRIMITIVE_GATES: &[&str] = &[
@@ -20,38 +20,24 @@ impl CircuitBuilder {
     ];
     /// Creates a new builder and loads all the base CLDL definitions recursively.
     pub fn new() -> Self {
-        let mut definitions = HashMap::new();
+        let mut builder = CircuitBuilder {
+            definitions: RefCell::new(HashMap::new()),
+            templates: HashMap::new(),
+        };
         println!("Loading embedded circuit definitions recursively...");
 
-        fn load_recursive(
-            dir: &'static Dir<'static>,
-            definitions: &mut HashMap<String, CldlDefinition>,
-        ) {
+        fn load_recursive(dir: &'static Dir<'static>, builder: &mut CircuitBuilder) {
             for entry in dir.entries() {
                 match entry {
                     DirEntry::Dir(sub_dir) => {
-                        load_recursive(sub_dir, definitions);
+                        load_recursive(sub_dir, builder);
                     }
                     DirEntry::File(file) => {
                         if file.path().extension().map_or(false, |s| s == "cldl") {
                             let cldl_string =
                                 file.contents_utf8().expect("Circuit file not valid UTF-8");
-                            match parse_cldl(cldl_string.trim()) {
-                                Ok(mut def) => {
-                                    def.category = category_of(file.path());
-                                    if definitions.contains_key(&def.name) {
-                                        eprintln!(
-                                            "Warning: Duplicate circuit definition found for '{}'. Overwriting.",
-                                            def.name
-                                        );
-                                    }
-                                    definitions.insert(def.name.clone(), def);
-                                }
-                                Err(e) => panic!(
-                                    "Failed to parse embedded CLDL from {:?}:\n{}",
-                                    file.path(),
-                                    e
-                                ),
+                            if let Err(e) = builder.add_source(cldl_string, category_of(file.path())) {
+                                eprintln!("Failed to parse embedded CLDL file {:?}:\n{}", file.path(), e);
                             }
                         }
                     }
@@ -59,11 +45,11 @@ impl CircuitBuilder {
             }
         }
 
-        load_recursive(&CIRCUIT_DIR, &mut definitions);
-        if definitions.is_empty() {
+        load_recursive(&CIRCUIT_DIR, &mut builder);
+        if builder.definitions.get_mut().is_empty() {
             eprintln!("Warning: No embedded .cldl files found.");
         }
-        Self { definitions }
+        builder
     }
 
     /// Loads additional circuit definitions from a directory at runtime.
@@ -82,18 +68,8 @@ impl CircuitBuilder {
             let path = entry.path();
             if path.is_file() && path.extension().map_or(false, |s| s == "cldl") {
                 let cldl_string = fs::read_to_string(&path)?;
-                match parse_cldl(cldl_string.trim()) {
-                    Ok(mut def) => {
-                        def.category = category_of(&path);
-                        if self.definitions.contains_key(&def.name) {
-                            eprintln!(
-                                "Warning: Overwriting definition for '{}' from file.",
-                                def.name
-                            );
-                        }
-                        self.definitions.insert(def.name.clone(), def);
-                    }
-                    Err(e) => eprintln!("Failed to parse CLDL from file {:?}:\n{}", path, e),
+                if let Err(e) = self.add_source(&cldl_string, category_of(&path)) {
+                    eprintln!("Failed to parse CLDL from file {:?}:\n{}", path, e);
                 }
             } else if path.is_dir() {
                 self.load_circuits_from_path(&path)?;
@@ -104,12 +80,97 @@ impl CircuitBuilder {
 
     /// Parses a single CLDL source string and adds (or overwrites) its
     /// definition. Useful where there is no filesystem, e.g. in WASM.
+    /// Returns the circuit's name (without parameters for a parametric one).
     pub fn load_cldl_str(&mut self, cldl_string: &str) -> Result<String, String> {
-        let def = parse_cldl(cldl_string.trim()).map_err(|e| e.to_string())?;
-        let name = def.name.clone();
-        self.definitions.insert(name.clone(), def);
+        self.add_source(cldl_string, None)
+    }
+
+    /// Parses `source` and stores it: an ordinary definition is elaborated
+    /// right away (unrolling its loops), a parametric one is kept as a
+    /// template and elaborated per parameter value on first use.
+    fn add_source(&mut self, source: &str, category: Option<String>) -> Result<String, String> {
+        let mut template = parse_template(source)?;
+        template.category = category;
+        let name = template.name.clone();
+        let definitions = self.definitions.get_mut();
+        // Instances of an older version of this template are stale now.
+        definitions.retain(|k, _| split_instance_name(k).is_none_or(|(base, _)| base != name));
+        if template.params.is_empty() {
+            let def = template.elaborate(&[])?;
+            if definitions.contains_key(&name) {
+                eprintln!("Warning: Overwriting definition for '{}'.", name);
+            }
+            definitions.insert(name.clone(), Rc::new(def));
+            self.templates.remove(&name);
+        } else {
+            if self.templates.contains_key(&name) || definitions.contains_key(&name) {
+                eprintln!("Warning: Overwriting definition for '{}'.", name);
+            }
+            definitions.remove(&name);
+            self.templates.insert(name.clone(), template);
+        }
         Ok(name)
     }
+
+    /// Looks up a definition by name. Names with parameter values such as
+    /// `REGISTER<16>` are elaborated from their template on first use.
+    ///
+    /// Panics if elaborating a template fails (the message names the source
+    /// position); use `instantiate` to get the error instead.
+    pub(super) fn def(&self, name: &str) -> Option<Rc<CldlDefinition>> {
+        self.instantiate(name).unwrap_or_else(|e| panic!("{e}"))
+    }
+
+    /// Like `def`, but reports elaboration errors (unknown parameter, wrong
+    /// number of parameter values, backwards range, ...) as `Err`.
+    /// `Ok(None)` means there is no such definition or template.
+    pub fn instantiate(&self, name: &str) -> Result<Option<Rc<CldlDefinition>>, String> {
+        if let Some(def) = self.definitions.borrow().get(name) {
+            return Ok(Some(def.clone()));
+        }
+        let Some((base, args)) = split_instance_name(name) else {
+            return Ok(None);
+        };
+        let Some(template) = self.templates.get(base) else {
+            return Ok(None);
+        };
+        let def = Rc::new(template.elaborate(&args)?);
+        // Store under the canonical name (`REGISTER<16>`), and under the
+        // spelling asked for if it differs (`REGISTER< 16 >`).
+        let mut definitions = self.definitions.borrow_mut();
+        definitions.insert(def.name.clone(), def.clone());
+        definitions.insert(name.to_string(), def.clone());
+        Ok(Some(def))
+    }
+
+    /// Elaborates `name` and every part type below it, returning the first
+    /// error. Useful to surface template errors before building.
+    pub fn check(&self, name: &str) -> Result<(), String> {
+        let def = self
+            .instantiate(name)?
+            .ok_or_else(|| format!("Unknown circuit '{name}'"))?;
+        for part in &def.parts {
+            if part.part_type != "NAND" {
+                if self.instantiate(&part.part_type)?.is_none() {
+                    return Err(format!(
+                        "{}: unknown part type '{}' (part '{}')",
+                        def.name, part.part_type, part.instance_name
+                    ));
+                }
+                self.check(&part.part_type)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Names of the parametric definitions (templates), sorted, e.g. `ADDER`
+    /// for `CIRCUIT ADDER<W>`, with their parameter names.
+    pub fn template_names(&self) -> Vec<(String, Vec<String>)> {
+        let mut names: Vec<_> = self.templates.values().map(|t| (t.name.clone(), t.params.clone())).collect();
+        names.sort();
+        names
+    }
+
 
     /// Builds a new `Circuit` from the named definition and runs initialization.
     ///
@@ -125,7 +186,7 @@ impl CircuitBuilder {
     /// an earlier connection being able to sever a later one.
     pub fn build(&self, top_level_name: &str) -> Circuit {
         let mut circuit = Circuit::new(top_level_name.to_string());
-        let top_def = self.definitions.get(top_level_name).unwrap_or_else(|| {
+        let top_def = self.def(top_level_name).unwrap_or_else(|| {
             panic!(
                 "Top-level circuit definition '{}' not found",
                 top_level_name
@@ -133,7 +194,7 @@ impl CircuitBuilder {
         });
 
         // === Planning pass: collect wire equivalence classes, gates and inits ===
-        let mut plan = self.plan_circuit(top_def);
+        let mut plan = self.plan_circuit(&top_def);
 
         // === Materialization pass: one shared Wire per equivalence class ===
         let wire_map = plan.materialize();
@@ -250,8 +311,7 @@ impl CircuitBuilder {
     /// True for definitions loaded from the `primitive` directory (NOT, AND,
     /// OR, XOR_8B, ...): the basic blocks of `FlatLevel::Basic`.
     pub fn is_basic(&self, name: &str) -> bool {
-        self.definitions
-            .get(name)
+        self.def(name)
             .is_some_and(|d| d.category.as_deref() == Some("primitive"))
     }
 
@@ -267,8 +327,8 @@ impl CircuitBuilder {
     /// is true (NAND gates always are). Used e.g. to keep flip-flops whole
     /// for cell mapping.
     pub fn flatten_until(&self, name: &str, stop: &dyn Fn(&str) -> bool) -> Option<FlatCircuit> {
-        let top_def = self.definitions.get(name)?;
-        let mut plan = self.plan_circuit(top_def);
+        let top_def = self.def(name)?;
+        let mut plan = self.plan_circuit(&top_def);
 
         // Number the equivalence classes in key order so the result is
         // deterministic. A net's key is its shortest member (ties: smallest),
@@ -297,11 +357,11 @@ impl CircuitBuilder {
         };
 
         let mut found = Vec::new();
-        self.collect_blocks(top_def, "", stop, &mut found);
+        self.collect_blocks(&top_def, "", stop, &mut found);
         let blocks = found
             .into_iter()
             .map(|(id, kind)| {
-                let pins: Vec<(String, bool, Option<usize>)> = match self.definitions.get(&kind) {
+                let pins: Vec<(String, bool, Option<usize>)> = match self.def(&kind) {
                     _ if kind == "NAND" => vec![
                         ("in1".into(), false, None),
                         ("in2".into(), false, None),
@@ -349,8 +409,8 @@ impl CircuitBuilder {
                 format!("{prefix}.{}", part.instance_name)
             };
             let keep = part.part_type == "NAND" || stop(&part.part_type);
-            match self.definitions.get(&part.part_type) {
-                Some(sub) if !keep => self.collect_blocks(sub, &path, stop, out),
+            match self.def(&part.part_type) {
+                Some(sub) if !keep => self.collect_blocks(&sub, &path, stop, out),
                 _ => out.push((path, part.part_type.clone())),
             }
         }
@@ -376,11 +436,11 @@ impl CircuitBuilder {
                 in2,
                 out,
             });
-        } else if let Some(def) = self.definitions.get(part_type) {
+        } else if let Some(def) = self.def(part_type) {
             // Make this part's IO pins resolvable even when unconnected.
-            self.register_io_keys(def, instance_name, plan);
+            self.register_io_keys(&def, instance_name, plan);
             // Internal connections of the sub-circuit.
-            self.apply_connections(def, instance_name, plan);
+            self.apply_connections(&def, instance_name, plan);
             // Recurse into sub-parts.
             for sub_part in &def.parts {
                 self.plan_part(
@@ -450,7 +510,7 @@ impl CircuitBuilder {
             if let Some(part_def) = def.parts.iter().find(|p| p.instance_name == part_instance_name) {
                 // Found PartDef { instance_name: "Datapath.ALU", part_type: "ALU_4B" }
                 // Now find the definition for "ALU_4B"
-                if let Some(sub_def) = self.definitions.get(&part_def.part_type) {
+                if let Some(sub_def) = self.def(&part_def.part_type) {
                     // Search the sub-definition's IO pins
                     if let Some(pin) = sub_def.inputs.iter().find(|p| p.name == pin_name) {
                         return pin.width;
@@ -616,7 +676,7 @@ impl CircuitBuilder {
     /// Exports the hierarchical definition of a circuit to the DOT graph language.
     pub fn export_to_dot(&self, top_level_name: &str) -> String {
         let mut dot_string = String::new();
-        let top_def = self.definitions.get(top_level_name)
+        let top_def = self.def(top_level_name)
             .expect("Top-level circuit definition not found");
 
         writeln!(dot_string, "digraph G {{").unwrap();
@@ -627,7 +687,7 @@ impl CircuitBuilder {
         writeln!(dot_string, "  compound=true;").unwrap(); // Allow edges to/from subgraphs
 
         // Recursively build the graph
-        self.build_dot_recursive(top_def, "", &mut dot_string);
+        self.build_dot_recursive(&top_def, "", &mut dot_string);
 
         writeln!(dot_string, "}}").unwrap();
         dot_string
@@ -682,9 +742,9 @@ impl CircuitBuilder {
                 writeln!(dot_string, "    \"{}\" [label=\"{}\\n({})\"];", part_dot_id, part.instance_name, part.part_type).unwrap();
             } 
             // If not primitive, *then* check if it's a composite we can recurse into.
-            else if let Some(sub_def) = self.definitions.get(&part.part_type) {
+            else if let Some(sub_def) = self.def(&part.part_type) {
                 // Recursive case: This part is a subgraph
-                self.build_dot_recursive(sub_def, &part_dot_id, dot_string);
+                self.build_dot_recursive(&sub_def, &part_dot_id, dot_string);
             } 
             // Fallback for unknown parts (e.g., composite buses)
             else {
@@ -749,7 +809,7 @@ impl CircuitBuilder {
                 .find(|p| p.instance_name == part_instance_name)
                 .map_or("", |p| p.part_type.as_str());
 
-            let is_subgraph = self.definitions.contains_key(part_type) 
+            let is_subgraph = self.def(part_type).is_some() 
                                 && !Self::PRIMITIVE_GATES.contains(&part_type);
             // --- END FIX ---
 
@@ -768,224 +828,6 @@ impl CircuitBuilder {
             (node_id, base_name.clone())
         }
     }
-}
-
-/// --- Parses a pest 'pin' rule into our PinRef struct ---
-fn parse_pin_ref(pair: Pair<Rule>) -> PinRef {
-    assert_eq!(pair.as_rule(), Rule::pin);
-    // pin = @{ ident ~ ("." ~ ident)* ~ bus_specifier? }
-
-    let mut base_name = String::new();
-
-    let full_pin_str = pair.as_str().trim(); // Get the full matched string
-
-    // Cloning is simpler here as we need the span later.
-    for inner_pair in pair.clone().into_inner() {
-        match inner_pair.as_rule() {
-            Rule::ident => {
-                if !base_name.is_empty() {
-                    base_name.push('.');
-                }
-                base_name.push_str(inner_pair.as_str().trim());
-            }
-            Rule::bus_specifier => {}
-            _ => unreachable!("Unexpected rule inside pin: {:?}", inner_pair.as_rule()),
-        }
-    }
-
-    let mut index = None; // Reset
-
-    if let Some(bracket_pos) = full_pin_str.find('[') {
-        if full_pin_str.ends_with(']') {
-            let num_str = &full_pin_str[bracket_pos + 1..full_pin_str.len() - 1];
-            index = Some(
-                num_str
-                    .parse::<usize>()
-                    .expect("Grammar ensures valid number in specifier"),
-            );
-            base_name = full_pin_str[..bracket_pos].trim().to_string();
-        } else {
-            // Malformed (e.g., "A[0.B")? Assume bracket is part of the name for now.
-            base_name = full_pin_str.to_string();
-        }
-    } else {
-        // No brackets found, it's just a base name
-        base_name = full_pin_str.to_string();
-    }
-
-    // Final check for empty base_name
-    if base_name.is_empty() {
-        panic!("Failed to parse pin, empty base_name for: {}", full_pin_str);
-    }
-
-    PinRef { base_name, index }
-}
-
-/// Helper to parse a single pin_value pair (e.g., "D 0", "Bus[0] 1")
-fn parse_pin_value(pair: Pair<Rule>) -> PinValue {
-    // pin_value = pin ~ value
-    assert_eq!(pair.as_rule(), Rule::pin_value);
-    let mut inner = pair.into_inner();
-    let pin_ref = parse_pin_ref(inner.next().unwrap()); // Parse the 'pin' part
-    let value_str = inner.next().unwrap().as_str();
-    let value = match value_str {
-        "0" => InitValue::Zero,
-        "1" => InitValue::One,
-        _ => unreachable!("Grammar ensures value is 0 or 1"),
-    };
-    PinValue { pin_ref, value }
-}
-
-/// Helper to parse a single step (one or more pin_values)
-fn parse_step(pair: Pair<Rule>) -> SeqStep {
-    // step = pin_value ~ ("," ~ pin_value)*
-    assert_eq!(pair.as_rule(), Rule::step);
-    let assignments = pair.into_inner().map(parse_pin_value).collect();
-    SeqStep { assignments }
-}
-
-/// Parses an io_ident rule into IoPinDef
-fn parse_io_ident(pair: Pair<Rule>) -> IoPinDef {
-    assert_eq!(pair.as_rule(), Rule::io_ident);
-    let mut name = String::new();
-    let mut width = None;
-    for inner_pair in pair.into_inner() {
-        match inner_pair.as_rule() {
-            Rule::ident => {
-                name = inner_pair.as_str().trim().to_string();
-            }
-            Rule::bus_specifier => {
-                let num_str = inner_pair.into_inner().next().unwrap().as_str();
-                width = Some(
-                    num_str
-                        .parse::<usize>()
-                        .expect("Grammar ensures valid number"),
-                );
-            }
-            _ => unreachable!(
-                "Unexpected rule inside io_ident: {:?}",
-                inner_pair.as_rule()
-            ),
-        }
-    }
-    IoPinDef { name, width }
-}
-
-/// Parses a CLDL string into our CldlDefinition struct.
-fn parse_cldl(cldl_string: &str) -> Result<CldlDefinition, pest::error::Error<Rule>> {
-    let mut file = CldlParser::parse(Rule::file, cldl_string.trim())?;
-    let circuit_pair = file.next().unwrap().into_inner().next().unwrap();
-    assert_eq!(circuit_pair.as_rule(), Rule::circuit);
-
-    let mut circuit_inner_rules = circuit_pair.into_inner();
-    let name = circuit_inner_rules
-        .next()
-        .unwrap()
-        .as_str()
-        .trim()
-        .to_string();
-
-    let circuit_body_pair = circuit_inner_rules.next().unwrap();
-    assert_eq!(circuit_body_pair.as_rule(), Rule::circuit_body);
-
-    let mut inputs: Vec<IoPinDef> = Vec::new();
-    let mut outputs: Vec<IoPinDef> = Vec::new();
-    let mut parts = Vec::new();
-    let mut connections = Vec::new();
-    let mut initialization = Vec::new();
-
-    for pair in circuit_body_pair.into_inner() {
-        match pair.as_rule() {
-            Rule::input_def => {
-                // input_def = "INPUT" ~ io_ident ~ ("," ~ io_ident)* ~ ";"
-                // Iterate over io_ident pairs
-                for io_ident_pair in pair.into_inner() {
-                    if io_ident_pair.as_rule() == Rule::io_ident {
-                        inputs.push(parse_io_ident(io_ident_pair));
-                    }
-                }
-            }
-            Rule::output_def => {
-                // output_def = "OUTPUT" ~ io_ident ~ ("," ~ io_ident)* ~ ";"
-                for io_ident_pair in pair.into_inner() {
-                    if io_ident_pair.as_rule() == Rule::io_ident {
-                        outputs.push(parse_io_ident(io_ident_pair));
-                    }
-                }
-            }
-            Rule::part_def => {
-                let mut part_inner = pair.into_inner();
-                let instance_name = part_inner.next().unwrap().as_str().trim().to_string();
-                let part_type = part_inner.next().unwrap().as_str().trim().to_string();
-                parts.push(PartDef {
-                    instance_name,
-                    part_type,
-                });
-            }
-            Rule::connect_def => {
-                // connect_def = "CONNECT" ~ pin ~ "->" ~ pin ~ ";"
-                let mut conn_inner = pair.into_inner();
-                let source_pin = parse_pin_ref(conn_inner.next().unwrap());
-                let dest_pin = parse_pin_ref(conn_inner.next().unwrap());
-                connections.push(ConnectionDef {
-                    source_pin,
-                    dest_pin,
-                });
-            }
-            Rule::init_block => {
-                for init_cmd_wrapper_pair in pair.into_inner() {
-                    if init_cmd_wrapper_pair.as_rule() == Rule::init_command {
-                        let init_cmd_pair = init_cmd_wrapper_pair.into_inner().next().unwrap();
-                        match init_cmd_pair.as_rule() {
-                            Rule::set_command => {
-                                let assignments = init_cmd_pair
-                                    .into_inner()
-                                    .filter(|p| p.as_rule() == Rule::pin_value)
-                                    .map(parse_pin_value)
-                                    .collect();
-                                initialization.push(InitCommand::Set(assignments));
-                            }
-                            Rule::eval_command => {
-                                initialization.push(InitCommand::Eval);
-                            }
-                            Rule::seq_command => {
-                                let steps = init_cmd_pair
-                                    .into_inner()
-                                    .filter(|p| p.as_rule() == Rule::step)
-                                    .map(parse_step)
-                                    .collect();
-                                initialization.push(InitCommand::Seq(steps));
-                            }
-                            rule => {
-                                println!(
-                                    "[Parser] Unexpected rule within init_command: {:?}",
-                                    rule
-                                );
-                            }
-                        }
-                    } else {
-                        println!(
-                            "[Parser] Ignoring rule within init_block: {:?}",
-                            init_cmd_wrapper_pair.as_rule()
-                        );
-                    }
-                }
-            }
-            rule => {
-                println!("[Parser] Ignoring rule: {:?}", rule);
-            }
-        }
-    }
-
-    Ok(CldlDefinition {
-        name,
-        inputs,
-        outputs,
-        parts,
-        connections,
-        initialization,
-        category: None,
-    })
 }
 
 /// The name of the directory containing `path`, used as a definition's category.

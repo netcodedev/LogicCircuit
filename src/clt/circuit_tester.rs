@@ -137,7 +137,8 @@ fn parse_clt_test_suite(pair: Pair<Rule>) -> CltTestSuite {
     assert_eq!(pair.as_rule(), Rule::test_suite);
     let mut inner = pair.into_inner();
     // TESTS FOR CircuitName { test_case* }
-    let circuit_name = inner.next().unwrap().as_str().trim().to_string();
+    // Drop spaces so "ADDER< 8 >" names the definition "ADDER<8>".
+    let circuit_name: String = inner.next().unwrap().as_str().chars().filter(|c| !c.is_whitespace()).collect();
     let test_cases = inner.map(parse_clt_test_case).collect();
     CltTestSuite {
         circuit_name,
