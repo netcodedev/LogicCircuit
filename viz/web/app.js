@@ -730,6 +730,7 @@ let chipLoaded = null; // design name of the loaded layout
 let chipStatus = '';
 
 function leaveChip() {
+  $('main').classList.remove('chip-mode');
   $('canvas').style.display = '';
   $('chip3d').hidden = true;
   $('chip-section').hidden = true;
@@ -741,6 +742,7 @@ function chipMessage(html) {
 }
 
 async function renderChip() {
+  $('main').classList.add('chip-mode');
   $('canvas').style.display = 'none';
   $('chip3d').hidden = false;
   $('chip-section').hidden = false;
