@@ -806,6 +806,7 @@ function loadChipBuffer(buffer) {
   chipView.setZScale(Number($('chip-zscale').value));
   chipView.setExplode(Number($('chip-explode').value));
   chipView.fit();
+  { const z = Number(new URLSearchParams(location.search).get('zoom')); if (z > 0) chipView.zoomBy(z); }
   chipLoaded = header.design;
   chipView.keyed = null;
   chipMessage('');

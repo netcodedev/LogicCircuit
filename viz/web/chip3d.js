@@ -117,6 +117,13 @@ export class ChipView {
     this.layers = header.layers.map((l, i) => ({
       ...l, index: i, visible: l.kind !== 'well', meshes: [],
       material: new THREE.MeshLambertMaterial({ color: l.color, side: THREE.DoubleSide, clippingPlanes: [this.clip] }),
+      // Routing shares its layer's height with the cells' own shapes on that
+      // layer (e.g. li1 pads and met1 over cell met1). A depth offset lets the
+      // routing win instead of both flickering (z-fighting).
+      routeMaterial: new THREE.MeshLambertMaterial({
+        color: l.color, side: THREE.DoubleSide, clippingPlanes: [this.clip],
+        polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4,
+      }),
     }));
 
     // --- Cell masters: merged geometry per (master, layer), z from 0 to 1.
@@ -181,7 +188,7 @@ export class ChipView {
     this.routeMeshes = [];
     byLayer.forEach((offsets, layer) => {
       if (!offsets.length) return;
-      const mesh = new THREE.InstancedMesh(unit, this.layers[layer].material, offsets.length);
+      const mesh = new THREE.InstancedMesh(unit, this.layers[layer].routeMaterial, offsets.length);
       const boxes = new Float32Array(offsets.length * 4);
       const nets = new Int32Array(offsets.length);
       offsets.forEach((o, k) => {
@@ -212,7 +219,7 @@ export class ChipView {
       if (m.userData.kind === 'cell') m.geometry.dispose();
       m.dispose();
     }
-    (this.layers || []).forEach((l) => l.material.dispose());
+    (this.layers || []).forEach((l) => { l.material.dispose(); l.routeMaterial.dispose(); });
     this.cellMeshes = [];
     this.routeMeshes = [];
     this.highlight = null;
@@ -224,7 +231,16 @@ export class ChipView {
   // Bottom z and height of a layer in world units.
   zOf(layer) {
     const l = this.layers[layer];
-    return [l.z * this.zscale + this.explode * layer, Math.max(l.thickness * this.zscale, 0.02)];
+    let z = l.z * this.zscale + this.explode * layer;
+    let t = Math.max(l.thickness * this.zscale, 0.02);
+    // Contacts and vias end exactly where the metal above and below starts;
+    // pull them in slightly so their faces do not coincide with the metal's.
+    if (l.kind === 'cut' || l.kind === 'contact') {
+      const inset = t * 0.03;
+      z += inset;
+      t -= 2 * inset;
+    }
+    return [z, t];
   }
 
   topZ() {
@@ -248,7 +264,11 @@ export class ChipView {
     }
     for (const mesh of this.routeMeshes) {
       const { layer, boxes, special } = mesh.userData;
-      const [z, t] = this.zOf(layer);
+      const [z, t0] = this.zOf(layer);
+      // 2 % taller than the cells' own shapes on this layer: their top faces
+      // must not lie in the same plane (z-fighting), the depth offset of
+      // routeMaterial covers the sides.
+      const t = t0 * 1.02;
       for (let k = 0; k < boxes.length / 4; k++) {
         const x0 = boxes[k * 4], y0 = boxes[k * 4 + 1], x1 = boxes[k * 4 + 2], y1 = boxes[k * 4 + 3];
         // Hidden power grid: collapse to nothing (keeps instance indices stable).
@@ -293,6 +313,14 @@ export class ChipView {
     this.camera.near = size / 1000;
     this.camera.far = size * 20;
     this.camera.updateProjectionMatrix();
+    this.controls.update();
+    this.invalidate();
+  }
+
+  /** Moves the camera towards its target (factor > 1 = closer). */
+  zoomBy(factor) {
+    const t = this.controls.target;
+    this.camera.position.sub(t).multiplyScalar(1 / factor).add(t);
     this.controls.update();
     this.invalidate();
   }
