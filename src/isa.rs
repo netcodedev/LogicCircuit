@@ -1,12 +1,60 @@
-//! Instruction set of CPU_8B: one table drives the assembler and the
-//! disassembler, so a new instruction only needs a new row here (plus the
-//! hardware).
+//! Instruction sets: CPU_8B here, CPU_16B in [`cpu16`]. [`Isa`] picks one.
+//!
+//! For CPU_8B one table drives the assembler and the disassembler, so a new
+//! instruction only needs a new row here (plus the hardware).
 //!
 //! Word layout: `[15..12] opcode | [11..8] Rd | [7..4] Ra | [3..0] Rb/Imm`,
 //! except JMP/BRZ, whose low byte is the jump target.
 
 use std::collections::HashMap;
 use std::fmt;
+
+pub mod cpu16;
+
+/// The instruction set of a CPU, chosen by the ports of the circuit (see
+/// `machine::Machine::isa`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Isa {
+    /// CPU_8B: 8-bit PC, one word per instruction.
+    Cpu8,
+    /// CPU_16B: 16-bit PC, LI/JMP/CALL take a second word.
+    Cpu16,
+}
+
+impl Isa {
+    pub fn assemble(self, source: &str) -> Result<Program, AsmError> {
+        match self {
+            Isa::Cpu8 => assemble(source),
+            Isa::Cpu16 => cpu16::assemble(source),
+        }
+    }
+
+    /// Number of addressable instruction words.
+    pub fn memory_words(self) -> usize {
+        match self {
+            Isa::Cpu8 => MEMORY_WORDS,
+            Isa::Cpu16 => cpu16::MEMORY_WORDS,
+        }
+    }
+
+    /// Renders the instruction at `addr` (reading a second word if needed).
+    pub fn disassemble_at(self, words: &[u16], addr: usize) -> String {
+        let word = |a: usize| words.get(a % self.memory_words()).copied().unwrap_or(0);
+        match self {
+            Isa::Cpu8 => disassemble(word(addr)),
+            Isa::Cpu16 => cpu16::disassemble(addr as u16, word(addr), word(addr + 1)).0,
+        }
+    }
+
+    /// One line per word of `words`. Second words of two-word instructions
+    /// are shown as `; 0x1234`.
+    pub fn listing(self, words: &[u16]) -> Vec<String> {
+        match self {
+            Isa::Cpu8 => words.iter().map(|&w| disassemble(w)).collect(),
+            Isa::Cpu16 => cpu16::listing(words),
+        }
+    }
+}
 
 /// Operand layout of an instruction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -113,19 +161,16 @@ struct Pending<'a> {
     operands: Vec<&'a str>,
 }
 
-/// Assembles source text.
-///
-/// Syntax, one statement per line:
-/// - `label:` defines a label (may share a line with an instruction)
-/// - `ADD R3, R1, R2` etc., mnemonics and registers case-insensitive
-/// - `.word 0x9105` emits a raw 16-bit word, so a pure hex listing is valid too
-/// - numbers: decimal, `0x..` hex or `0b..` binary
-/// - comments start with `;`, `#` or `//`
-pub fn assemble(source: &str) -> Result<Program, AsmError> {
-    let mut labels: HashMap<String, usize> = HashMap::new();
-    let mut pending: Vec<Pending> = Vec::new();
+/// Source split into statements; labels point at statement indices.
+struct Parsed<'a> {
+    statements: Vec<Pending<'a>>,
+    labels: HashMap<String, usize>,
+}
 
-    // Pass 1: strip comments, collect labels and statements.
+/// Pass 1 of both assemblers: strip comments, collect labels and statements.
+fn parse_source(source: &str) -> Result<Parsed<'_>, AsmError> {
+    let mut labels: HashMap<String, usize> = HashMap::new();
+    let mut statements: Vec<Pending> = Vec::new();
     for (idx, raw) in source.lines().enumerate() {
         let line = idx + 1;
         let mut text = raw;
@@ -141,7 +186,7 @@ pub fn assemble(source: &str) -> Result<Program, AsmError> {
             if !is_identifier(label) {
                 return Err(err(line, format!("invalid label '{label}'")));
             }
-            if labels.insert(label.to_ascii_lowercase(), pending.len()).is_some() {
+            if labels.insert(label.to_ascii_lowercase(), statements.len()).is_some() {
                 return Err(err(line, format!("label '{label}' defined twice")));
             }
             text = text[colon + 1..].trim();
@@ -159,8 +204,21 @@ pub fn assemble(source: &str) -> Result<Program, AsmError> {
         } else {
             rest.split(',').map(str::trim).collect()
         };
-        pending.push(Pending { line, mnemonic, operands });
+        statements.push(Pending { line, mnemonic, operands });
     }
+    Ok(Parsed { statements, labels })
+}
+
+/// Assembles source text.
+///
+/// Syntax, one statement per line:
+/// - `label:` defines a label (may share a line with an instruction)
+/// - `ADD R3, R1, R2` etc., mnemonics and registers case-insensitive
+/// - `.word 0x9105` emits a raw 16-bit word, so a pure hex listing is valid too
+/// - numbers: decimal, `0x..` hex or `0b..` binary
+/// - comments start with `;`, `#` or `//`
+pub fn assemble(source: &str) -> Result<Program, AsmError> {
+    let Parsed { statements: pending, labels } = parse_source(source)?;
 
     if pending.len() > MEMORY_WORDS {
         return Err(err(
@@ -250,17 +308,29 @@ fn parse_register(text: &str, line: usize) -> Result<u16, AsmError> {
 }
 
 fn parse_number(text: &str, line: usize, max: u32) -> Result<u32, AsmError> {
+    parse_int(text, line, 0, max as i64).map(|v| v as u32)
+}
+
+/// Parses a number with an optional leading `-` and checks `min..=max`.
+fn parse_int(text: &str, line: usize, min: i64, max: i64) -> Result<i64, AsmError> {
     let lower = text.to_ascii_lowercase();
-    let parsed = if let Some(hex) = lower.strip_prefix("0x") {
-        u32::from_str_radix(hex, 16)
-    } else if let Some(bin) = lower.strip_prefix("0b") {
-        u32::from_str_radix(bin, 2)
-    } else {
-        lower.parse::<u32>()
+    let (negative, digits) = match lower.strip_prefix('-') {
+        Some(rest) => (true, rest.trim_start()),
+        None => (false, lower.as_str()),
     };
-    match parsed {
-        Ok(v) if v <= max => Ok(v),
-        Ok(v) => Err(err(line, format!("value {v} out of range (max {max})"))),
+    let parsed = if let Some(hex) = digits.strip_prefix("0x") {
+        i64::from_str_radix(hex, 16)
+    } else if let Some(bin) = digits.strip_prefix("0b") {
+        i64::from_str_radix(bin, 2)
+    } else if digits.starts_with(|c: char| c.is_ascii_digit()) {
+        digits.parse::<i64>()
+    } else {
+        return Err(err(line, format!("expected a number, got '{text}'")));
+    };
+    match parsed.map(|v| if negative { -v } else { v }) {
+        Ok(v) if (min..=max).contains(&v) => Ok(v),
+        Ok(v) if min == 0 => Err(err(line, format!("value {v} out of range (max {max})"))),
+        Ok(v) => Err(err(line, format!("value {v} out of range ({min}..{max})"))),
         Err(_) => Err(err(line, format!("expected a number, got '{text}'"))),
     }
 }

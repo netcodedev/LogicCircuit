@@ -2,7 +2,8 @@ use include_dir::{Dir, DirEntry, include_dir};
 use logic_circuit::circuit::Circuit;
 use logic_circuit::cldl::{CircuitBuilder, CircuitView, EndpointView, FlatLevel, PinView};
 use logic_circuit::export::verilog::{CellLib, VerilogOptions, export_verilog};
-use logic_circuit::{isa, machine};
+use logic_circuit::isa::Isa;
+use logic_circuit::machine::{self, Machine};
 use serde_json::{Value, json};
 use wasm_bindgen::prelude::*;
 
@@ -10,7 +11,8 @@ use wasm_bindgen::prelude::*;
 // (CPUs, datapaths) is only loaded at runtime by the CLI, so embed it here.
 static EXTRA_CIRCUITS: Dir = include_dir!("$CARGO_MANIFEST_DIR/../circuits");
 
-// Example programs offered in the viewer.
+// Example programs offered in the viewer: CPU_8B programs at the top level,
+// CPU_16B programs in programs/16.
 static PROGRAMS: Dir = include_dir!("$CARGO_MANIFEST_DIR/../programs");
 
 fn load_extra(dir: &Dir, builder: &mut CircuitBuilder) {
@@ -73,8 +75,8 @@ fn view_json(view: &CircuitView) -> Value {
 pub struct Sim {
     builder: CircuitBuilder,
     circuit: Option<Circuit>,
-    /// Instruction memory served on PC -> Instruction.
-    rom: Vec<u16>,
+    /// Memories and clock of the built circuit, if it is runnable.
+    machine: Option<Machine>,
 }
 
 #[wasm_bindgen]
@@ -87,7 +89,7 @@ impl Sim {
         Sim {
             builder,
             circuit: None,
-            rom: Vec::new(),
+            machine: None,
         }
     }
 
@@ -171,12 +173,38 @@ impl Sim {
     }
 
     /// Builds `top` (running its initialization) and settles it. On a
-    /// runnable circuit the word at PC 0 is presented right away.
+    /// runnable circuit the word at PC 0 is presented right away. The
+    /// program stays loaded if the instruction set did not change; the data
+    /// memory starts cleared.
     pub fn build(&mut self, top: &str) {
         let circuit = self.builder.build(top);
         circuit.evaluate_stable();
+        let old = self.machine.take();
+        self.machine = Machine::new(&circuit).map(|mut m| {
+            if let Some(old) = old.filter(|o| o.isa() == m.isa()) {
+                m.rom = old.rom;
+            }
+            m
+        });
         self.circuit = Some(circuit);
         self.fetch();
+    }
+
+    fn isa_of(&self) -> Isa {
+        self.machine.as_ref().map_or(Isa::Cpu8, Machine::isa)
+    }
+
+    /// Instruction set of the built circuit: 8 (CPU_8B) or 16 (CPU_16B).
+    pub fn isa(&self) -> u32 {
+        match self.isa_of() {
+            Isa::Cpu8 => 8,
+            Isa::Cpu16 => 16,
+        }
+    }
+
+    /// Width of the PC in bits (0 if not runnable).
+    pub fn pc_width(&self) -> u32 {
+        self.machine.as_ref().map_or(0, |m| m.pc_width() as u32)
     }
 
     /// Sets a top-level input (bus bits as "Name.i") without evaluating.
@@ -192,13 +220,14 @@ impl Sim {
         }
     }
 
-    /// Assembles source. JSON: {"ok":true,"words":[..],"lines":[..],"listing":[..]}
+    /// Assembles source for the instruction set of the built circuit. JSON: {"ok":true,"words":[..],"lines":[..],"listing":[..]}
     /// or {"ok":false,"line":n,"message":".."}.
     pub fn assemble(&self, src: &str) -> String {
-        match isa::assemble(src) {
+        let isa = self.isa_of();
+        match isa.assemble(src) {
             Ok(p) => json!({
                 "ok": true,
-                "listing": p.words.iter().map(|&w| isa::disassemble(w)).collect::<Vec<_>>(),
+                "listing": isa.listing(&p.words),
                 "words": p.words,
                 "lines": p.lines,
             }),
@@ -207,14 +236,16 @@ impl Sim {
         .to_string()
     }
 
-    pub fn disassemble(&self, word: u16) -> String {
-        isa::disassemble(word)
-    }
-
-    /// Example programs as JSON [{"name":..,"source":..}], sorted by name.
+    /// Example programs for the instruction set of the built circuit as
+    /// JSON [{"name":..,"source":..}], sorted by name.
     pub fn examples(&self) -> String {
-        let mut list: Vec<Value> = PROGRAMS
-            .files()
+        let dir = match self.isa_of() {
+            Isa::Cpu8 => Some(&PROGRAMS),
+            Isa::Cpu16 => PROGRAMS.get_dir("16"),
+        };
+        let mut list: Vec<Value> = dir
+            .into_iter()
+            .flat_map(|d| d.files())
             .filter(|f| f.path().extension().is_some_and(|e| e == "asm"))
             .map(|f| {
                 json!({
@@ -229,31 +260,36 @@ impl Sim {
 
     /// Replaces the instruction memory and presents the word at the current PC.
     pub fn set_rom(&mut self, words: Vec<u16>) {
-        self.rom = words;
+        if let Some(m) = &mut self.machine {
+            m.rom = words;
+        }
         self.fetch();
     }
 
     /// True if the built circuit has PC/Instruction/CLK ports.
     pub fn is_runnable(&self) -> bool {
-        self.circuit.as_ref().is_some_and(machine::is_runnable)
+        self.machine.is_some()
     }
 
     pub fn fetch(&self) {
-        if let Some(c) = self.circuit.as_ref().filter(|c| machine::is_runnable(c)) {
-            machine::fetch(c, &self.rom);
+        if let (Some(c), Some(m)) = (&self.circuit, &self.machine) {
+            m.fetch(c);
         }
     }
 
     /// Executes one instruction; false if halted (or not runnable).
-    pub fn step(&self) -> bool {
-        match self.circuit.as_ref().filter(|c| machine::is_runnable(c)) {
-            Some(c) => machine::step(c, &self.rom),
-            None => false,
+    pub fn step(&mut self) -> bool {
+        match (&self.circuit, &mut self.machine) {
+            (Some(c), Some(m)) => m.step(c),
+            _ => false,
         }
     }
 
     pub fn pc(&self) -> u32 {
-        self.circuit.as_ref().map_or(0, |c| machine::pc(c) as u32)
+        match (&self.circuit, &self.machine) {
+            (Some(c), Some(m)) => m.pc(c) as u32,
+            _ => 0,
+        }
     }
 
     pub fn halted(&self) -> bool {

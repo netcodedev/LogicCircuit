@@ -1185,8 +1185,8 @@ function buildDisplay(v) {
 
 // ---------------------------------------------------------------- program
 
-const examples = JSON.parse(sim.examples());
-let program = null;   // { words, lines, listing } of the loaded program
+let examples = [];    // example programs for the instruction set of the built CPU
+let program = null;   // { words, lines, listing, isa } of the loaded program
 let runFrameId = null;  // requestAnimationFrame id while running
 
 // Clock rate in instructions per second, remembered per browser.
@@ -1198,12 +1198,21 @@ function clockHz() {
   return Number.isFinite(hz) && hz > 0 ? Math.min(hz, MAX_HZ) : 1;
 }
 
-for (const ex of examples) {
-  const o = document.createElement('option');
-  o.value = ex.name;
-  o.textContent = ex.name;
-  $('examples').appendChild(o);
+// Fills the example list for the built CPU (8- or 16-bit instruction set).
+function loadExamples() {
+  examples = JSON.parse(sim.examples());
+  $('examples').replaceChildren();
+  for (const ex of examples) {
+    const o = document.createElement('option');
+    o.value = ex.name;
+    o.textContent = ex.name;
+    $('examples').appendChild(o);
+  }
 }
+
+// Address digits in the listing and status: 2 for CPU_8B, 4 for CPU_16B.
+const pcDigits = () => Math.max(2, Math.ceil(sim.pc_width() / 4));
+
 $('examples').addEventListener('change', (e) => {
   const ex = examples.find((x) => x.name === e.target.value);
   if (ex) { $('source').value = ex.source; loadProgram(); }
@@ -1219,7 +1228,7 @@ function loadProgram() {
     return;
   }
   errEl.hidden = true;
-  program = r;
+  program = { ...r, isa: sim.isa() };
   sim.build(stack[0].type);          // fresh registers, PC = 0
   resetStats();
   sim.set_rom(Uint16Array.from(r.words));
@@ -1237,7 +1246,7 @@ function renderListing() {
     row.className = 'lrow';
     row.title = src[program.lines[addr] - 1]?.trim() ?? '';
     const hex = (n, d) => n.toString(16).toUpperCase().padStart(d, '0');
-    row.innerHTML = `<span class="addr">${hex(addr, 2)}</span><span class="word">${hex(w, 4)}</span><span></span>`;
+    row.innerHTML = `<span class="addr">${hex(addr, pcDigits())}</span><span class="word">${hex(w, 4)}</span><span></span>`;
     row.lastChild.textContent = program.listing[addr];
     list.appendChild(row);
   });
@@ -1250,7 +1259,7 @@ function updateProgramView() {
   const rows = $('listing').children;
   for (let i = 0; i < rows.length; i++) rows[i].classList.toggle('cur', i === pc);
   rows[pc]?.scrollIntoView({ block: 'nearest' });
-  const pcHex = pc.toString(16).toUpperCase().padStart(2, '0');
+  const pcHex = pc.toString(16).toUpperCase().padStart(pcDigits(), '0');
   $('prog-status').textContent = halted
     ? `Angehalten (HALT) bei PC 0x${pcHex}`
     : `PC 0x${pcHex} · nächster Befehl: ${program ? (program.listing[pc] ?? 'HALT') : '—'}`;
@@ -1388,8 +1397,15 @@ function select(type) {
   resetStats();
   buildSidebar();
   if (sim.is_runnable()) {
+    // A program for the other instruction set does not fit: start over
+    // with this CPU's first example.
+    if (program?.isa !== sim.isa()) {
+      loadExamples();
+      program = null;
+      $('listing').replaceChildren();
+    }
     if (!program && examples.length) {
-      const ex = examples.find((x) => x.name === 'countdown') ?? examples[0];
+      const ex = examples.find((x) => x.name === 'countdown' || x.name === 'fibonacci') ?? examples[0];
       $('examples').value = ex.name;
       $('source').value = ex.source;
       loadProgram();
