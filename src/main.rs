@@ -141,9 +141,9 @@ enum ChipCommand {
         /// Core utilisation in percent.
         #[arg(long, default_value_t = chip::DEFAULT_UTIL)]
         util: u32,
-        /// Fixed square die edge in um instead of --util.
-        #[arg(long)]
-        die_size: Option<f64>,
+        /// Fixed die size in um instead of --util: "200" (square) or "160x225".
+        #[arg(long, value_parser = parse_die_size)]
+        die_size: Option<(f64, f64)>,
         /// Let OpenROAD buffer and resize cells (changes the netlist).
         #[arg(long)]
         optimize: bool,
@@ -895,4 +895,13 @@ fn chip_view(name: &str, run: Option<&str>, port: u16, no_open: bool) -> Result<
         let _ = child.wait();
     }
     Ok(())
+}
+
+/// "200" -> (200, 200), "160x225" -> (160, 225).
+fn parse_die_size(s: &str) -> Result<(f64, f64), String> {
+    let num = |v: &str| v.trim().parse::<f64>().map_err(|_| format!("invalid die size '{}'", s));
+    match s.split_once(['x', 'X']) {
+        Some((w, h)) => Ok((num(w)?, num(h)?)),
+        None => num(s).map(|d| (d, d)),
+    }
 }

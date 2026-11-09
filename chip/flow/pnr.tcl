@@ -8,7 +8,10 @@
 #                  power grid and the pins are kept at or below it as well
 #   CLOCK_PORT     clock input; empty for purely combinational designs
 #   CLOCK_PERIOD   clock period in ns (default 10)
-#   DIE_SIZE       square die edge in um; otherwise sized by CORE_UTIL (percent, default 30)
+#   DIE_SIZE       die size in um, "W" (square) or "WxH"; otherwise sized by CORE_UTIL (percent, default 30)
+#   NO_CTS         1 = skip clock tree synthesis (designs without flip-flop cells:
+#                  with our own latches CTS follows the clock into the latch gates
+#                  and crashes); the clock is then routed like any signal
 #   OPTIMIZE       1 = let OpenROAD insert buffers and resize cells (repair_design,
 #                  repair_timing); the netlist then no longer matches ours 1:1
 #
@@ -57,8 +60,10 @@ if {$clk_port ne ""} {
 
 # --- Floorplan, power grid, pins -----------------------------------------------
 if {[env_or DIE_SIZE ""] ne ""} {
-    set d $::env(DIE_SIZE)
-    initialize_floorplan -die_area "0 0 $d $d" -core_area "5 5 [expr {$d - 5}] [expr {$d - 5}]" -site unithd
+    set wh [split [string tolower $::env(DIE_SIZE)] x]
+    set w [lindex $wh 0]
+    set h [expr {[llength $wh] > 1 ? [lindex $wh 1] : $w}]
+    initialize_floorplan -die_area "0 0 $w $h" -core_area "5 5 [expr {$w - 5}] [expr {$h - 5}]" -site unithd
 } else {
     initialize_floorplan -utilization [env_or CORE_UTIL 30] -aspect_ratio 1 -core_space 5 -site unithd
 }
@@ -96,7 +101,7 @@ if {$optimize} {
 }
 detailed_placement
 
-if {$clk_port ne ""} {
+if {$clk_port ne "" && [env_or NO_CTS 0] ne "1"} {
     clock_tree_synthesis -root_buf sky130_fd_sc_hd__clkbuf_16 -buf_list sky130_fd_sc_hd__clkbuf_4
     set_propagated_clock [all_clocks]
     if {$optimize} {

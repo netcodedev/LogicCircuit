@@ -28,7 +28,8 @@ pub struct BuildOptions {
     pub clock_period_ns: f64,
     /// Core utilisation in percent (ignored with `die_size_um`).
     pub utilization: u32,
-    pub die_size_um: Option<f64>,
+    /// Fixed die size (width, height) in microns.
+    pub die_size_um: Option<(f64, f64)>,
     /// Allow OpenROAD to buffer and resize (changes the netlist).
     pub optimize: bool,
 }
@@ -44,7 +45,8 @@ impl BuildOptions {
             self.max_layer
         );
         match self.die_size_um {
-            Some(d) => name.push_str(&format!("-die{d}")),
+            Some((w, h)) if w == h => name.push_str(&format!("-die{w}")),
+            Some((w, h)) => name.push_str(&format!("-die{w}x{h}")),
             None if self.utilization != DEFAULT_UTIL => name.push_str(&format!("-u{}", self.utilization)),
             None => {}
         }
@@ -165,10 +167,12 @@ pub fn build(builder: &CircuitBuilder, name: &str, opts: &BuildOptions, root: &P
         format!("CLOCK_PERIOD={}", opts.clock_period_ns),
         format!("CORE_UTIL={}", opts.utilization),
         format!("OPTIMIZE={}", opts.optimize as u8),
+        // Latch-based designs have no flip-flop cells for a clock tree.
+        format!("NO_CTS={}", opts.keep_latches as u8),
         "HOME=/tmp".into(),
     ];
-    if let Some(d) = opts.die_size_um {
-        env.push(format!("DIE_SIZE={d}"));
+    if let Some((w, h)) = opts.die_size_um {
+        env.push(format!("DIE_SIZE={w}x{h}"));
     }
     let mut cmd = Command::new("docker");
     cmd.args(["run", "--rm", "--user", &format!("{}:{}", id("-u"), id("-g"))])
@@ -333,8 +337,10 @@ mod tests {
         o.optimize = true;
         o.utilization = 70;
         assert_eq!(o.run_name(), "nand-met3-u70-latches-opt");
-        o.die_size_um = Some(150.0);
+        o.die_size_um = Some((150.0, 150.0));
         assert_eq!(o.run_name(), "nand-met3-die150-latches-opt");
+        o.die_size_um = Some((160.0, 225.0));
+        assert_eq!(o.run_name(), "nand-met3-die160x225-latches-opt");
     }
 
     /// Extracts a real run if one has been built (needs `chip build

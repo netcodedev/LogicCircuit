@@ -225,6 +225,33 @@ externe Toolchain braucht (Export, Statistiken, Darstellung), gibt es in beiden.
       Transistoren leuchten live (NMOS bei Gate 1, PMOS bei Gate 0), Ausgangsknoten und
       Gate-Leitungen tragen ihren Wert. Bis 1.500 NANDs (6.000 Transistoren), darüber
       Hinweis auf eine tiefere Ebene
-- [ ] TinyTapeout prüfen: Passt `COMPUTER_8B` (oder eine kleinere Variante)
-      in die verfügbaren Kacheln? Dann ließe sich der Chip tatsächlich fertigen
-- [ ] Größenvergleich: NAND-only-Mapping gegen optimierte Zellen (Fläche, Transistoren, Takt)
+- [x] TinyTapeout geprüft (2026-11-09): Kacheln in sky130 ≈ 161 × 112 µm (1×1) bzw.
+      160 × 225 µm (1×2); digital 8 Eingänge, 8 Ausgänge, 8 bidirektionale Pins, Takt,
+      Reset. `chip build --die-size 160x225` (neu: rechteckige Dies) – **COMPUTER_8B
+      passt in eine 1×2-Kachel**: 0 DRC, 98 MHz. 1×1 bräuchte 102,5 % Auslastung, passt
+      nicht. **Hindernis sind die Pins:** 25 Eingänge / 31 Ausgänge statt 8/8/8.
+      Vorschlag für eine Hülle `TT_COMPUTER_8B` (noch nicht gebaut):
+  - Befehlswort vom RP2040 der Demo-Platine in zwei Bytes über `ui_in[7:0]`,
+    `uio[0]` als Byte-Auswahl (Eingang), internes 8-Bit-Register für das untere Byte
+  - `uio[7:1]` als Ausgang `PC[6:0]` (Programme bis 128 Befehle), damit der RP2040
+    den nächsten Befehl liefern kann
+  - `uo_out[6:0]` = 7-Segment der unteren Hex-Ziffer (die Demo-Platine hat eine
+    7-Segment-Anzeige an `uo_out`), `uo_out[7]` = Halted (Dezimalpunkt)
+  - `rst_n` als echter Reset für PC und Register (heute nur über INIT beim Bauen);
+    `MemDataIn`/`LW` entfallen oder teilen sich `ui_in`
+- [x] Größenvergleich COMPUTER_8B (met5, 10-ns-Takt):
+
+  | Abbildung | Zellen | Transistoren | Logikfläche | Die | Leitung | fmax |
+  |---|---|---|---|---|---|---|
+  | Basis-Blöcke + sky130-Flipflops | 2.181 (+CTS) | 13.852 | 14.704 µm² | 199 µm | 31,7 mm | 98 MHz |
+  | … mit `--optimize` | +8 Buffer | 13.892 | 14.754 µm² | 199 µm | 32,4 mm | 108 MHz |
+  | NANDs + sky130-Flipflops | 4.571 (+CTS) | 20.948 | 19.708 µm² | 230 µm | 45,0 mm | 83 MHz |
+  | Basis-Blöcke + eigene Latches | 3.541 | 16.718 | 18.602 µm² | 226 µm | 41,5 mm | (29 MHz)* |
+  | **nur NANDs** (inkl. Latches) | 8.107 | **32.256** = 8.064 × 4 | 30.430 µm² | 286 µm | 65,5 mm | (27 MHz)* |
+
+  \* Mit eigenen Latches ist die Timing-Analyse nicht verlässlich (kombinatorische
+  Schleifen werden nur aufgebrochen) und es gibt keinen Clock-Tree (`NO_CTS`: die
+  Clock-Tree-Synthese folgte dem Takt in die Latch-Gatter und stürzte ab).
+  Ergebnis: Eine echte Zellbibliothek halbiert die Transistoren gegenüber reinen NANDs;
+  den größten Anteil haben die Flipflops (27 NANDs = 108 Transistoren je Bit gegenüber
+  24 Transistoren für `dfxtp_1`)
