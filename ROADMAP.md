@@ -203,11 +203,18 @@ externe Toolchain braucht (Export, Statistiken, Darstellung), gibt es in beiden.
 
 ## Phase 5 – Ausgabe in der CLI
 
-- [ ] `chip render <NAME> [--layers met1,met2] [--format svg|png] [-o DATEI]`:
-      Draufsicht pro Lage oder übereinander, gleiche Farben wie im Browser
-- [ ] `chip render --iso`: isometrische Ansicht als Bild (Lagen versetzt gestapelt)
-- [ ] `chip view <NAME>`: startet `viz-serve` und öffnet den 3D-Viewer mit diesem Layout
-- [ ] Alle Kennzahlen auch als JSON (`--json`) für Skripte
+- [x] `chip render <NAME> [--run] [--layers met1,met2|all] [--format svg|png] [-o DATEI]`:
+      Draufsicht der gewählten Lagen, gleiche Farben wie im Browser
+      (`src/layout/render.rs`: Polygone pro Lage → SVG-Pfade bzw. eigener
+      Scanline-Rasterizer mit Alpha-Blending, PNG über das `png`-Crate)
+- [x] `chip render --iso [--explode µm] [--zscale x] [--power]`: isometrische Ansicht,
+      Lagen von unten nach oben gestapelt, je Form eine dunklere Unterseite als Kante
+- [x] `chip view <NAME> [--run] [--port] [--no-open]`: legt das Layout unter
+      `viz/web/layouts/` ab (extrahiert bei Bedarf), startet `viz-serve`, falls der Port
+      frei ist, und öffnet `…/index.html?mode=chip#NAME` im Browser
+- [x] Alle Kennzahlen auch als JSON: `chip report --json`
+- [x] COMPUTER_8B: Draufsicht als PNG (1600 px) in < 0,1 s, isometrisch mit allen Lagen
+      1,9 MB PNG bzw. 25 MB SVG
 
 ## Phase 6 – Optional / später
 

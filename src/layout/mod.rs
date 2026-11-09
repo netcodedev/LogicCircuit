@@ -10,6 +10,7 @@
 pub mod def;
 pub mod gds;
 pub mod lef;
+pub mod render;
 
 use std::collections::{BTreeMap, HashMap};
 use std::path::Path;

@@ -164,6 +164,50 @@ enum ChipCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Draw the layout as an image: top view of chosen layers, or an
+    /// isometric view of the stack (--iso). SVG or PNG.
+    Render {
+        #[arg(value_name = "COMPONENT_NAME")]
+        component_name: String,
+        #[arg(long)]
+        run: Option<String>,
+        /// Comma-separated layers (e.g. met1,met2) or "all".
+        #[arg(long)]
+        layers: Option<String>,
+        /// Isometric view of the layer stack instead of the top view.
+        #[arg(long)]
+        iso: bool,
+        /// Include the power grid (VDD/VSS).
+        #[arg(long)]
+        power: bool,
+        /// Isometric: microns between layers.
+        #[arg(long, default_value_t = 4.0)]
+        explode: f64,
+        /// Isometric: vertical exaggeration.
+        #[arg(long, default_value_t = 4.0)]
+        zscale: f64,
+        /// Image width in pixels.
+        #[arg(long, default_value_t = 1600)]
+        width: u32,
+        /// svg or png (default: from the output file name, else svg).
+        #[arg(long, value_parser = ["svg", "png"])]
+        format: Option<String>,
+        /// Output file (default: <run>/<NAME>-top.svg / -iso.svg).
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
+    /// Open the 3D view of a run in the browser (starts viz-serve if needed).
+    View {
+        #[arg(value_name = "COMPONENT_NAME")]
+        component_name: String,
+        #[arg(long)]
+        run: Option<String>,
+        #[arg(long, default_value_t = 8173)]
+        port: u16,
+        /// Only print the URL instead of opening a browser.
+        #[arg(long)]
+        no_open: bool,
+    },
     /// Compare all runs of a circuit (or show one run in detail).
     Report {
         #[arg(value_name = "COMPONENT_NAME")]
@@ -355,6 +399,19 @@ fn main() {
             }
             ChipCommand::Extract { component_name, run, output, json } => {
                 if let Err(e) = chip_extract(&component_name, run.as_deref(), output, json) {
+                    eprintln!("Error: {}", e);
+                    std::process::exit(1);
+                }
+            }
+            ChipCommand::Render { component_name, run, layers, iso, power, explode, zscale, width, format, output } => {
+                let r = chip_render(&component_name, run.as_deref(), layers.as_deref(), iso, power, explode, zscale, width, format, output);
+                if let Err(e) = r {
+                    eprintln!("Error: {}", e);
+                    std::process::exit(1);
+                }
+            }
+            ChipCommand::View { component_name, run, port, no_open } => {
+                if let Err(e) = chip_view(&component_name, run.as_deref(), port, no_open) {
                     eprintln!("Error: {}", e);
                     std::process::exit(1);
                 }
@@ -733,6 +790,109 @@ fn chip_extract(name: &str, run: Option<&str>, output: Option<PathBuf>, json: bo
         || !checks.masters_without_gds.is_empty();
     if failed {
         return Err("layout checks failed".into());
+    }
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn chip_render(
+    name: &str,
+    run: Option<&str>,
+    layers: Option<&str>,
+    iso: bool,
+    power: bool,
+    explode: f64,
+    zscale: f64,
+    width: u32,
+    format: Option<String>,
+    output: Option<PathBuf>,
+) -> Result<(), String> {
+    use logic_circuit::layout::{SKY130_STACK, render};
+    let root = Path::new(".");
+    let run_dir = chip::resolve_run(root, name, run)?;
+    let layers = match layers {
+        None => render::default_layers(iso),
+        Some("all") => (0..SKY130_STACK.len()).filter(|&i| SKY130_STACK[i].kind != "well").collect(),
+        Some(list) => list
+            .split(',')
+            .map(|n| {
+                SKY130_STACK
+                    .iter()
+                    .position(|l| l.name == n.trim())
+                    .ok_or_else(|| format!("unknown layer '{}' (known: {})", n, SKY130_STACK.iter().map(|l| l.name).collect::<Vec<_>>().join(", ")))
+            })
+            .collect::<Result<_, _>>()?,
+    };
+    let fmt = match format.as_deref() {
+        Some("png") => render::Format::Png,
+        Some(_) => render::Format::Svg,
+        None if output.as_ref().is_some_and(|o| o.extension().is_some_and(|e| e == "png")) => render::Format::Png,
+        None => render::Format::Svg,
+    };
+    let ext = if fmt == render::Format::Png { "png" } else { "svg" };
+    let out = output.unwrap_or_else(|| run_dir.join(format!("{}-{}.{}", name, if iso { "iso" } else { "top" }, ext)));
+
+    let (layout, _) = chip::extract(root, &run_dir)?;
+    let opts = render::RenderOptions { layers: layers.clone(), iso, power, explode, zscale, width_px: width, ..Default::default() };
+    let started = std::time::Instant::now();
+    let bytes = render::render(&layout, &opts, fmt)?;
+    std::fs::write(&out, &bytes).map_err(|e| format!("{}: {}", out.display(), e))?;
+    println!(
+        "\nWrote {} ({:.1} MB, {} view, layers {}) in {:.1} s",
+        out.display(),
+        bytes.len() as f64 / 1e6,
+        if iso { "isometric" } else { "top" },
+        layers.iter().map(|&l| SKY130_STACK[l].name).collect::<Vec<_>>().join(","),
+        started.elapsed().as_secs_f64()
+    );
+    Ok(())
+}
+
+fn chip_view(name: &str, run: Option<&str>, port: u16, no_open: bool) -> Result<(), String> {
+    let root = Path::new(".");
+    let run_dir = chip::resolve_run(root, name, run)?;
+    let layout_file = run_dir.join("layout.bin");
+    if !layout_file.is_file() {
+        let (layout, _) = chip::extract(root, &run_dir)?;
+        std::fs::write(&layout_file, layout.write_binary()).map_err(|e| e.to_string())?;
+    }
+    if !root.join("viz/web/pkg").is_dir() {
+        return Err("the viewer is not built yet: run viz/build.sh first".into());
+    }
+    // Serve this run's layout under layouts/<NAME>.bin.
+    let layouts = root.join("viz/web/layouts");
+    std::fs::create_dir_all(&layouts).map_err(|e| e.to_string())?;
+    std::fs::copy(&layout_file, layouts.join(format!("{}.bin", name))).map_err(|e| e.to_string())?;
+
+    let url = format!("http://127.0.0.1:{}/index.html?mode=chip#{}", port, name);
+    let running = std::net::TcpStream::connect(("127.0.0.1", port)).is_ok();
+    let mut server = None;
+    if !running {
+        println!("Starting viz-serve on port {} …", port);
+        let child = std::process::Command::new("cargo")
+            .args(["run", "-q", "-p", "logic_circuit_viz", "--bin", "viz-serve", "--"])
+            .arg(port.to_string())
+            .spawn()
+            .map_err(|e| format!("cannot start viz-serve: {}", e))?;
+        server = Some(child);
+        // Wait until it accepts connections.
+        for _ in 0..600 {
+            if std::net::TcpStream::connect(("127.0.0.1", port)).is_ok() {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+    }
+    println!("\n{} ({})\n{}", name, run_dir.display(), url);
+    if !no_open {
+        let opener = if cfg!(target_os = "macos") { "open" } else { "xdg-open" };
+        if let Err(e) = std::process::Command::new(opener).arg(&url).status() {
+            println!("(could not open a browser: {})", e);
+        }
+    }
+    if let Some(mut child) = server {
+        println!("viz-serve is running; Ctrl+C stops it.");
+        let _ = child.wait();
     }
     Ok(())
 }
