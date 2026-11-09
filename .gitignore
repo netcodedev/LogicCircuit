@@ -8,3 +8,4 @@
 ruvector.db
 /.claude/proven-config.json
 /.claude/.proven-config-version
+/chip/**/out*/

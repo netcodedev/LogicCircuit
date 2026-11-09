@@ -6,9 +6,24 @@ an Verdrahtungslagen und live eingefärbten Signalen.
 
 Weg: Wir exportieren unsere Netzliste als strukturelles Verilog und lassen
 Platzierung und Verdrahtung von der offenen Toolchain erledigen (Yosys +
-OpenROAD über OpenLane 2, SkyWater-130-nm-PDK `sky130_fd_sc_hd`). Das
-Ergebnis (DEF/GDS) wandeln wir in ein eigenes Layout-Format um und zeigen es
-an.
+OpenROAD, SkyWater-130-nm-PDK `sky130_fd_sc_hd`). Das Ergebnis (DEF/GDS)
+wandeln wir in ein eigenes Layout-Format um und zeigen es an.
+
+## Entscheidungen (2026-11-09)
+
+- **Toolchain:** Docker-Image `openroad/orfs`, gepinnt auf
+  `26Q4-374-g2ccdcd3c2` (enthält Yosys, OpenROAD und die sky130hd-Plattform).
+  Den Ablauf steuern eigene Tcl-Skripte unter `chip/flow/`, aufgerufen von
+  der Rust-CLI. Kein OpenLane: das ist Python-basiert, und das Projekt
+  bleibt frei von Python (nur im Container vorhanden).
+- **Flipflops:** Standard ist die Abbildung von `DFLIP_FLOP` auf die echte
+  Zelle `sky130_fd_sc_hd__dfxtp_1` (Timing und Clock-Tree funktionieren).
+  Mit `--keep-latches` bleiben sie als eigene Gatter (NOR-Latches) erhalten,
+  dann ohne verlässliches Timing.
+- **Abbildungsstufe:** Standard sind Basis-Blöcke (`flatten(FlatLevel::Basic)`
+  → `inv`, `and2`, `nor2`, …); mit `--level nand` wird alles aus `nand2` gebaut.
+- **Lokal:** `yosys` und `iverilog` aus den Arch-Repos (für den schnellen
+  Export-Test ohne Docker).
 
 **CLI und Browser:** Die ganze Pipeline läuft über die CLI. OpenROAD lässt
 sich nicht im Browser ausführen, deshalb erzeugt die CLI die Layout-Datei, und
@@ -19,7 +34,7 @@ externe Toolchain braucht (Export, Statistiken, Darstellung), gibt es in beiden.
 
 ## Phase 0 – Grundlagen und Entscheidungen
 
-- [ ] **Flipflops entscheiden** (wichtigste offene Frage). Unsere Register sind
+- [x] **Flipflops entscheiden** (wichtigste offene Frage). Unsere Register sind
       Master-Slave-Flipflops aus NOR-SR-Latches, also kombinatorische
       Schleifen. Statische Timing-Analyse und Clock-Tree-Synthese in OpenROAD
       erkennen das nicht als Flipflop. Optionen:
@@ -29,13 +44,30 @@ externe Toolchain braucht (Export, Statistiken, Darstellung), gibt es in beiden.
   - [ ] B: Latches als Gatter behalten und die Schleifen für das Timing
         abschalten (`set_disable_timing`), Taktverteilung ohne CTS (lehrreich,
         aber kein verlässliches Timing)
-  - [ ] Entscheidung festhalten; gern beides als Option anbieten
-- [ ] **Abbildungsstufe festlegen:** Welche unserer Bausteine werden zu welcher
+  - [x] Entscheidung festhalten: beides, A als Standard (siehe oben)
+- [x] **Abbildungsstufe festlegen:** Welche unserer Bausteine werden zu welcher
       Standardzelle? Vorschlag: Stufe „Basis-Blöcke“ aus `flatten(FlatLevel::Basic)`
-- [ ] **Toolchain bereitstellen:** OpenLane 2 per Nix oder Docker installieren,
-      sky130-PDK über `volare` holen, Version pinnen
-- [ ] Nachsehen, ob Yosys als WASM (YoWASP) im Browser für eine schnelle
-      Synthese-Vorschau taugt (optional)
+- [x] **Toolchain bereitstellen:** Image `openroad/orfs:26Q4-374-g2ccdcd3c2`
+      gezogen (4,5 GB entpackt); enthält OpenROAD, Yosys und
+      `flow/platforms/sky130hd` (LEF, Liberty, GDS, PDN, Tracks)
+- [x] Lokal `yosys` 0.66 und `iverilog` 13.0 aus den Arch-Repos installiert (für Icarus-Gegenproben in Phase 1)
+- [x] **Flow-Skript:** `chip/flow/pnr.tcl` (OpenROAD: Floorplan, Tapcells,
+      Power-Grid, Platzierung, Clock-Tree, Verdrahtung, DEF/ODB, Timing) und
+      `chip/flow/run.sh` (Docker-Aufruf, bis die Rust-CLI übernimmt)
+- [x] **Smoke-Test** `chip/smoke/smoke.v` (registrierter Halbaddierer aus
+      sky130-Zellen): läuft ohne DRC-Verstöße durch; 155 µm Leitung, 39 Vias,
+      9,48 ns Slack bei 10 ns Takt. Mit `MAX_LAYER=met2` bleibt met3–met5 frei
+      (151 µm, 36 Vias)
+- [x] YoWASP geprüft: `@yowasp/yosys` (npm, 0.71) existiert, ~80 MB entpackt –
+      im Browser machbar, aber schwer; erst bei Bedarf
+
+**Erkenntnisse für Phase 2:**
+- Das Power-Grid (`pdn.tcl`) nutzt immer met4/met5, auch wenn Signale auf
+  weniger Lagen beschränkt sind. Für eine echte „N-Lagen“-Variante braucht es
+  ein eigenes PDN je Lagenzahl.
+- Pins liegen fest auf met2/met3; bei `MAX_LAYER` < met3 die Pin-Lagen mit absenken.
+- Erwartete, harmlose Warnungen: `DRT-0349` (LEF58_ENCLOSURE),
+  `PDN-1051` (leere Makro-Raster), `IFP-0028` (Core-Bereich eingerastet).
 
 ## Phase 1 – Verilog-Export
 
