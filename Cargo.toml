@@ -15,4 +15,5 @@ clap = { version = "4.5.50", features = ["derive"] }
 include_dir = "0.7.4"
 pest = "2.8.3"
 pest_derive = "2.8.3"
+serde_json = "1"
 uuid = { version = "1.18.1", features = ["v4"] }

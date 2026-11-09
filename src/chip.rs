@@ -337,6 +337,27 @@ mod tests {
         assert_eq!(o.run_name(), "nand-met3-die150-latches-opt");
     }
 
+    /// Extracts a real run if one has been built (needs `chip build
+    /// COMPUTER_8B` and the platform cache); skipped otherwise.
+    #[test]
+    fn extracts_built_computer_layout() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let run = chip_dir(root, "COMPUTER_8B").join("basic-met5");
+        if !run.join("metrics.txt").is_file() || !root.join("chip/.platform/sky130hd/sky130_fd_sc_hd.gds").is_file() {
+            eprintln!("no built COMPUTER_8B run, skipping");
+            return;
+        }
+        let (layout, checks) = extract(root, &run).unwrap();
+        assert!(checks.missing_cells.is_empty(), "{:?}", checks.missing_cells);
+        assert!(checks.open_nets.is_empty(), "{:?}", checks.open_nets);
+        assert!(checks.unknown_vias.is_empty() && checks.masters_without_gds.is_empty());
+        assert!(layout.nets.iter().filter(|n| !n.special).all(|n| n.key.is_some()));
+        let (header, ints) = crate::layout::read_binary(&layout.write_binary()).unwrap();
+        assert_eq!(header["design"], "COMPUTER_8B");
+        let total: u64 = header["sections"].as_array().unwrap().iter().map(|s| s["length"].as_u64().unwrap()).sum();
+        assert_eq!(total as usize, ints.len());
+    }
+
     #[test]
     fn reads_metrics_and_log() {
         let dir = std::env::temp_dir().join(format!("logiccircuit-chip-test-{}", std::process::id()));
@@ -365,4 +386,74 @@ mod tests {
         assert!((m.fmax_mhz().unwrap() - 1000.0 / 10.5).abs() < 1e-9);
         assert!(!m.wire_um.contains_key("li1"));
     }
+}
+
+/// Files of the sky130hd platform needed outside the container.
+const PLATFORM_FILES: [&str; 3] = [
+    "lef/sky130_fd_sc_hd.tlef",
+    "lef/sky130_fd_sc_hd_merged.lef",
+    "gds/sky130_fd_sc_hd.gds",
+];
+
+/// Local copy of the platform files (`chip/.platform/sky130hd/`), copied out
+/// of the pinned image on first use.
+pub fn platform_dir(root: &Path) -> Result<PathBuf, String> {
+    let dir = root.join("chip/.platform/sky130hd");
+    let file_name = |f: &str| f.rsplit('/').next().unwrap().to_string();
+    if PLATFORM_FILES.iter().all(|f| dir.join(file_name(f)).is_file()) {
+        return Ok(dir);
+    }
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let image = std::fs::read_to_string(root.join("chip/flow/IMAGE"))
+        .map_err(|e| format!("chip/flow/IMAGE: {e}"))?
+        .trim()
+        .to_string();
+    let id = |flag: &str| {
+        Command::new("id").arg(flag).output().ok().map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string()).unwrap_or_default()
+    };
+    let sources: Vec<String> = PLATFORM_FILES.iter().map(|f| format!("{ORFS}/flow/platforms/sky130hd/{f}")).collect();
+    let status = Command::new("docker")
+        .args(["run", "--rm", "--user", &format!("{}:{}", id("-u"), id("-g"))])
+        .arg("-v")
+        .arg(format!("{}:/out", dir.canonicalize().map_err(|e| e.to_string())?.display()))
+        .arg(&image)
+        .arg("cp")
+        .args(&sources)
+        .arg("/out/")
+        .status()
+        .map_err(|e| format!("cannot run docker: {e}"))?;
+    if !status.success() {
+        return Err(format!("copying platform files from {image} failed"));
+    }
+    Ok(dir)
+}
+
+/// Picks a run of `name`: the given one, else `basic-met5`, else the first.
+pub fn resolve_run(root: &Path, name: &str, run: Option<&str>) -> Result<PathBuf, String> {
+    let all = runs(root, name);
+    let pick = match run {
+        Some(r) => all.iter().find(|m| m.run == r),
+        None => all.iter().find(|m| m.run == "basic-met5").or(all.first()),
+    };
+    pick.map(|m| chip_dir(root, name).join(&m.run))
+        .ok_or_else(|| format!("no chip run {}for '{name}' (chip build {name} first)", run.map(|r| format!("'{r}' ")).unwrap_or_default()))
+}
+
+/// Extracts the layout of a run (see `crate::layout`).
+pub fn extract(root: &Path, run_dir: &Path) -> Result<(crate::layout::Layout, crate::layout::Checks), String> {
+    let platform = platform_dir(root)?;
+    let def = std::fs::read_dir(run_dir)
+        .map_err(|e| e.to_string())?
+        .flatten()
+        .map(|e| e.path())
+        .find(|p| p.extension().is_some_and(|e| e == "def"))
+        .ok_or_else(|| format!("no DEF in {}", run_dir.display()))?;
+    let names = run_dir.join("names.tsv");
+    crate::layout::extract(&crate::layout::Sources {
+        def: &def,
+        tech_lef: &platform.join("sky130_fd_sc_hd.tlef"),
+        cell_lef: &platform.join("sky130_fd_sc_hd_merged.lef"),
+        cell_gds: &platform.join("sky130_fd_sc_hd.gds"),
+        names: names.is_file().then_some(names.as_path()),
+    })
 }

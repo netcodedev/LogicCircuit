@@ -321,6 +321,7 @@ pub fn export_verilog(builder: &CircuitBuilder, top: &str, opts: &VerilogOptions
     for net in undriven {
         let sig = signal(net, &mut net_signal, &mut names);
         let name = inst_namer.unique(format!("u_tie_{}", sanitize(&flat.nets[net])));
+        names.insert(name.clone(), format!("(tie-low) {}", flat.nets[net]));
         let (cell, pin) = match opts.cells {
             CellLib::Generic => ("LC_TIELO", "Y"),
             CellLib::Sky130 => ("sky130_fd_sc_hd__conb_1", "LO"),
@@ -330,6 +331,7 @@ pub fn export_verilog(builder: &CircuitBuilder, top: &str, opts: &VerilogOptions
     for (net, port) in extra_outputs {
         let sig = signal(net, &mut net_signal, &mut names);
         let name = inst_namer.unique(format!("u_buf_{}", sanitize(&port)));
+        names.insert(name.clone(), format!("(buffer) {port}"));
         let (cell, a, y, params) = match opts.cells {
             CellLib::Generic => ("LC_BUF", "A", "Y", Some(format!("#(.INIT(1'b{}), .DELAY(@D))", init_of(net)))),
             CellLib::Sky130 => ("sky130_fd_sc_hd__buf_1", "A", "X", None),

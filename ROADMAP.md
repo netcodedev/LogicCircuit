@@ -146,14 +146,34 @@ externe Toolchain braucht (Export, Statistiken, Darstellung), gibt es in beiden.
 
 ## Phase 3 – Layout in eigenes Format umwandeln
 
-- [ ] Parser für DEF (Platzierung, Verdrahtung, Netznamen) und LEF (Zellgrößen, Pins)
-- [ ] GDS lesen (z. B. Crate `gds21`), um die Zellinnereien zu bekommen:
-      Diffusion, Polysilizium, `li1`, Kontakte – daraus sind die Transistoren erkennbar
-- [ ] Eigenes kompaktes Layout-Format (JSON zum Debuggen, binär für große Designs):
-      Lagen mit Höhe/Dicke, Rechtecke pro Lage, Vias, Zellinstanzen, Netz-ID je Form
-- [ ] Netz-IDs auf unsere Simulationsschlüssel zurückführen (über die Namen aus Phase 1)
-- [ ] CLI: `chip extract <NAME> -o layout.bin`
-- [ ] Rust-Tests: jede Zelle der Netzliste ist im Layout, jedes Netz ist verbunden
+- [x] Eigene Parser ohne Zusatz-Crates: `src/layout/def.rs` (Komponenten, Pins,
+      Power-Grid, Netze mit Routing; generierte VIARULE-Vias, Non-Default-Rules für
+      Clock-Netze, Leitungsverlängerungen, RECT-Flicken), `lef.rs` (Lagen, Breiten,
+      Dicken, Vias, Makros mit Pins), `gds.rs` (Strukturen, BOUNDARY/BOX/PATH)
+- [x] Zellinneres aus dem GDS: nwell, diff, tap, poly, licon, li1, mcon und met1 –
+      Transistoren sind als poly über diff erkennbar (Gate = Überlappung)
+- [x] Plattformdateien (Tech-LEF, Zell-LEF, Zell-GDS) werden einmalig aus dem Image
+      nach `chip/.platform/sky130hd/` kopiert
+- [x] Layout-Format `layout.bin`: `LCLAYOUT`, Version, JSON-Kopf (Lagenstapel mit
+      Höhe/Dicke/Farbe, Masters, Instanznamen und -pfade, Netze mit Simulationsschlüssel,
+      Abschnittsindex), danach Int32-Abschnitte `master_rects`, `master_polys`,
+      `instances` (Master, x, y, Orientierung), `routes` (Lage, Netz, Rechteck).
+      Zellgeometrie steht nur einmal pro Master (gut für Instancing in Phase 4).
+      `--json` schreibt dasselbe als JSON zum Debuggen
+- [x] Netze auf Simulationsschlüssel zurückgeführt (Namensliste, Port-Bits,
+      Clock-Tree-Netze → Takteingang); Instanzen auf Hierarchiepfade
+- [x] CLI: `chip extract <NAME> [--run RUN] [-o DATEI] [--json]`
+- [x] **Prüfungen:** jede exportierte Zelle ist platziert; jedes Signalnetz verbindet
+      alle seine Pins (Union-Find über überlappende Formen, Vias verbinden die Lagen
+      darunter und darüber, Zellpins aus dem LEF in Platzierungsorientierung)
+- [x] Ergebnis COMPUTER_8B (`basic-met5`, 2026-11-09): 2,1 MB, 6.262 Instanzen
+      (2.181 aus unserer Netzliste, Rest Füll-/Tap-/Clock-Zellen), 22 Masters,
+      54.654 Routing-Formen, alle 2.223 Signalnetze einem Simulationsdraht zugeordnet,
+      **alle 2.181 Zellen platziert und alle 2.216 Netze verbunden**; ebenso für alle
+      anderen Läufe (2–5 Lagen, 70 %, NAND-Stufe, `--optimize`). Extraktion < 0,2 s
+- [x] Rust-Tests: GDS-Reals und -Elemente, LEF-Lagen/Vias/Makros, DEF inkl.
+      VIARULE-Geometrie und Orientierungen, Binärformat-Rundreise, echte Extraktion
+      (übersprungen ohne gebauten Lauf)
 
 ## Phase 4 – 3D-Anzeige im Browser
 

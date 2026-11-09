@@ -148,6 +148,22 @@ enum ChipCommand {
         #[arg(long)]
         optimize: bool,
     },
+    /// Combine DEF, LEF and cell GDS of a run into one layout file
+    /// (default <run>/layout.bin) and check it: every exported cell placed,
+    /// every signal net connected.
+    Extract {
+        #[arg(value_name = "COMPONENT_NAME")]
+        component_name: String,
+        /// Run to extract (default: basic-met5, else the first run).
+        #[arg(long)]
+        run: Option<String>,
+        /// Output file.
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+        /// Also write the layout as JSON (large; for debugging).
+        #[arg(long)]
+        json: bool,
+    },
     /// Compare all runs of a circuit (or show one run in detail).
     Report {
         #[arg(value_name = "COMPONENT_NAME")]
@@ -335,6 +351,12 @@ fn main() {
                         eprintln!("Error: {}", e);
                         std::process::exit(1);
                     }
+                }
+            }
+            ChipCommand::Extract { component_name, run, output, json } => {
+                if let Err(e) = chip_extract(&component_name, run.as_deref(), output, json) {
+                    eprintln!("Error: {}", e);
+                    std::process::exit(1);
                 }
             }
             ChipCommand::Report { component_name, run, json } => {
@@ -631,4 +653,86 @@ fn print_chip_cells(run: &RunMetrics) {
     for (cell, n) in cells {
         println!("  {:<36} {:>8}", cell, group_digits(*n));
     }
+}
+
+fn chip_extract(name: &str, run: Option<&str>, output: Option<PathBuf>, json: bool) -> Result<(), String> {
+    let root = Path::new(".");
+    let run_dir = chip::resolve_run(root, name, run)?;
+    println!("\nExtracting {} …", run_dir.display());
+    let started = std::time::Instant::now();
+    let (layout, checks) = chip::extract(root, &run_dir)?;
+    let out = output.unwrap_or_else(|| run_dir.join("layout.bin"));
+    let bytes = layout.write_binary();
+    std::fs::write(&out, &bytes).map_err(|e| format!("{}: {}", out.display(), e))?;
+    if json {
+        let json_path = out.with_extension("json");
+        std::fs::write(&json_path, layout.to_json()).map_err(|e| format!("{}: {}", json_path.display(), e))?;
+        println!("Wrote {}", json_path.display());
+    }
+    println!(
+        "Wrote {} ({:.1} MB) in {:.1} s",
+        out.display(),
+        bytes.len() as f64 / 1e6,
+        started.elapsed().as_secs_f64()
+    );
+
+    let mapped = layout.nets.iter().filter(|n| n.key.is_some()).count();
+    let signal = layout.nets.iter().filter(|n| !n.special).count();
+    let with_path = layout.instances.iter().filter(|i| i.path.is_some()).count();
+    println!(
+        "\n  Die {:.1} x {:.1} um, {} cell masters, {} instances ({} from our netlist)",
+        (layout.die.2 - layout.die.0) as f64 / layout.dbu_per_micron as f64,
+        (layout.die.3 - layout.die.1) as f64 / layout.dbu_per_micron as f64,
+        layout.masters.len(),
+        group_digits(layout.instances.len()),
+        group_digits(with_path)
+    );
+    println!(
+        "  {} nets, {} signal nets mapped to simulator wires, {} routing shapes",
+        group_digits(layout.nets.len()),
+        group_digits(mapped),
+        group_digits(layout.routes.len())
+    );
+    if mapped < signal {
+        println!("  ({} signal nets without wire key, e.g. buffers from --optimize)", signal - mapped);
+    }
+    println!("\n  {:<8} {:>10}", "Layer", "Shapes");
+    for (layer, n) in layout.shapes_per_layer() {
+        println!("  {:<8} {:>10}", layer, group_digits(n));
+    }
+
+    println!("\n  Checks");
+    let ok = |b: bool| if b { "✅" } else { "❌" };
+    println!(
+        "  {} cells placed: {} of {} exported",
+        ok(checks.missing_cells.is_empty()),
+        group_digits(checks.exported_cells - checks.missing_cells.len()),
+        group_digits(checks.exported_cells)
+    );
+    println!(
+        "  {} nets connected: {} of {}",
+        ok(checks.open_nets.is_empty()),
+        group_digits(checks.nets_checked - checks.open_nets.len()),
+        group_digits(checks.nets_checked)
+    );
+    for n in checks.open_nets.iter().take(10) {
+        println!("      open: {}", n);
+    }
+    for (what, list) in [
+        ("unknown vias", &checks.unknown_vias),
+        ("unknown layers", &checks.unknown_layers),
+        ("masters without GDS", &checks.masters_without_gds),
+    ] {
+        if !list.is_empty() {
+            println!("  ❌ {}: {}", what, list.join(", "));
+        }
+    }
+    let failed = !checks.missing_cells.is_empty()
+        || !checks.open_nets.is_empty()
+        || !checks.unknown_vias.is_empty()
+        || !checks.masters_without_gds.is_empty();
+    if failed {
+        return Err("layout checks failed".into());
+    }
+    Ok(())
 }

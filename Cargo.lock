@@ -10,6 +10,7 @@ dependencies = [
  "include_dir",
  "pest",
  "pest_derive",
+ "serde_json",
  "uuid",
 ]
 
