@@ -60,6 +60,14 @@ Run a program on the computer and watch the 7-segment output:
 cargo run --release -- run programs/countdown.asm --trace
 ```
 
+Programs in [`programs/16/`](programs/16) run on the 16-bit `COMPUTER_16B`
+(instruction set in [`ROADMAP_16BIT.md`](ROADMAP_16BIT.md)); `--input` sets
+its input port:
+
+```bash
+cargo run --release -- run programs/16/factorial.asm --input 8
+```
+
 Count the NAND gates of a circuit, broken down by part:
 
 ```bash
@@ -179,7 +187,7 @@ CIRCUIT ADDER<W> {
 | `src/circuit` | Circuit model and simulator |
 | `src/circuits/` | Library circuits: primitives, adders, ALU, muxes, decoders, latches, registers, display |
 | `circuits/` | Larger designs: datapaths, control units, CPUs, `COMPUTER_8B` |
-| `src/isa.rs`, `src/machine.rs` | Instruction set, assembler, program runner |
+| `src/isa.rs`, `src/isa/`, `src/machine.rs` | Instruction sets (8- and 16-bit), assemblers, program runner |
 | `src/export` | Verilog export and Icarus testbenches |
 | `src/chip.rs` | `chip build` / `report` around OpenROAD |
 | `src/layout` | DEF/LEF/GDS readers, `layout.bin` format, SVG/PNG renderer |

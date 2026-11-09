@@ -7,7 +7,7 @@ use logic_circuit::cldl::FlatLevel;
 use logic_circuit::export::verilog::{CellLib, VerilogOptions, export_verilog};
 use logic_circuit::export::verify_with_iverilog;
 use logic_circuit::chip::{self, BuildOptions, RunMetrics};
-use logic_circuit::{clt, isa, machine};
+use logic_circuit::{clt, machine};
 
 #[derive(clap::ValueEnum, Clone, Copy, Debug)]
 enum Level {
@@ -65,9 +65,14 @@ enum Commands {
     Run {
         #[arg(value_name = "PROGRAM")]
         program: PathBuf,
-        /// Circuit to run on (needs PC, Instruction and CLK ports).
-        #[arg(long, default_value = "COMPUTER_8B")]
-        top: String,
+        /// Circuit to run on (needs PC, Instruction and CLK ports). Default:
+        /// COMPUTER_16B for programs in a directory named "16", else
+        /// COMPUTER_8B. The circuit's ports select the instruction set.
+        #[arg(long)]
+        top: Option<String>,
+        /// Value on the input port `In` (decimal or 0x hex).
+        #[arg(long, default_value = "0", value_parser = parse_word)]
+        input: u16,
         /// Stop after this many instructions if the program does not HALT.
         #[arg(long, default_value_t = 10_000)]
         max_steps: usize,
@@ -361,8 +366,12 @@ fn main() {
                 Err(e) => eprintln!("Error saving .dot file: {}", e),
             }
         }
-        Some(Commands::Run { program, top, max_steps, trace }) => {
-            run_program(&builder, &program, &top, max_steps, trace);
+        Some(Commands::Run { program, top, input, max_steps, trace }) => {
+            let top = top.unwrap_or_else(|| {
+                let in_16 = program.parent().is_some_and(|dir| dir.ends_with("16"));
+                if in_16 { "COMPUTER_16B" } else { "COMPUTER_8B" }.to_string()
+            });
+            run_program(&builder, &program, &top, input, max_steps, trace);
         }
         Some(Commands::ExportVerilog { component_name, level, cells, keep_latches, output, names }) => {
             let opts = VerilogOptions {
@@ -489,13 +498,18 @@ fn main() {
     }
 }
 
-fn run_program(builder: &CircuitBuilder, path: &Path, top: &str, max_steps: usize, trace: bool) {
+/// Parses a 16-bit value given as decimal or `0x` hex.
+fn parse_word(text: &str) -> Result<u16, String> {
+    match text.strip_prefix("0x").or_else(|| text.strip_prefix("0X")) {
+        Some(hex) => u16::from_str_radix(hex, 16),
+        None => text.parse(),
+    }
+    .map_err(|e| format!("expected a 16-bit number: {e}"))
+}
+
+fn run_program(builder: &CircuitBuilder, path: &Path, top: &str, input: u16, max_steps: usize, trace: bool) {
     let source = std::fs::read_to_string(path).unwrap_or_else(|e| {
         eprintln!("Error reading {:?}: {}", path, e);
-        std::process::exit(1);
-    });
-    let program = isa::assemble(&source).unwrap_or_else(|e| {
-        eprintln!("{}:{}", path.display(), e);
         std::process::exit(1);
     });
     if builder.describe(top).is_none() {
@@ -504,52 +518,64 @@ fn run_program(builder: &CircuitBuilder, path: &Path, top: &str, max_steps: usiz
     }
 
     let circuit = builder.build(top);
-    if !machine::is_runnable(&circuit) {
+    let Some(mut machine) = machine::Machine::new(&circuit) else {
         eprintln!("Circuit '{}' has no PC/Instruction/CLK ports.", top);
         std::process::exit(1);
-    }
-    let rom = &program.words;
-    println!("\nRunning {} ({} words) on {}", path.display(), rom.len(), top);
+    };
+    let isa = machine.isa();
+    let program = isa.assemble(&source).unwrap_or_else(|e| {
+        eprintln!("{}:{}", path.display(), e);
+        std::process::exit(1);
+    });
+    machine.rom = program.words;
+    machine.input = Some(input);
+    // Hex digits of the PC and of Out.
+    let pc_digits = machine.pc_width().div_ceil(4);
+    let out_width = machine::bus_width(&circuit, machine::OUT);
+    let out_digits = out_width.div_ceil(4).max(1);
+    println!("\nRunning {} ({} words) on {}", path.display(), machine.rom.len(), top);
 
-    machine::fetch(&circuit, rom);
+    machine.fetch(&circuit);
     let mut steps = 0;
     let started = std::time::Instant::now();
     // Time spent printing the trace is not simulation time.
     let mut trace_time = std::time::Duration::ZERO;
     while steps < max_steps && !machine::halted(&circuit) {
-        let pc = machine::pc(&circuit);
-        let word = machine::word_at(rom, pc);
-        machine::step(&circuit, rom);
+        let pc = machine.pc(&circuit);
+        let word = machine.word_at(pc);
+        machine.step(&circuit);
         steps += 1;
         if trace {
             let t = std::time::Instant::now();
             println!(
-                "  [{:4}] PC={:02X}  {:04X}  {:<18} Out={:02X}",
+                "  [{:4}] PC={:0pw$X}  {:04X}  {:<18} Out={:0ow$X}",
                 steps,
                 pc,
                 word,
-                isa::disassemble(word),
-                machine::read_bus(&circuit, "Out", 8)
+                isa.disassemble_at(&machine.rom, pc),
+                machine::read_bus(&circuit, machine::OUT, out_width),
+                pw = pc_digits,
+                ow = out_digits,
             );
             trace_time += t.elapsed();
         }
     }
     let elapsed = started.elapsed().saturating_sub(trace_time);
 
-    let out = machine::read_bus(&circuit, "Out", 8);
+    let out = machine::read_bus(&circuit, machine::OUT, out_width);
     if machine::halted(&circuit) {
-        println!("Halted after {} instructions at PC={:02X}.", steps, machine::pc(&circuit));
+        println!("Halted after {} instructions at PC={:0w$X}.", steps, machine.pc(&circuit), w = pc_digits);
     } else {
         println!("Stopped after {} instructions (no HALT, see --max-steps).", steps);
     }
-    println!("Out = 0x{:02X} ({})", out, out);
+    println!("Out = 0x{:0w$X} ({})", out, out, w = out_digits);
     let secs = elapsed.as_secs_f64();
     let rate = if secs > 0.0 { steps as f64 / secs } else { 0.0 };
     let rate = if rate >= 1000.0 { format!("{:.1} kHz", rate / 1000.0) } else { format!("{:.0} Hz", rate) };
     println!("Time = {:.1} ms for {} instructions (≈ {})", secs * 1000.0, steps, rate);
 
-    // Show the 7-segment outputs if the circuit has them (Seg1 = high digit).
-    let digits: Vec<u32> = ["Seg1", "Seg0"]
+    // Show the 7-segment outputs if the circuit has them (highest digit first).
+    let digits: Vec<u32> = ["Seg3", "Seg2", "Seg1", "Seg0"]
         .iter()
         .filter(|name| circuit.get_wire_map().contains_key(&format!("{}.0", name)))
         .map(|name| machine::read_bus(&circuit, name, 7))

@@ -226,10 +226,36 @@ Eingängen/Flipflops und Ausgängen/Flipflops (neu in `cargo run -- nands`).
 
 ## Phase 5 – Software und Viewer
 
-- [ ] `src/isa.rs`: ISA pro CPU wählbar, neue Formate, Zwei-Wort-Befehle, 64K
-- [ ] `src/machine.rs`: Breiten aus den Ports, RAM-Modell
-- [ ] CLI `run` und Viewer-Programm-Panel für COMPUTER_16B
-- [ ] Beispielprogramme `programs/16/` und Rust-Tests
+- [x] `src/isa.rs`: `Isa::Cpu8`/`Isa::Cpu16`, gemeinsamer erster Durchlauf
+      (Kommentare, Labels, `.word`); 16-Bit-Assembler und -Disassembler in
+      `src/isa/cpu16.rs`, 64K Wörter. Syntax: `ADD R1, R2`, `SHL R1, R2` bzw.
+      `SHL R1, 3`, `LW R1, [R2+3]`, Sprungziele als Adressen/Labels (der
+      Assembler rechnet den Versatz aus, Fehler bei mehr als −128..127),
+      negative Zahlen, Labels überall wo Zahlen stehen dürfen.
+      Pseudobefehle `INC`, `DEC`, `SUBI`, `BRA` = `BAL`, `BHS`/`BLO`.
+      LI/JMP/CALL sind immer zwei Wörter (Labeladressen hängen nicht vom Wert
+      ab); das Listing zeigt das zweite Wort als `; 0x1234`
+- [x] `src/machine.rs`: `Machine` mit ROM, RAM und Eingabeport; Breiten aus den
+      Ports. `InstructionNext` vorhanden ⇒ 16-Bit-ISA; RAM (2^Breite von
+      `MemAddr`) nur mit Speicherports: `MemDataIn = ram[MemAddr]` vor jedem
+      Takt, Schreiben bei steigender Flanke, wenn `MemWrite`
+- [x] CLI `run`: ohne `--top` läuft ein Programm aus einem Ordner `16` auf
+      COMPUTER_16B, sonst auf COMPUTER_8B; `--input` setzt `In`; Trace, Out und
+      Anzeige mit der Breite der Ports (vier Ziffern bei COMPUTER_16B)
+- [x] Viewer: Beispiele und Assembler passend zur gebauten CPU, Adressen
+      vierstellig; ein Programm der anderen ISA wird beim Wechsel ersetzt.
+      Der Eingabeport bleibt in der Hand der Seitenleiste. Geprüft über die
+      WASM-Schnittstelle in Node (beide CPUs, Fibonacci bis HALT); die Seite
+      selbst nur lokal prüfbar (CDN im Container gesperrt)
+- [x] Beispielprogramme `programs/16/`: `fibonacci` (bis 46.368, Ende über das
+      Carry), `multiply` (1234 × 37 per Unterprogramm, Register auf dem Stack),
+      `factorial` (`n!` von `In`, rekursiv; 8! = 40.320), `sort` (Bubblesort von
+      acht Wörtern im RAM). Rust-Tests laufen alle bis HALT und prüfen Out bzw.
+      den RAM, dazu ein Test für SW/LW, PUSH/POP und IN
+- [x] Laufzeit (Release, `run`): COMPUTER_16B ≈ 200–400 Befehle/s,
+      COMPUTER_8B ≈ 1,6 kHz – 2,5-mal so viele Gatter und zwei Auswertungen
+      pro Fetch (Speicherwort hängt von `MemAddr` ab)
+- [x] **2026-11-09:** `cargo test` (45), `test` (427), `-d circuits test` (181), `verify-verilog` 82 Suiten in 4 Varianten grün
 
 ## Phase 6 – Chip und Vergleich
 
