@@ -1,5 +1,5 @@
 import init, { Sim } from './pkg/logic_circuit_viz.js';
-import { layoutFlat, symbolInputX, SYMBOL_W } from './flat.js';
+import { layoutFlat, symbolInputX, SYMBOL_W, CMOS } from './flat.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const HEADER = 34;   // part title area
@@ -47,7 +47,10 @@ try { stripes = localStorage.getItem(STRIPES_KEY) === '1'; } catch {}
 // View mode: 'parts' (the CLDL hierarchy), 'basic' (flattened to basic
 // blocks like NOT, AND, OR_4B) or 'nand' (flattened to NAND gates).
 const MODE_KEY = 'lc-viz-mode';
-const VIEW_MODES = ['parts', 'basic', 'nand', 'chip'];
+const VIEW_MODES = ['parts', 'basic', 'nand', 'cmos', 'chip'];
+// Transistor view: drawing every NAND as a CMOS cell only stays readable
+// (and fast) up to this many gates; bigger circuits ask to drill down.
+const CMOS_LIMIT = 1500;
 let viewMode = 'parts';
 try { const m = localStorage.getItem(MODE_KEY); if (VIEW_MODES.includes(m)) viewMode = m; } catch {}
 // ?mode=chip (etc.) in the URL wins, e.g. for links opened by `chip view`.
@@ -443,19 +446,28 @@ async function render() {
 
 function flatOf(type) {
   const key = `${viewMode}|${type}`;
-  if (!flats.has(key)) flats.set(key, JSON.parse(sim.flatten(type, viewMode)));
+  if (!flats.has(key)) flats.set(key, JSON.parse(sim.flatten(type, viewMode === 'cmos' ? 'nand' : viewMode)));
   return flats.get(key);
 }
 
 async function renderFlat(top) {
   const flat = flatOf(top.type);
-  const unit = viewMode === 'nand' ? 'NANDs' : 'Blöcke';
+  const cmos = viewMode === 'cmos';
+  const unit = viewMode === 'nand' || cmos ? 'NANDs' : 'Blöcke';
+  if (cmos && flat.blocks.length > CMOS_LIMIT) {
+    $('viewport').replaceChildren();
+    probes = [];
+    probesChanged();
+    renderCrumbs();
+    statusEl.textContent = `${top.type}: ${fmtCount(flat.blocks.length)} NANDs = ${fmtCount(flat.blocks.length * 4)} Transistoren – zu viele für die Transistoransicht (max. ${fmtCount(CMOS_LIMIT)} NANDs). In der Bauteil-Ansicht ein kleineres Bauteil öffnen.`;
+    return;
+  }
   const key = `flat|${viewMode}|${top.type}`;
   if (!layouts.has(key)) {
     statusEl.textContent = `Layout ${top.type}: ${fmtCount(flat.blocks.length)} ${unit}…`;
     await new Promise((r) => setTimeout(r, 20)); // let the status paint first
     const t0 = performance.now();
-    const lay = await layoutFlat(flat, elk);
+    const lay = await layoutFlat(flat, elk, { cmos });
     layouts.set(key, { lay, ms: performance.now() - t0 });
   }
   const { lay, ms } = layouts.get(key);
@@ -500,7 +512,9 @@ async function renderFlat(top) {
   }
 
   for (const n of lay.nodes) {
-    if (n.kind === 'block' && n.symbol) {
+    if (n.kind === 'block' && n.cmos) {
+      drawCmosNand(n, nodeLayer, watch);
+    } else if (n.kind === 'block' && n.symbol) {
       // Logic symbol, coloured by its output.
       const u = el('use', {
         href: `#sym-${n.symbol}`, x: n.x, y: n.y, width: SYMBOL_W, height: n.h,
@@ -546,6 +560,40 @@ async function renderFlat(top) {
   const nands = viewMode === 'basic' ? ` · ${nandLabel(view(top.type).nands)}` : '';
   flatStatus = `${top.type} · ${fmtCount(flat.blocks.length)} ${unit}${nands} · ${fmtCount(netPaths.size)} Netze · Layout ${lay.router} ${ms.toFixed(0)} ms`;
   statusEl.textContent = flatStatus;
+}
+
+// One NAND as CMOS cell: PMOS A and B in parallel from VDD to the output,
+// NMOS A and B in series from the output to GND. Transistors light up when
+// they conduct (CSS: NMOS on at gate 1, PMOS on at gate 0); the output node
+// takes the output value.
+function drawCmosNand(n, layer, watch) {
+  const g = el('g', { transform: `translate(${n.x},${n.y})`, class: 'node cmos' }, layer);
+  g.dataset.block = n.block;
+  const [a, b, out] = n.ports;
+  el('rect', { class: 'body', width: CMOS.w, height: CMOS.h, rx: 4 }, g);
+  // Rails
+  el('path', { class: 'rail', d: 'M6 6H58 M6 70H58' }, g);
+  el('text', { x: 60, y: 8, class: 'rail-label' }, g).textContent = '+';
+  el('text', { x: 60, y: 73, class: 'rail-label' }, g).textContent = '⏚';
+  // Gate wiring (thin): A to P_A and N_A, B to P_B and N_B.
+  const wa = el('path', { class: 'gate-wire s0', d: `M0 ${CMOS.in1}H10V45H26 M10 ${CMOS.in1}V20H14` }, g);
+  const wb = el('path', { class: 'gate-wire s0', d: `M0 ${CMOS.in2}H26 M6 ${CMOS.in2}V10H38V20` }, g);
+  watch(a.net, wa, 'gate-wire', 's');
+  watch(b.net, wb, 'gate-wire', 's');
+  // Drains/sources: VDD -> P_A, P_B -> output node; output -> N_A -> N_B -> GND.
+  el('path', { class: 'channel-wire', d: 'M20 6V14 M44 6V14 M20 26V32 M44 26V32 M32 32V40 M32 50V56 M32 66V70' }, g);
+  const node = el('path', { class: 'out-node s0', d: `M20 32H${CMOS.w}` }, g);
+  watch(out.net, node, 'out-node', 's');
+  const transistor = (x, y, kind, net, label) => {
+    const t = el('rect', { x: x - 3, y, width: 6, height: kind === 'p' ? 12 : 10, rx: 1.5, class: `tr ${kind}0` }, g);
+    el('title', {}, t).textContent = `${kind === 'p' ? 'PMOS' : 'NMOS'} ${label}`;
+    watch(net, t, 'tr', kind);
+    if (kind === 'p') el('circle', { cx: x - 5, cy: y + 6, r: 1.6, class: 'bubble' }, g);
+  };
+  transistor(20, 14, 'p', a.net, 'A');
+  transistor(44, 14, 'p', b.net, 'B');
+  transistor(32, 40, 'n', a.net, 'A');
+  transistor(32, 56, 'n', b.net, 'B');
 }
 
 // Hovering a block or wire in a flat view shows what it is in the status bar.

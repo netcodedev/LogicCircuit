@@ -16,6 +16,9 @@ export const SYMBOLS = {
 };
 export const SYMBOL_W = 36;
 
+// Transistor view: a NAND drawn as CMOS cell (see app.js drawCmosNand).
+export const CMOS = { w: 64, h: 76, in1: 24, in2: 61, out: 32 };
+
 // x of a symbol's input outline at height y (both in the 36x24 viewBox of the
 // <symbol>s in index.html). OR-family symbols have a curved back
 // (quadratic from (x0,1) via (x0+6,12) to (x0,23)); input wires must reach it.
@@ -46,7 +49,7 @@ const bitLabel = (key) => key.replace(/\.(\d+)$/, '[$1]');
  * each with ports at fixed positions, and one edge per (net driver -> load).
  * Nets without a driver (unconnected, reading 0) have no edges.
  */
-function buildGraph(flat) {
+function buildGraph(flat, cmos) {
   const nodes = [];
   const ioWidth = (label) => Math.max(44, label.length * 6.6 + 14);
 
@@ -64,6 +67,15 @@ function buildGraph(flat) {
     const outs = bitsOf(true);
     const symbol = SYMBOLS[b.kind] && outs.length === 1 ? SYMBOLS[b.kind] : null;
     let w, h;
+    if (cmos && b.kind === 'NAND') {
+      w = CMOS.w;
+      h = CMOS.h;
+      Object.assign(ins[0], { x: 0, y: CMOS.in1 });
+      Object.assign(ins[1], { x: 0, y: CMOS.in2 });
+      Object.assign(outs[0], { x: w, y: CMOS.out });
+      nodes.push({ id: `b${i}`, kind: 'block', block: i, gid: b.id, type: b.kind, cmos: true, w, h, ports: [...ins, ...outs] });
+      return;
+    }
     if (symbol) {
       w = SYMBOL_W;
       h = ins.length <= 2 ? 24 : ins.length * 10;
@@ -108,8 +120,8 @@ function buildGraph(flat) {
 
 const abs = (port) => ({ x: port.node.x + port.x, y: port.node.y + port.y });
 
-export async function layoutFlat(flat, elk) {
-  const graph = buildGraph(flat);
+export async function layoutFlat(flat, elk, { cmos = false } = {}) {
+  const graph = buildGraph(flat, cmos);
   return flat.blocks.length <= ELK_LIMIT ? layoutElk(graph, elk) : layoutFast(graph);
 }
 

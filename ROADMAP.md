@@ -220,8 +220,11 @@ externe Toolchain braucht (Export, Statistiken, Darstellung), gibt es in beiden.
 
 - [ ] Eigenen Platzierer und Router in Rust (Labyrinth-Router mit
       Negotiated Congestion auf einem 3D-Gitter) – läuft dann auch komplett im Browser
-- [ ] Transistoransicht ohne PDK: jedes NAND als CMOS-Zelle mit 4 Transistoren
-      selbst zeichnen (Lehrmodus)
+- [x] Transistoransicht ohne PDK (Ansicht „Transistoren“): jedes NAND als CMOS-Zelle –
+      PMOS A/B parallel von VDD zum Ausgang, NMOS A/B in Reihe nach GND; leitende
+      Transistoren leuchten live (NMOS bei Gate 1, PMOS bei Gate 0), Ausgangsknoten und
+      Gate-Leitungen tragen ihren Wert. Bis 1.500 NANDs (6.000 Transistoren), darüber
+      Hinweis auf eine tiefere Ebene
 - [ ] TinyTapeout prüfen: Passt `COMPUTER_8B` (oder eine kleinere Variante)
       in die verfügbaren Kacheln? Dann ließe sich der Chip tatsächlich fertigen
 - [ ] Größenvergleich: NAND-only-Mapping gegen optimierte Zellen (Fläche, Transistoren, Takt)

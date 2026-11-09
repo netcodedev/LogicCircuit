@@ -118,6 +118,20 @@
   .gate { color: var(--lo); }
   .gate.s1 { color: var(--hi); }
   .gate.s2 { color: var(--unk); }
+  .cmos rect.body { fill: var(--node); stroke: var(--node-stroke); }
+  .cmos .rail { stroke: var(--muted); stroke-width: 1.5; }
+  .cmos .rail-label { font-size: 8px; fill: var(--muted); }
+  .cmos .channel-wire { fill: none; stroke: var(--node-stroke); stroke-width: 1; }
+  .cmos .gate-wire { fill: none; stroke-width: 0.8; stroke-dasharray: 2 1.5; }
+  .cmos .gate-wire.s0 { stroke: var(--lo); } .cmos .gate-wire.s1 { stroke: var(--hi); }
+  .cmos .out-node { fill: none; stroke-width: 2; }
+  .cmos .out-node.s0 { stroke: var(--lo); } .cmos .out-node.s1 { stroke: var(--hi); } .cmos .out-node.s2 { stroke: var(--unk); }
+  .cmos .bubble { fill: none; stroke: var(--muted); stroke-width: 0.8; }
+  /* conducting: NMOS when its gate is 1, PMOS when its gate is 0 */
+  .tr { stroke: var(--node-stroke); stroke-width: 0.6; }
+  .tr.n1, .tr.p0 { fill: var(--hi); }
+  .tr.n0, .tr.p1 { fill: var(--lo); }
+  .tr.n2, .tr.p2 { fill: var(--unk); }
   .flat-box rect.body { fill: var(--node); stroke: var(--node-stroke); }
   .flat-box .type { font-size: 10px; fill: var(--text); }
   .export-row { display: flex; gap: 6px; margin-top: 10px; }
@@ -198,6 +212,7 @@
         <option value="parts">Bauteile</option>
         <option value="basic">Basis-Blöcke</option>
         <option value="nand">Nur NANDs</option>
+        <option value="cmos">Transistoren</option>
         <option value="chip">Chip 3D</option>
       </select>
     </label>
