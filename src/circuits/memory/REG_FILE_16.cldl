@@ -1,0 +1,43 @@
+CIRCUIT REG_FILE_16<W> {
+    // 16 registers of W bits (same structure as REG_FILE_16x8). R0 is
+    // hardwired to 0. Two read ports (A, B) and one write port.
+    INPUT DataIn[W];
+    INPUT WriteAddr[4];
+    INPUT WriteEnable;
+    INPUT ReadAddrA[4];
+    INPUT ReadAddrB[4];
+    INPUT CLK;
+
+    OUTPUT DataOutA[W];
+    OUTPUT DataOutB[W];
+
+    // R0 omitted (hardwired 0); registers R1-R15
+    FOR r IN 1..16 {
+        PART R[r]: REGISTER<W>;
+    }
+    PART WriteDecoder: DECODER_4_16;
+    PART ReadMuxA: MUX_16_1_BUS<W>;
+    PART ReadMuxB: MUX_16_1_BUS<W>;
+
+    // --- Write logic ---
+    CONNECT WriteAddr -> WriteDecoder.A;
+    CONNECT WriteEnable -> WriteDecoder.Enable;
+    // Skip O[0] so R0 can never be written (stays 0).
+    FOR r IN 1..16 {
+        CONNECT WriteDecoder.O[r] -> R[r].Load;
+        CONNECT DataIn -> R[r].Data;
+        CONNECT CLK -> R[r].CLK;
+    }
+
+    // --- Read ports (input 0 unconnected => R0 reads 0) ---
+    FOR r IN 1..16 {
+        FOR i IN 0..W {
+            CONNECT R[r].Q[i] -> ReadMuxA.In[r*W+i];
+            CONNECT R[r].Q[i] -> ReadMuxB.In[r*W+i];
+        }
+    }
+    CONNECT ReadAddrA -> ReadMuxA.S;
+    CONNECT ReadAddrB -> ReadMuxB.S;
+    CONNECT ReadMuxA.Out -> DataOutA;
+    CONNECT ReadMuxB.Out -> DataOutB;
+}

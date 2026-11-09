@@ -1,0 +1,26 @@
+CIRCUIT MUX_4_1_BUS<W> {
+    // 4-to-1 multiplexer for W-bit buses (same structure as MUX_8B_4_1).
+    // The four inputs share one bus: input k is In[k*W .. k*W+W-1], so a
+    // loop can address them by number (CLDL has no name concatenation).
+    INPUT In[4*W];
+    INPUT S[2];
+
+    OUTPUT Out[W];
+
+    PART MUX_A: MUX_2_1_BUS<W>; // In0/In1 by S[0]
+    PART MUX_B: MUX_2_1_BUS<W>; // In2/In3 by S[0]
+    PART MUX_C: MUX_2_1_BUS<W>; // MUX_A/MUX_B by S[1]
+
+    FOR i IN 0..W {
+        CONNECT In[i] -> MUX_A.A[i];
+        CONNECT In[W+i] -> MUX_A.B[i];
+        CONNECT In[2*W+i] -> MUX_B.A[i];
+        CONNECT In[3*W+i] -> MUX_B.B[i];
+    }
+    CONNECT S[0] -> MUX_A.S;
+    CONNECT S[0] -> MUX_B.S;
+    CONNECT MUX_A.Out -> MUX_C.A;
+    CONNECT MUX_B.Out -> MUX_C.B;
+    CONNECT S[1] -> MUX_C.S;
+    CONNECT MUX_C.Out -> Out;
+}

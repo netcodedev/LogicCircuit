@@ -45,8 +45,10 @@ test_body = { test_command* }
 test_case = { "TEST" ~ string_literal ~ "{" ~ test_body ~ "}" }
 
 // Top-level block defining tests for one circuit
-// TESTS FOR CIRCUIT_NAME { test_case* }
-test_suite = { "TESTS" ~ "FOR" ~ ident ~ "{" ~ test_case* ~ "}" }
+// TESTS FOR CIRCUIT_NAME { test_case* }  or  TESTS FOR ADDER<8> { ... }
+// Circuit name, optionally with parameter values: ADDER_8B, ADDER<8>
+circuit_name = { ident ~ ("<" ~ number ~ ("," ~ number)* ~ ">")? }
+test_suite = { "TESTS" ~ "FOR" ~ circuit_name ~ "{" ~ test_case* ~ "}" }
 
 // A file can contain multiple test suites
 file = { SOI ~ test_suite* ~ EOI }

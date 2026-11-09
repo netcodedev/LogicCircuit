@@ -1,0 +1,283 @@
+// Tests for the 16-bit barrel shifter (SHL/SHR/SAR/ROL/ROR)
+
+TESTS FOR SHIFTER_16B {
+    TEST "SHL 0x8421 by 0 = 0x8421" {
+        SET A[0] 1, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 1, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 1, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 1;
+        SET Amt[0] 0, Amt[1] 0, Amt[2] 0, Amt[3] 0;
+        SET Left 1, Rot 0, Arith 0;
+        EVAL;
+        ASSERT Out[0] 1; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 1; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 0; ASSERT Out[10] 1; ASSERT Out[11] 0; ASSERT Out[12] 0; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 1;
+    }
+
+    TEST "SHL 0x8421 by 1 = 0x0842" {
+        SET A[0] 1, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 1, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 1, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 1;
+        SET Amt[0] 1, Amt[1] 0, Amt[2] 0, Amt[3] 0;
+        SET Left 1, Rot 0, Arith 0;
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 1; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 1; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 0; ASSERT Out[10] 0; ASSERT Out[11] 1; ASSERT Out[12] 0; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 0;
+    }
+
+    TEST "SHL 0x8421 by 4 = 0x4210" {
+        SET A[0] 1, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 1, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 1, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 1;
+        SET Amt[0] 0, Amt[1] 0, Amt[2] 1, Amt[3] 0;
+        SET Left 1, Rot 0, Arith 0;
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 1; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 1; ASSERT Out[10] 0; ASSERT Out[11] 0; ASSERT Out[12] 0; ASSERT Out[13] 0; ASSERT Out[14] 1; ASSERT Out[15] 0;
+    }
+
+    TEST "SHL 0xB00F by 7 = 0x0780" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 1, A[13] 1, A[14] 0, A[15] 1;
+        SET Amt[0] 1, Amt[1] 1, Amt[2] 1, Amt[3] 0;
+        SET Left 1, Rot 0, Arith 0;
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 1; ASSERT Out[8] 1; ASSERT Out[9] 1; ASSERT Out[10] 1; ASSERT Out[11] 0; ASSERT Out[12] 0; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 0;
+    }
+
+    TEST "SHL 0xB00F by 8 = 0x0F00" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 1, A[13] 1, A[14] 0, A[15] 1;
+        SET Amt[0] 0, Amt[1] 0, Amt[2] 0, Amt[3] 1;
+        SET Left 1, Rot 0, Arith 0;
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 1; ASSERT Out[9] 1; ASSERT Out[10] 1; ASSERT Out[11] 1; ASSERT Out[12] 0; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 0;
+    }
+
+    TEST "SHL 0x7FFE by 15 = 0x0000" {
+        SET A[0] 0, A[1] 1, A[2] 1, A[3] 1, A[4] 1, A[5] 1, A[6] 1, A[7] 1, A[8] 1, A[9] 1, A[10] 1, A[11] 1, A[12] 1, A[13] 1, A[14] 1, A[15] 0;
+        SET Amt[0] 1, Amt[1] 1, Amt[2] 1, Amt[3] 1;
+        SET Left 1, Rot 0, Arith 0;
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 0; ASSERT Out[10] 0; ASSERT Out[11] 0; ASSERT Out[12] 0; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 0;
+    }
+
+    TEST "SHL 0x8001 by 3 = 0x0008" {
+        SET A[0] 1, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 1;
+        SET Amt[0] 1, Amt[1] 1, Amt[2] 0, Amt[3] 0;
+        SET Left 1, Rot 0, Arith 0;
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 1; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 0; ASSERT Out[10] 0; ASSERT Out[11] 0; ASSERT Out[12] 0; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 0;
+    }
+
+    TEST "SHR 0x8421 by 0 = 0x8421" {
+        SET A[0] 1, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 1, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 1, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 1;
+        SET Amt[0] 0, Amt[1] 0, Amt[2] 0, Amt[3] 0;
+        SET Left 0, Rot 0, Arith 0;
+        EVAL;
+        ASSERT Out[0] 1; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 1; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 0; ASSERT Out[10] 1; ASSERT Out[11] 0; ASSERT Out[12] 0; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 1;
+    }
+
+    TEST "SHR 0x8421 by 1 = 0x4210" {
+        SET A[0] 1, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 1, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 1, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 1;
+        SET Amt[0] 1, Amt[1] 0, Amt[2] 0, Amt[3] 0;
+        SET Left 0, Rot 0, Arith 0;
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 1; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 1; ASSERT Out[10] 0; ASSERT Out[11] 0; ASSERT Out[12] 0; ASSERT Out[13] 0; ASSERT Out[14] 1; ASSERT Out[15] 0;
+    }
+
+    TEST "SHR 0x8421 by 4 = 0x0842" {
+        SET A[0] 1, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 1, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 1, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 1;
+        SET Amt[0] 0, Amt[1] 0, Amt[2] 1, Amt[3] 0;
+        SET Left 0, Rot 0, Arith 0;
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 1; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 1; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 0; ASSERT Out[10] 0; ASSERT Out[11] 1; ASSERT Out[12] 0; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 0;
+    }
+
+    TEST "SHR 0xB00F by 7 = 0x0160" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 1, A[13] 1, A[14] 0, A[15] 1;
+        SET Amt[0] 1, Amt[1] 1, Amt[2] 1, Amt[3] 0;
+        SET Left 0, Rot 0, Arith 0;
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 1; ASSERT Out[6] 1; ASSERT Out[7] 0; ASSERT Out[8] 1; ASSERT Out[9] 0; ASSERT Out[10] 0; ASSERT Out[11] 0; ASSERT Out[12] 0; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 0;
+    }
+
+    TEST "SHR 0xB00F by 8 = 0x00B0" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 1, A[13] 1, A[14] 0, A[15] 1;
+        SET Amt[0] 0, Amt[1] 0, Amt[2] 0, Amt[3] 1;
+        SET Left 0, Rot 0, Arith 0;
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 1; ASSERT Out[5] 1; ASSERT Out[6] 0; ASSERT Out[7] 1; ASSERT Out[8] 0; ASSERT Out[9] 0; ASSERT Out[10] 0; ASSERT Out[11] 0; ASSERT Out[12] 0; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 0;
+    }
+
+    TEST "SHR 0x7FFE by 15 = 0x0000" {
+        SET A[0] 0, A[1] 1, A[2] 1, A[3] 1, A[4] 1, A[5] 1, A[6] 1, A[7] 1, A[8] 1, A[9] 1, A[10] 1, A[11] 1, A[12] 1, A[13] 1, A[14] 1, A[15] 0;
+        SET Amt[0] 1, Amt[1] 1, Amt[2] 1, Amt[3] 1;
+        SET Left 0, Rot 0, Arith 0;
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 0; ASSERT Out[10] 0; ASSERT Out[11] 0; ASSERT Out[12] 0; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 0;
+    }
+
+    TEST "SHR 0x8001 by 3 = 0x1000" {
+        SET A[0] 1, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 1;
+        SET Amt[0] 1, Amt[1] 1, Amt[2] 0, Amt[3] 0;
+        SET Left 0, Rot 0, Arith 0;
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 0; ASSERT Out[10] 0; ASSERT Out[11] 0; ASSERT Out[12] 1; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 0;
+    }
+
+    TEST "SAR 0x8421 by 0 = 0x8421" {
+        SET A[0] 1, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 1, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 1, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 1;
+        SET Amt[0] 0, Amt[1] 0, Amt[2] 0, Amt[3] 0;
+        SET Left 0, Rot 0, Arith 1;
+        EVAL;
+        ASSERT Out[0] 1; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 1; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 0; ASSERT Out[10] 1; ASSERT Out[11] 0; ASSERT Out[12] 0; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 1;
+    }
+
+    TEST "SAR 0x8421 by 1 = 0xC210" {
+        SET A[0] 1, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 1, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 1, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 1;
+        SET Amt[0] 1, Amt[1] 0, Amt[2] 0, Amt[3] 0;
+        SET Left 0, Rot 0, Arith 1;
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 1; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 1; ASSERT Out[10] 0; ASSERT Out[11] 0; ASSERT Out[12] 0; ASSERT Out[13] 0; ASSERT Out[14] 1; ASSERT Out[15] 1;
+    }
+
+    TEST "SAR 0x8421 by 4 = 0xF842" {
+        SET A[0] 1, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 1, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 1, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 1;
+        SET Amt[0] 0, Amt[1] 0, Amt[2] 1, Amt[3] 0;
+        SET Left 0, Rot 0, Arith 1;
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 1; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 1; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 0; ASSERT Out[10] 0; ASSERT Out[11] 1; ASSERT Out[12] 1; ASSERT Out[13] 1; ASSERT Out[14] 1; ASSERT Out[15] 1;
+    }
+
+    TEST "SAR 0xB00F by 7 = 0xFF60" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 1, A[13] 1, A[14] 0, A[15] 1;
+        SET Amt[0] 1, Amt[1] 1, Amt[2] 1, Amt[3] 0;
+        SET Left 0, Rot 0, Arith 1;
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 1; ASSERT Out[6] 1; ASSERT Out[7] 0; ASSERT Out[8] 1; ASSERT Out[9] 1; ASSERT Out[10] 1; ASSERT Out[11] 1; ASSERT Out[12] 1; ASSERT Out[13] 1; ASSERT Out[14] 1; ASSERT Out[15] 1;
+    }
+
+    TEST "SAR 0xB00F by 8 = 0xFFB0" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 1, A[13] 1, A[14] 0, A[15] 1;
+        SET Amt[0] 0, Amt[1] 0, Amt[2] 0, Amt[3] 1;
+        SET Left 0, Rot 0, Arith 1;
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 1; ASSERT Out[5] 1; ASSERT Out[6] 0; ASSERT Out[7] 1; ASSERT Out[8] 1; ASSERT Out[9] 1; ASSERT Out[10] 1; ASSERT Out[11] 1; ASSERT Out[12] 1; ASSERT Out[13] 1; ASSERT Out[14] 1; ASSERT Out[15] 1;
+    }
+
+    TEST "SAR 0x7FFE by 15 = 0x0000" {
+        SET A[0] 0, A[1] 1, A[2] 1, A[3] 1, A[4] 1, A[5] 1, A[6] 1, A[7] 1, A[8] 1, A[9] 1, A[10] 1, A[11] 1, A[12] 1, A[13] 1, A[14] 1, A[15] 0;
+        SET Amt[0] 1, Amt[1] 1, Amt[2] 1, Amt[3] 1;
+        SET Left 0, Rot 0, Arith 1;
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 0; ASSERT Out[10] 0; ASSERT Out[11] 0; ASSERT Out[12] 0; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 0;
+    }
+
+    TEST "SAR 0x8001 by 3 = 0xF000" {
+        SET A[0] 1, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 1;
+        SET Amt[0] 1, Amt[1] 1, Amt[2] 0, Amt[3] 0;
+        SET Left 0, Rot 0, Arith 1;
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 0; ASSERT Out[10] 0; ASSERT Out[11] 0; ASSERT Out[12] 1; ASSERT Out[13] 1; ASSERT Out[14] 1; ASSERT Out[15] 1;
+    }
+
+    TEST "ROL 0x8421 by 0 = 0x8421" {
+        SET A[0] 1, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 1, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 1, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 1;
+        SET Amt[0] 0, Amt[1] 0, Amt[2] 0, Amt[3] 0;
+        SET Left 1, Rot 1, Arith 0;
+        EVAL;
+        ASSERT Out[0] 1; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 1; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 0; ASSERT Out[10] 1; ASSERT Out[11] 0; ASSERT Out[12] 0; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 1;
+    }
+
+    TEST "ROL 0x8421 by 1 = 0x0843" {
+        SET A[0] 1, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 1, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 1, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 1;
+        SET Amt[0] 1, Amt[1] 0, Amt[2] 0, Amt[3] 0;
+        SET Left 1, Rot 1, Arith 0;
+        EVAL;
+        ASSERT Out[0] 1; ASSERT Out[1] 1; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 1; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 0; ASSERT Out[10] 0; ASSERT Out[11] 1; ASSERT Out[12] 0; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 0;
+    }
+
+    TEST "ROL 0x8421 by 4 = 0x4218" {
+        SET A[0] 1, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 1, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 1, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 1;
+        SET Amt[0] 0, Amt[1] 0, Amt[2] 1, Amt[3] 0;
+        SET Left 1, Rot 1, Arith 0;
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 1; ASSERT Out[4] 1; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 1; ASSERT Out[10] 0; ASSERT Out[11] 0; ASSERT Out[12] 0; ASSERT Out[13] 0; ASSERT Out[14] 1; ASSERT Out[15] 0;
+    }
+
+    TEST "ROL 0xB00F by 7 = 0x07D8" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 1, A[13] 1, A[14] 0, A[15] 1;
+        SET Amt[0] 1, Amt[1] 1, Amt[2] 1, Amt[3] 0;
+        SET Left 1, Rot 1, Arith 0;
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 1; ASSERT Out[4] 1; ASSERT Out[5] 0; ASSERT Out[6] 1; ASSERT Out[7] 1; ASSERT Out[8] 1; ASSERT Out[9] 1; ASSERT Out[10] 1; ASSERT Out[11] 0; ASSERT Out[12] 0; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 0;
+    }
+
+    TEST "ROL 0xB00F by 8 = 0x0FB0" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 1, A[13] 1, A[14] 0, A[15] 1;
+        SET Amt[0] 0, Amt[1] 0, Amt[2] 0, Amt[3] 1;
+        SET Left 1, Rot 1, Arith 0;
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 1; ASSERT Out[5] 1; ASSERT Out[6] 0; ASSERT Out[7] 1; ASSERT Out[8] 1; ASSERT Out[9] 1; ASSERT Out[10] 1; ASSERT Out[11] 1; ASSERT Out[12] 0; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 0;
+    }
+
+    TEST "ROL 0x7FFE by 15 = 0x3FFF" {
+        SET A[0] 0, A[1] 1, A[2] 1, A[3] 1, A[4] 1, A[5] 1, A[6] 1, A[7] 1, A[8] 1, A[9] 1, A[10] 1, A[11] 1, A[12] 1, A[13] 1, A[14] 1, A[15] 0;
+        SET Amt[0] 1, Amt[1] 1, Amt[2] 1, Amt[3] 1;
+        SET Left 1, Rot 1, Arith 0;
+        EVAL;
+        ASSERT Out[0] 1; ASSERT Out[1] 1; ASSERT Out[2] 1; ASSERT Out[3] 1; ASSERT Out[4] 1; ASSERT Out[5] 1; ASSERT Out[6] 1; ASSERT Out[7] 1; ASSERT Out[8] 1; ASSERT Out[9] 1; ASSERT Out[10] 1; ASSERT Out[11] 1; ASSERT Out[12] 1; ASSERT Out[13] 1; ASSERT Out[14] 0; ASSERT Out[15] 0;
+    }
+
+    TEST "ROL 0x8001 by 3 = 0x000C" {
+        SET A[0] 1, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 1;
+        SET Amt[0] 1, Amt[1] 1, Amt[2] 0, Amt[3] 0;
+        SET Left 1, Rot 1, Arith 0;
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 1; ASSERT Out[3] 1; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 0; ASSERT Out[10] 0; ASSERT Out[11] 0; ASSERT Out[12] 0; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 0;
+    }
+
+    TEST "ROR 0x8421 by 0 = 0x8421" {
+        SET A[0] 1, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 1, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 1, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 1;
+        SET Amt[0] 0, Amt[1] 0, Amt[2] 0, Amt[3] 0;
+        SET Left 0, Rot 1, Arith 0;
+        EVAL;
+        ASSERT Out[0] 1; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 1; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 0; ASSERT Out[10] 1; ASSERT Out[11] 0; ASSERT Out[12] 0; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 1;
+    }
+
+    TEST "ROR 0x8421 by 1 = 0xC210" {
+        SET A[0] 1, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 1, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 1, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 1;
+        SET Amt[0] 1, Amt[1] 0, Amt[2] 0, Amt[3] 0;
+        SET Left 0, Rot 1, Arith 0;
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 1; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 1; ASSERT Out[10] 0; ASSERT Out[11] 0; ASSERT Out[12] 0; ASSERT Out[13] 0; ASSERT Out[14] 1; ASSERT Out[15] 1;
+    }
+
+    TEST "ROR 0x8421 by 4 = 0x1842" {
+        SET A[0] 1, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 1, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 1, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 1;
+        SET Amt[0] 0, Amt[1] 0, Amt[2] 1, Amt[3] 0;
+        SET Left 0, Rot 1, Arith 0;
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 1; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 1; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 0; ASSERT Out[10] 0; ASSERT Out[11] 1; ASSERT Out[12] 1; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 0;
+    }
+
+    TEST "ROR 0xB00F by 7 = 0x1F60" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 1, A[13] 1, A[14] 0, A[15] 1;
+        SET Amt[0] 1, Amt[1] 1, Amt[2] 1, Amt[3] 0;
+        SET Left 0, Rot 1, Arith 0;
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 1; ASSERT Out[6] 1; ASSERT Out[7] 0; ASSERT Out[8] 1; ASSERT Out[9] 1; ASSERT Out[10] 1; ASSERT Out[11] 1; ASSERT Out[12] 1; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 0;
+    }
+
+    TEST "ROR 0xB00F by 8 = 0x0FB0" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 1, A[13] 1, A[14] 0, A[15] 1;
+        SET Amt[0] 0, Amt[1] 0, Amt[2] 0, Amt[3] 1;
+        SET Left 0, Rot 1, Arith 0;
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 1; ASSERT Out[5] 1; ASSERT Out[6] 0; ASSERT Out[7] 1; ASSERT Out[8] 1; ASSERT Out[9] 1; ASSERT Out[10] 1; ASSERT Out[11] 1; ASSERT Out[12] 0; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 0;
+    }
+
+    TEST "ROR 0x7FFE by 15 = 0xFFFC" {
+        SET A[0] 0, A[1] 1, A[2] 1, A[3] 1, A[4] 1, A[5] 1, A[6] 1, A[7] 1, A[8] 1, A[9] 1, A[10] 1, A[11] 1, A[12] 1, A[13] 1, A[14] 1, A[15] 0;
+        SET Amt[0] 1, Amt[1] 1, Amt[2] 1, Amt[3] 1;
+        SET Left 0, Rot 1, Arith 0;
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 1; ASSERT Out[3] 1; ASSERT Out[4] 1; ASSERT Out[5] 1; ASSERT Out[6] 1; ASSERT Out[7] 1; ASSERT Out[8] 1; ASSERT Out[9] 1; ASSERT Out[10] 1; ASSERT Out[11] 1; ASSERT Out[12] 1; ASSERT Out[13] 1; ASSERT Out[14] 1; ASSERT Out[15] 1;
+    }
+
+    TEST "ROR 0x8001 by 3 = 0x3000" {
+        SET A[0] 1, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 1;
+        SET Amt[0] 1, Amt[1] 1, Amt[2] 0, Amt[3] 0;
+        SET Left 0, Rot 1, Arith 0;
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 0; ASSERT Out[10] 0; ASSERT Out[11] 0; ASSERT Out[12] 1; ASSERT Out[13] 1; ASSERT Out[14] 0; ASSERT Out[15] 0;
+    }
+}

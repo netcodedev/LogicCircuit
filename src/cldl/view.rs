@@ -124,7 +124,19 @@ fn pin_views(pins: &[IoPinDef]) -> Vec<PinView> {
 impl CircuitBuilder {
     /// Names of all known circuit definitions, sorted.
     pub fn circuit_names(&self) -> Vec<String> {
-        let mut names: Vec<String> = self.definitions.keys().cloned().collect();
+        // Elaborate the parametric parts used anywhere (e.g. `ADDER<8>`), so
+        // they are listed too. Errors surface when the circuit is built.
+        let plain: Vec<String> = self.definitions.borrow().keys().filter(|k| !k.contains('<')).cloned().collect();
+        for name in &plain {
+            let _ = self.check(name);
+        }
+        let mut names: Vec<String> = self
+            .definitions
+            .borrow()
+            .iter()
+            .filter(|(k, d)| **k == d.name)
+            .map(|(k, _)| k.clone())
+            .collect();
         names.sort();
         names
     }
@@ -143,7 +155,7 @@ impl CircuitBuilder {
         if let Some(&n) = memo.get(name) {
             return Some(n);
         }
-        let def = self.definitions.get(name)?;
+        let def = self.def(name)?;
         let mut total = 0;
         for part in &def.parts {
             total += self.count_nands(&part.part_type, memo)?;
@@ -152,10 +164,45 @@ impl CircuitBuilder {
         Some(total)
     }
 
+    /// Longest combinational path of `name` in NAND gates: from a top-level
+    /// input or flip-flop output to a top-level output or flip-flop input.
+    /// Flip-flops (`DFLIP_FLOP`) cut the paths; any other feedback loop is
+    /// cut where the search meets it again. A rough, technology-independent
+    /// measure for comparing designs (e.g. ripple vs. lookahead adders).
+    pub fn logic_depth(&self, name: &str) -> Option<usize> {
+        let flat = self.flatten_until(name, &|t: &str| t == "DFLIP_FLOP")?;
+        // NAND output net -> its two input nets.
+        let mut driver: HashMap<usize, [usize; 2]> = HashMap::new();
+        let mut ends: Vec<usize> = flat.outputs.iter().map(|&(_, n)| n).collect();
+        for block in &flat.blocks {
+            let net = |pin: &str| block.pins.iter().find(|p| p.name == pin).map(|p| p.nets[0]);
+            match block.kind.as_str() {
+                "NAND" => {
+                    driver.insert(net("out")?, [net("in1")?, net("in2")?]);
+                }
+                _ => ends.extend(net("D")),
+            }
+        }
+        fn depth(net: usize, driver: &HashMap<usize, [usize; 2]>, memo: &mut HashMap<usize, Option<usize>>) -> usize {
+            match memo.get(&net) {
+                Some(Some(d)) => return *d,
+                Some(None) => return 0, // on the current path: a loop
+                None => {}
+            }
+            let Some(inputs) = driver.get(&net) else { return 0 };
+            memo.insert(net, None);
+            let d = 1 + inputs.iter().map(|&n| depth(n, driver, memo)).max().unwrap_or(0);
+            memo.insert(net, Some(d));
+            d
+        }
+        let mut memo = HashMap::new();
+        Some(ends.into_iter().map(|n| depth(n, &driver, &mut memo)).max().unwrap_or(0))
+    }
+
     /// Describes one level of the named circuit for visualization.
     /// Returns `None` if no such definition exists.
     pub fn describe(&self, name: &str) -> Option<CircuitView> {
-        let def = self.definitions.get(name)?;
+        let def = self.def(name)?;
         let mut memo = HashMap::new();
 
         let parts = def
@@ -176,7 +223,8 @@ impl CircuitBuilder {
                         nand_count: 1,
                     }
                 } else {
-                    let sub_def = self.definitions.get(&part.part_type);
+                    let sub_def = self.def(&part.part_type);
+                    let sub_def = sub_def.as_deref();
                     PartView {
                         instance_name: part.instance_name.clone(),
                         part_type: part.part_type.clone(),
@@ -195,13 +243,13 @@ impl CircuitBuilder {
             .map(|conn| {
                 let width = match (conn.source_pin.index, conn.dest_pin.index) {
                     (None, None) => self
-                        .get_pin_width(&conn.source_pin.base_name, def)
-                        .or_else(|| self.get_pin_width(&conn.dest_pin.base_name, def)),
+                        .get_pin_width(&conn.source_pin.base_name, &def)
+                        .or_else(|| self.get_pin_width(&conn.dest_pin.base_name, &def)),
                     _ => None,
                 };
                 ConnectionView {
-                    source: endpoint(&conn.source_pin, def),
-                    dest: endpoint(&conn.dest_pin, def),
+                    source: endpoint(&conn.source_pin, &def),
+                    dest: endpoint(&conn.dest_pin, &def),
                     width,
                 }
             })
@@ -259,5 +307,18 @@ mod tests {
             let via_basic: usize = basic.iter().map(|b| builder.nand_count(&b.kind).unwrap()).sum();
             assert_eq!(counted, via_basic, "{name}");
         }
+    }
+
+    #[test]
+    fn logic_depth_counts_nand_levels() {
+        let builder = CircuitBuilder::new();
+        assert_eq!(builder.logic_depth("NAND"), None);
+        assert_eq!(builder.logic_depth("NOT"), Some(1));
+        assert_eq!(builder.logic_depth("AND"), Some(2));
+        // Flip-flops cut paths: a register is shallow despite its latches.
+        assert!(builder.logic_depth("REGISTER<16>").unwrap() < 10);
+        let ripple = builder.logic_depth("ADDER<16>").unwrap();
+        let lookahead = builder.logic_depth("ADDER_CLA_16B").unwrap();
+        assert!(lookahead * 4 < ripple, "{lookahead} vs {ripple}");
     }
 }

@@ -1,0 +1,24 @@
+CIRCUIT ADDER<W> {
+    // W-bit ripple-carry adder: S = A + B + Cin, Cout = carry out of bit W-1.
+    // Same structure as ADDER_4B/ADDER_8B (one FULL_ADDER per bit).
+    INPUT A[W];
+    INPUT B[W];
+    INPUT Cin;
+
+    OUTPUT S[W];
+    OUTPUT Cout;
+
+    FOR i IN 0..W {
+        PART FA[i]: FULL_ADDER;
+        CONNECT A[i] -> FA[i].a;
+        CONNECT B[i] -> FA[i].b;
+        CONNECT FA[i].sum -> S[i];
+    }
+
+    // Carry chain
+    CONNECT Cin -> FA[0].cin;
+    FOR i IN 1..W {
+        CONNECT FA[i-1].cout -> FA[i].cin;
+    }
+    CONNECT FA[W-1].cout -> Cout;
+}

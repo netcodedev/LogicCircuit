@@ -1,0 +1,90 @@
+CIRCUIT ALU_16B {
+    // 16-bit ALU. The operands pass two conditioners before the units:
+    //   A' = ZeroA ? 0 : A        B' = InvB ? ~B : B
+    // and S selects the result:
+    //   S = 00: A' + B' + Cin   01: A' AND B'   10: A' OR B'   11: A' XOR B'
+    //
+    // This covers the whole ALU function code with control bits only:
+    //   ADD  S=00                    SUB/CMP  S=00 InvB Cin=1
+    //   ADC  S=00 Cin=C              SBC      S=00 InvB Cin=C
+    //   AND/TEST S=01   OR S=10   XOR S=11   BIC S=01 InvB
+    //   MOV  S=10 ZeroA              NOT      S=10 ZeroA InvB
+    //   NEG  S=00 ZeroA InvB Cin=1   (INC/DEC as ADD/SUB with B = 1)
+    //
+    // Flags (raw, the control unit decides which ones are stored):
+    //   Cout = carry out of the adder (for SUB: 1 = no borrow)
+    //   Z = Result is 0, N = Result[15],
+    //   V = signed overflow of the adder: A'[15] and B'[15] agree and the
+    //       sum's sign differs
+    INPUT A[16];
+    INPUT B[16];
+    INPUT Cin;
+    INPUT InvB;
+    INPUT ZeroA;
+    INPUT S[2];
+
+    OUTPUT Result[16];
+    OUTPUT Cout;
+    OUTPUT Z;
+    OUTPUT N;
+    OUTPUT V;
+
+    // Operand conditioning
+    PART NotZeroA: NOT;
+    PART AGate: AND_BUS<16>;
+    PART BInvert: XOR_BUS<16>;
+
+    // Functional units
+    // Carry-lookahead: 14 instead of 67 NAND levels for +170 NANDs; in a
+    // registered sky130 test 481 instead of 148 MHz (see ROADMAP_16BIT.md).
+    PART Adder: ADDER_CLA_16B;
+    PART LogicAND: AND_BUS<16>;
+    PART LogicOR: OR_BUS<16>;
+    PART LogicXOR: XOR_BUS<16>;
+    PART ResultMux: MUX_4_1_BUS<16>;
+
+    // Flags
+    PART Zero: ZERO_16B;
+    PART OvA: XOR;  // A'[15] XOR Sum[15]
+    PART OvB: XOR;  // B'[15] XOR Sum[15]
+    PART OvAnd: AND;
+
+    CONNECT ZeroA -> NotZeroA.in;
+    CONNECT A -> AGate.A;
+    CONNECT NotZeroA.out -> AGate.B;   // tee
+    CONNECT B -> BInvert.A;
+    CONNECT InvB -> BInvert.B;         // tee
+
+    CONNECT AGate.Out -> Adder.A;
+    CONNECT BInvert.Out -> Adder.B;
+    CONNECT Cin -> Adder.Cin;
+    CONNECT AGate.Out -> LogicAND.A;
+    CONNECT BInvert.Out -> LogicAND.B;
+    CONNECT AGate.Out -> LogicOR.A;
+    CONNECT BInvert.Out -> LogicOR.B;
+    CONNECT AGate.Out -> LogicXOR.A;
+    CONNECT BInvert.Out -> LogicXOR.B;
+
+    // Result mux: input 0 = ADD, 1 = AND, 2 = OR, 3 = XOR
+    FOR i IN 0..16 {
+        CONNECT Adder.S[i] -> ResultMux.In[i];
+        CONNECT LogicAND.Out[i] -> ResultMux.In[16+i];
+        CONNECT LogicOR.Out[i] -> ResultMux.In[32+i];
+        CONNECT LogicXOR.Out[i] -> ResultMux.In[48+i];
+    }
+    CONNECT S -> ResultMux.S;
+    CONNECT ResultMux.Out -> Result;
+
+    CONNECT Adder.Cout -> Cout;
+    CONNECT ResultMux.Out -> Zero.A;
+    CONNECT Zero.Z -> Z;
+    CONNECT ResultMux.Out[15] -> N;
+
+    CONNECT AGate.Out[15] -> OvA.in1;
+    CONNECT Adder.S[15] -> OvA.in2;
+    CONNECT BInvert.Out[15] -> OvB.in1;
+    CONNECT Adder.S[15] -> OvB.in2;
+    CONNECT OvA.out -> OvAnd.in1;
+    CONNECT OvB.out -> OvAnd.in2;
+    CONNECT OvAnd.out -> V;
+}

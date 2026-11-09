@@ -1,0 +1,17 @@
+CIRCUIT MUX_2_1_BUS<W> {
+    // W-bit 2:1 multiplexer: Out = S ? B : A (one MUX_2_1 per bit, like
+    // MUX_4B_2_1/MUX_8B_2_1).
+    INPUT A[W];
+    INPUT B[W];
+    INPUT S;
+
+    OUTPUT Out[W];
+
+    FOR i IN 0..W {
+        PART MUX[i]: MUX_2_1;
+        CONNECT A[i] -> MUX[i].A;
+        CONNECT B[i] -> MUX[i].B;
+        CONNECT S -> MUX[i].S;
+        CONNECT MUX[i].Out -> Out[i];
+    }
+}

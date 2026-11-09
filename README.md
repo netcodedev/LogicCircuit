@@ -146,6 +146,31 @@ CIRCUIT FULL_ADDER {
 }
 ```
 
+Repetitive structure can be written with loops and width parameters, which
+are unrolled when the definition is elaborated. A parametric circuit is
+instantiated per value (`PART Sum: ADDER<16>;`, `TESTS FOR ADDER<16>`); an
+indexed part `FA[i]` is named `FA_3` internally. Ranges work as in Rust:
+`0..W` excludes the end, `0..=15` includes it.
+
+```text
+CIRCUIT ADDER<W> {
+    INPUT A[W], B[W], Cin;
+    OUTPUT S[W], Cout;
+
+    FOR i IN 0..W {
+        PART FA[i]: FULL_ADDER;
+        CONNECT A[i] -> FA[i].a;
+        CONNECT B[i] -> FA[i].b;
+        CONNECT FA[i].sum -> S[i];
+    }
+    CONNECT Cin -> FA[0].cin;
+    FOR i IN 1..W {
+        CONNECT FA[i-1].cout -> FA[i].cin;
+    }
+    CONNECT FA[W-1].cout -> Cout;
+}
+```
+
 ## Project layout
 
 | Path | Contents |

@@ -1,0 +1,53 @@
+CIRCUIT ADDER_CLA_16B {
+    // 16-bit carry-lookahead adder (Kogge-Stone parallel prefix), same ports
+    // as ADDER<16>. Per bit g = a AND b, p = a XOR b; Cin is folded into bit 0
+    // (g0' = g0 OR p0 AND Cin). Four prefix levels (distance 1, 2, 4, 8) give
+    // every bit i the group generate G[i..0], which is the carry into bit
+    // i+1. S[i] = p[i] XOR carry into bit i. The carry path is 4 prefix
+    // levels deep instead of 16 full-adder stages.
+    INPUT A[16];
+    INPUT B[16];
+    INPUT Cin;
+
+    OUTPUT S[16];
+    OUTPUT Cout;
+
+    PART Gen: AND_BUS<16>;   // g
+    PART Prop: XOR_BUS<16>;  // p
+    PART CinCell: PREFIX_CELL; // g0' = g0 OR p0 AND Cin
+    PART Level1: PREFIX_LEVEL<16, 1>;
+    PART Level2: PREFIX_LEVEL<16, 2>;
+    PART Level4: PREFIX_LEVEL<16, 4>;
+    PART Level8: PREFIX_LEVEL<16, 8>;
+    PART Sum: XOR_BUS<16>;
+
+    CONNECT A -> Gen.A;
+    CONNECT B -> Gen.B;
+    CONNECT A -> Prop.A;
+    CONNECT B -> Prop.B;
+
+    CONNECT Gen.Out[0] -> CinCell.Gh;
+    CONNECT Prop.Out[0] -> CinCell.Ph;
+    CONNECT Cin -> CinCell.Gl;
+    CONNECT CinCell.G -> Level1.G[0];
+    FOR i IN 1..16 {
+        CONNECT Gen.Out[i] -> Level1.G[i];
+    }
+    CONNECT Prop.Out -> Level1.P;
+
+    CONNECT Level1.GO -> Level2.G;
+    CONNECT Level1.PO -> Level2.P;
+    CONNECT Level2.GO -> Level4.G;
+    CONNECT Level2.PO -> Level4.P;
+    CONNECT Level4.GO -> Level8.G;
+    CONNECT Level4.PO -> Level8.P;
+
+    // Sum: carry into bit 0 is Cin, into bit i the group generate of i-1..0.
+    CONNECT Prop.Out -> Sum.A;
+    CONNECT Cin -> Sum.B[0];
+    FOR i IN 1..16 {
+        CONNECT Level8.GO[i-1] -> Sum.B[i];
+    }
+    CONNECT Sum.Out -> S;
+    CONNECT Level8.GO[15] -> Cout;
+}

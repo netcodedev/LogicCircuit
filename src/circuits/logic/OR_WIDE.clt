@@ -1,0 +1,53 @@
+// Tests for OR_WIDE<G>
+
+TESTS FOR OR_WIDE<2> {
+    TEST "In = 0x0" {
+        SET In[0] 0, In[1] 0, In[2] 0, In[3] 0, In[4] 0, In[5] 0, In[6] 0, In[7] 0;
+        EVAL;
+        ASSERT Out 0;
+    }
+
+    TEST "In = 0x1" {
+        SET In[0] 1, In[1] 0, In[2] 0, In[3] 0, In[4] 0, In[5] 0, In[6] 0, In[7] 0;
+        EVAL;
+        ASSERT Out 1;
+    }
+
+    TEST "In = 0x10" {
+        SET In[0] 0, In[1] 0, In[2] 0, In[3] 0, In[4] 1, In[5] 0, In[6] 0, In[7] 0;
+        EVAL;
+        ASSERT Out 1;
+    }
+
+    TEST "In = 0x80" {
+        SET In[0] 0, In[1] 0, In[2] 0, In[3] 0, In[4] 0, In[5] 0, In[6] 0, In[7] 1;
+        EVAL;
+        ASSERT Out 1;
+    }
+
+    TEST "In = 0xff" {
+        SET In[0] 1, In[1] 1, In[2] 1, In[3] 1, In[4] 1, In[5] 1, In[6] 1, In[7] 1;
+        EVAL;
+        ASSERT Out 1;
+    }
+
+    TEST "In = 0x24" {
+        SET In[0] 0, In[1] 0, In[2] 1, In[3] 0, In[4] 0, In[5] 1, In[6] 0, In[7] 0;
+        EVAL;
+        ASSERT Out 1;
+    }
+}
+
+TESTS FOR OR_WIDE<1> {
+    TEST "0" {
+        SET In[0] 0, In[1] 0, In[2] 0, In[3] 0;
+        EVAL;
+        ASSERT Out 0;
+    }
+
+    TEST "In[3]" {
+        SET In[3] 1;
+        EVAL;
+        ASSERT Out 1;
+    }
+}

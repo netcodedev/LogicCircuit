@@ -1,0 +1,31 @@
+CIRCUIT REGISTER_R<W> {
+    // W-bit register with load-enable and synchronous reset.
+    // On the clock edge: Reset=1 -> Q <- 0; else Load=1 -> Q <- Data;
+    // else hold. Reset and Load must be 0 while the circuit is being built.
+    INPUT Data[W];
+    INPUT CLK;
+    INPUT Load;
+    INPUT Reset;
+
+    OUTPUT Q[W];
+    OUTPUT nQ[W];
+
+    // Declared first: its INIT runs before the gates that drive its inputs.
+    PART Reg: REGISTER<W>;
+
+    PART NotReset: NOT;
+    PART LoadOr: OR;        // load on Load or Reset
+    PART DataGate: AND_BUS<W>; // Data AND NOT Reset
+
+    CONNECT Reset -> NotReset.in;
+    CONNECT Load -> LoadOr.in1;
+    CONNECT Reset -> LoadOr.in2;
+    CONNECT Data -> DataGate.A;
+    CONNECT NotReset.out -> DataGate.B; // tee to all bits
+
+    CONNECT DataGate.Out -> Reg.Data;
+    CONNECT LoadOr.out -> Reg.Load;
+    CONNECT CLK -> Reg.CLK;
+    CONNECT Reg.Q -> Q;
+    CONNECT Reg.nQ -> nQ;
+}

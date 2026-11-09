@@ -1,0 +1,29 @@
+CIRCUIT MUX_16_1_BUS<W> {
+    // 16-to-1 multiplexer for W-bit buses (same structure as MUX_8B_16_1).
+    // Input k is In[k*W .. k*W+W-1]; S[3:0] selects it.
+    INPUT In[16*W];
+    INPUT S[4];
+
+    OUTPUT Out[W];
+
+    // Stage 1: four 4:1 muxes selected by S[1:0]
+    FOR m IN 0..4 {
+        PART Stage1[m]: MUX_4_1_BUS<W>;
+        CONNECT S[0] -> Stage1[m].S[0];
+        CONNECT S[1] -> Stage1[m].S[1];
+        FOR i IN 0..4*W {
+            CONNECT In[4*W*m+i] -> Stage1[m].In[i];
+        }
+    }
+
+    // Stage 2: one 4:1 mux selected by S[3:2]
+    PART Stage2: MUX_4_1_BUS<W>;
+    CONNECT S[2] -> Stage2.S[0];
+    CONNECT S[3] -> Stage2.S[1];
+    FOR m IN 0..4 {
+        FOR i IN 0..W {
+            CONNECT Stage1[m].Out[i] -> Stage2.In[m*W+i];
+        }
+    }
+    CONNECT Stage2.Out -> Out;
+}

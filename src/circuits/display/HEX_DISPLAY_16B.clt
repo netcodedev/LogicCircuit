@@ -1,0 +1,48 @@
+// Tests for the four-digit hex display
+
+TESTS FOR HEX_DISPLAY_16B {
+    TEST "Shows 0x0123" {
+        SET Value[0] 1, Value[1] 1, Value[2] 0, Value[3] 0, Value[4] 0, Value[5] 1, Value[6] 0, Value[7] 0, Value[8] 1, Value[9] 0, Value[10] 0, Value[11] 0, Value[12] 0, Value[13] 0, Value[14] 0, Value[15] 0;
+        EVAL;
+        ASSERT Seg3[0] 1; ASSERT Seg3[1] 1; ASSERT Seg3[2] 1; ASSERT Seg3[3] 1; ASSERT Seg3[4] 1; ASSERT Seg3[5] 1; ASSERT Seg3[6] 0;
+        ASSERT Seg2[0] 0; ASSERT Seg2[1] 1; ASSERT Seg2[2] 1; ASSERT Seg2[3] 0; ASSERT Seg2[4] 0; ASSERT Seg2[5] 0; ASSERT Seg2[6] 0;
+        ASSERT Seg1[0] 1; ASSERT Seg1[1] 1; ASSERT Seg1[2] 0; ASSERT Seg1[3] 1; ASSERT Seg1[4] 1; ASSERT Seg1[5] 0; ASSERT Seg1[6] 1;
+        ASSERT Seg0[0] 1; ASSERT Seg0[1] 1; ASSERT Seg0[2] 1; ASSERT Seg0[3] 1; ASSERT Seg0[4] 0; ASSERT Seg0[5] 0; ASSERT Seg0[6] 1;
+    }
+
+    TEST "Shows 0x4567" {
+        SET Value[0] 1, Value[1] 1, Value[2] 1, Value[3] 0, Value[4] 0, Value[5] 1, Value[6] 1, Value[7] 0, Value[8] 1, Value[9] 0, Value[10] 1, Value[11] 0, Value[12] 0, Value[13] 0, Value[14] 1, Value[15] 0;
+        EVAL;
+        ASSERT Seg3[0] 0; ASSERT Seg3[1] 1; ASSERT Seg3[2] 1; ASSERT Seg3[3] 0; ASSERT Seg3[4] 0; ASSERT Seg3[5] 1; ASSERT Seg3[6] 1;
+        ASSERT Seg2[0] 1; ASSERT Seg2[1] 0; ASSERT Seg2[2] 1; ASSERT Seg2[3] 1; ASSERT Seg2[4] 0; ASSERT Seg2[5] 1; ASSERT Seg2[6] 1;
+        ASSERT Seg1[0] 1; ASSERT Seg1[1] 0; ASSERT Seg1[2] 1; ASSERT Seg1[3] 1; ASSERT Seg1[4] 1; ASSERT Seg1[5] 1; ASSERT Seg1[6] 1;
+        ASSERT Seg0[0] 1; ASSERT Seg0[1] 1; ASSERT Seg0[2] 1; ASSERT Seg0[3] 0; ASSERT Seg0[4] 0; ASSERT Seg0[5] 0; ASSERT Seg0[6] 0;
+    }
+
+    TEST "Shows 0x89AB" {
+        SET Value[0] 1, Value[1] 1, Value[2] 0, Value[3] 1, Value[4] 0, Value[5] 1, Value[6] 0, Value[7] 1, Value[8] 1, Value[9] 0, Value[10] 0, Value[11] 1, Value[12] 0, Value[13] 0, Value[14] 0, Value[15] 1;
+        EVAL;
+        ASSERT Seg3[0] 1; ASSERT Seg3[1] 1; ASSERT Seg3[2] 1; ASSERT Seg3[3] 1; ASSERT Seg3[4] 1; ASSERT Seg3[5] 1; ASSERT Seg3[6] 1;
+        ASSERT Seg2[0] 1; ASSERT Seg2[1] 1; ASSERT Seg2[2] 1; ASSERT Seg2[3] 1; ASSERT Seg2[4] 0; ASSERT Seg2[5] 1; ASSERT Seg2[6] 1;
+        ASSERT Seg1[0] 1; ASSERT Seg1[1] 1; ASSERT Seg1[2] 1; ASSERT Seg1[3] 0; ASSERT Seg1[4] 1; ASSERT Seg1[5] 1; ASSERT Seg1[6] 1;
+        ASSERT Seg0[0] 0; ASSERT Seg0[1] 0; ASSERT Seg0[2] 1; ASSERT Seg0[3] 1; ASSERT Seg0[4] 1; ASSERT Seg0[5] 1; ASSERT Seg0[6] 1;
+    }
+
+    TEST "Shows 0xCDEF" {
+        SET Value[0] 1, Value[1] 1, Value[2] 1, Value[3] 1, Value[4] 0, Value[5] 1, Value[6] 1, Value[7] 1, Value[8] 1, Value[9] 0, Value[10] 1, Value[11] 1, Value[12] 0, Value[13] 0, Value[14] 1, Value[15] 1;
+        EVAL;
+        ASSERT Seg3[0] 1; ASSERT Seg3[1] 0; ASSERT Seg3[2] 0; ASSERT Seg3[3] 1; ASSERT Seg3[4] 1; ASSERT Seg3[5] 1; ASSERT Seg3[6] 0;
+        ASSERT Seg2[0] 0; ASSERT Seg2[1] 1; ASSERT Seg2[2] 1; ASSERT Seg2[3] 1; ASSERT Seg2[4] 1; ASSERT Seg2[5] 0; ASSERT Seg2[6] 1;
+        ASSERT Seg1[0] 1; ASSERT Seg1[1] 0; ASSERT Seg1[2] 0; ASSERT Seg1[3] 1; ASSERT Seg1[4] 1; ASSERT Seg1[5] 1; ASSERT Seg1[6] 1;
+        ASSERT Seg0[0] 1; ASSERT Seg0[1] 0; ASSERT Seg0[2] 0; ASSERT Seg0[3] 0; ASSERT Seg0[4] 1; ASSERT Seg0[5] 1; ASSERT Seg0[6] 1;
+    }
+
+    TEST "Shows 0xB55A" {
+        SET Value[0] 0, Value[1] 1, Value[2] 0, Value[3] 1, Value[4] 1, Value[5] 0, Value[6] 1, Value[7] 0, Value[8] 1, Value[9] 0, Value[10] 1, Value[11] 0, Value[12] 1, Value[13] 1, Value[14] 0, Value[15] 1;
+        EVAL;
+        ASSERT Seg3[0] 0; ASSERT Seg3[1] 0; ASSERT Seg3[2] 1; ASSERT Seg3[3] 1; ASSERT Seg3[4] 1; ASSERT Seg3[5] 1; ASSERT Seg3[6] 1;
+        ASSERT Seg2[0] 1; ASSERT Seg2[1] 0; ASSERT Seg2[2] 1; ASSERT Seg2[3] 1; ASSERT Seg2[4] 0; ASSERT Seg2[5] 1; ASSERT Seg2[6] 1;
+        ASSERT Seg1[0] 1; ASSERT Seg1[1] 0; ASSERT Seg1[2] 1; ASSERT Seg1[3] 1; ASSERT Seg1[4] 0; ASSERT Seg1[5] 1; ASSERT Seg1[6] 1;
+        ASSERT Seg0[0] 1; ASSERT Seg0[1] 1; ASSERT Seg0[2] 1; ASSERT Seg0[3] 0; ASSERT Seg0[4] 1; ASSERT Seg0[5] 1; ASSERT Seg0[6] 1;
+    }
+}

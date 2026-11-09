@@ -1,0 +1,61 @@
+// Tests for MUX_4_1_BUS<W> (input k = In[k*W .. k*W+W-1])
+
+TESTS FOR MUX_4_1_BUS<4> {
+    TEST "S=0 selects input 0" {
+        SET In[0] 1, In[1] 1, In[2] 0, In[3] 0, In[4] 1, In[5] 0, In[6] 1, In[7] 0, In[8] 0, In[9] 1, In[10] 0, In[11] 1, In[12] 0, In[13] 0, In[14] 1, In[15] 1;
+        SET S[0] 0, S[1] 0;
+        EVAL;
+        ASSERT Out[0] 1; ASSERT Out[1] 1; ASSERT Out[2] 0; ASSERT Out[3] 0;
+    }
+
+    TEST "S=1 selects input 1" {
+        SET In[0] 1, In[1] 1, In[2] 0, In[3] 0, In[4] 1, In[5] 0, In[6] 1, In[7] 0, In[8] 0, In[9] 1, In[10] 0, In[11] 1, In[12] 0, In[13] 0, In[14] 1, In[15] 1;
+        SET S[0] 1, S[1] 0;
+        EVAL;
+        ASSERT Out[0] 1; ASSERT Out[1] 0; ASSERT Out[2] 1; ASSERT Out[3] 0;
+    }
+
+    TEST "S=2 selects input 2" {
+        SET In[0] 1, In[1] 1, In[2] 0, In[3] 0, In[4] 1, In[5] 0, In[6] 1, In[7] 0, In[8] 0, In[9] 1, In[10] 0, In[11] 1, In[12] 0, In[13] 0, In[14] 1, In[15] 1;
+        SET S[0] 0, S[1] 1;
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 1; ASSERT Out[2] 0; ASSERT Out[3] 1;
+    }
+
+    TEST "S=3 selects input 3" {
+        SET In[0] 1, In[1] 1, In[2] 0, In[3] 0, In[4] 1, In[5] 0, In[6] 1, In[7] 0, In[8] 0, In[9] 1, In[10] 0, In[11] 1, In[12] 0, In[13] 0, In[14] 1, In[15] 1;
+        SET S[0] 1, S[1] 1;
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 1; ASSERT Out[3] 1;
+    }
+}
+
+TESTS FOR MUX_4_1_BUS<16> {
+    TEST "S=0 selects input 0" {
+        SET In[0] 1, In[1] 0, In[2] 0, In[3] 0, In[4] 1, In[5] 0, In[6] 0, In[7] 0, In[8] 1, In[9] 0, In[10] 0, In[11] 0, In[12] 1, In[13] 0, In[14] 0, In[15] 0, In[16] 0, In[17] 1, In[18] 0, In[19] 0, In[20] 0, In[21] 1, In[22] 0, In[23] 0, In[24] 0, In[25] 1, In[26] 0, In[27] 0, In[28] 0, In[29] 1, In[30] 0, In[31] 0, In[32] 1, In[33] 0, In[34] 1, In[35] 1, In[36] 0, In[37] 0, In[38] 1, In[39] 1, In[40] 1, In[41] 1, In[42] 0, In[43] 1, In[44] 0, In[45] 1, In[46] 0, In[47] 1, In[48] 1, In[49] 1, In[50] 1, In[51] 1, In[52] 1, In[53] 1, In[54] 1, In[55] 1, In[56] 1, In[57] 1, In[58] 1, In[59] 1, In[60] 1, In[61] 1, In[62] 1, In[63] 1;
+        SET S[0] 0, S[1] 0;
+        EVAL;
+        ASSERT Out[0] 1; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 1; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 1; ASSERT Out[9] 0; ASSERT Out[10] 0; ASSERT Out[11] 0; ASSERT Out[12] 1; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 0;
+    }
+
+    TEST "S=1 selects input 1" {
+        SET In[0] 1, In[1] 0, In[2] 0, In[3] 0, In[4] 1, In[5] 0, In[6] 0, In[7] 0, In[8] 1, In[9] 0, In[10] 0, In[11] 0, In[12] 1, In[13] 0, In[14] 0, In[15] 0, In[16] 0, In[17] 1, In[18] 0, In[19] 0, In[20] 0, In[21] 1, In[22] 0, In[23] 0, In[24] 0, In[25] 1, In[26] 0, In[27] 0, In[28] 0, In[29] 1, In[30] 0, In[31] 0, In[32] 1, In[33] 0, In[34] 1, In[35] 1, In[36] 0, In[37] 0, In[38] 1, In[39] 1, In[40] 1, In[41] 1, In[42] 0, In[43] 1, In[44] 0, In[45] 1, In[46] 0, In[47] 1, In[48] 1, In[49] 1, In[50] 1, In[51] 1, In[52] 1, In[53] 1, In[54] 1, In[55] 1, In[56] 1, In[57] 1, In[58] 1, In[59] 1, In[60] 1, In[61] 1, In[62] 1, In[63] 1;
+        SET S[0] 1, S[1] 0;
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 1; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 1; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 1; ASSERT Out[10] 0; ASSERT Out[11] 0; ASSERT Out[12] 0; ASSERT Out[13] 1; ASSERT Out[14] 0; ASSERT Out[15] 0;
+    }
+
+    TEST "S=2 selects input 2" {
+        SET In[0] 1, In[1] 0, In[2] 0, In[3] 0, In[4] 1, In[5] 0, In[6] 0, In[7] 0, In[8] 1, In[9] 0, In[10] 0, In[11] 0, In[12] 1, In[13] 0, In[14] 0, In[15] 0, In[16] 0, In[17] 1, In[18] 0, In[19] 0, In[20] 0, In[21] 1, In[22] 0, In[23] 0, In[24] 0, In[25] 1, In[26] 0, In[27] 0, In[28] 0, In[29] 1, In[30] 0, In[31] 0, In[32] 1, In[33] 0, In[34] 1, In[35] 1, In[36] 0, In[37] 0, In[38] 1, In[39] 1, In[40] 1, In[41] 1, In[42] 0, In[43] 1, In[44] 0, In[45] 1, In[46] 0, In[47] 1, In[48] 1, In[49] 1, In[50] 1, In[51] 1, In[52] 1, In[53] 1, In[54] 1, In[55] 1, In[56] 1, In[57] 1, In[58] 1, In[59] 1, In[60] 1, In[61] 1, In[62] 1, In[63] 1;
+        SET S[0] 0, S[1] 1;
+        EVAL;
+        ASSERT Out[0] 1; ASSERT Out[1] 0; ASSERT Out[2] 1; ASSERT Out[3] 1; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 1; ASSERT Out[7] 1; ASSERT Out[8] 1; ASSERT Out[9] 1; ASSERT Out[10] 0; ASSERT Out[11] 1; ASSERT Out[12] 0; ASSERT Out[13] 1; ASSERT Out[14] 0; ASSERT Out[15] 1;
+    }
+
+    TEST "S=3 selects input 3" {
+        SET In[0] 1, In[1] 0, In[2] 0, In[3] 0, In[4] 1, In[5] 0, In[6] 0, In[7] 0, In[8] 1, In[9] 0, In[10] 0, In[11] 0, In[12] 1, In[13] 0, In[14] 0, In[15] 0, In[16] 0, In[17] 1, In[18] 0, In[19] 0, In[20] 0, In[21] 1, In[22] 0, In[23] 0, In[24] 0, In[25] 1, In[26] 0, In[27] 0, In[28] 0, In[29] 1, In[30] 0, In[31] 0, In[32] 1, In[33] 0, In[34] 1, In[35] 1, In[36] 0, In[37] 0, In[38] 1, In[39] 1, In[40] 1, In[41] 1, In[42] 0, In[43] 1, In[44] 0, In[45] 1, In[46] 0, In[47] 1, In[48] 1, In[49] 1, In[50] 1, In[51] 1, In[52] 1, In[53] 1, In[54] 1, In[55] 1, In[56] 1, In[57] 1, In[58] 1, In[59] 1, In[60] 1, In[61] 1, In[62] 1, In[63] 1;
+        SET S[0] 1, S[1] 1;
+        EVAL;
+        ASSERT Out[0] 1; ASSERT Out[1] 1; ASSERT Out[2] 1; ASSERT Out[3] 1; ASSERT Out[4] 1; ASSERT Out[5] 1; ASSERT Out[6] 1; ASSERT Out[7] 1; ASSERT Out[8] 1; ASSERT Out[9] 1; ASSERT Out[10] 1; ASSERT Out[11] 1; ASSERT Out[12] 1; ASSERT Out[13] 1; ASSERT Out[14] 1; ASSERT Out[15] 1;
+    }
+}

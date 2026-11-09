@@ -599,7 +599,11 @@ fn print_nand_breakdown(builder: &CircuitBuilder, name: &str, depth: usize) {
         eprintln!("Circuit '{}' not found (use -d to load its directory).", name);
         std::process::exit(1);
     };
-    println!("\n{}: {} NANDs\n", name, group_digits(total));
+    println!("\n{}: {} NANDs", name, group_digits(total));
+    if let Some(d) = builder.logic_depth(name) {
+        println!("Logic depth: {} NAND levels (longest path between inputs/flip-flops and outputs/flip-flops)", d);
+    }
+    println!();
     println!("  {:<32} {:<18} {:>10} {:>7}", "Part", "Type", "NANDs", "Share");
     print_parts(builder, name, total, 1, depth);
 }

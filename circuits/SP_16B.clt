@@ -1,0 +1,79 @@
+// Tests for the stack pointer (each test continues from the previous one)
+
+TESTS FOR SP_16B {
+    TEST "Starts at 0" {
+        EVAL;
+        ASSERT SP[0] 0; ASSERT SP[1] 0; ASSERT SP[2] 0; ASSERT SP[3] 0; ASSERT SP[4] 0; ASSERT SP[5] 0; ASSERT SP[6] 0; ASSERT SP[7] 0; ASSERT SP[8] 0; ASSERT SP[9] 0; ASSERT SP[10] 0; ASSERT SP[11] 0; ASSERT SP[12] 0; ASSERT SP[13] 0; ASSERT SP[14] 0; ASSERT SP[15] 0;
+        ASSERT Next[0] 0; ASSERT Next[1] 0; ASSERT Next[2] 0; ASSERT Next[3] 0; ASSERT Next[4] 0; ASSERT Next[5] 0; ASSERT Next[6] 0; ASSERT Next[7] 0; ASSERT Next[8] 0; ASSERT Next[9] 0; ASSERT Next[10] 0; ASSERT Next[11] 0; ASSERT Next[12] 0; ASSERT Next[13] 0; ASSERT Next[14] 0; ASSERT Next[15] 0;
+    }
+
+    TEST "Push -> SP=0xFFFF" {
+        SET Inc 0, Dec 1, Reset 0;
+        EVAL;
+        ASSERT Next[0] 1; ASSERT Next[1] 1; ASSERT Next[2] 1; ASSERT Next[3] 1; ASSERT Next[4] 1; ASSERT Next[5] 1; ASSERT Next[6] 1; ASSERT Next[7] 1; ASSERT Next[8] 1; ASSERT Next[9] 1; ASSERT Next[10] 1; ASSERT Next[11] 1; ASSERT Next[12] 1; ASSERT Next[13] 1; ASSERT Next[14] 1; ASSERT Next[15] 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Inc 0, Dec 0, Reset 0;
+        EVAL;
+        ASSERT SP[0] 1; ASSERT SP[1] 1; ASSERT SP[2] 1; ASSERT SP[3] 1; ASSERT SP[4] 1; ASSERT SP[5] 1; ASSERT SP[6] 1; ASSERT SP[7] 1; ASSERT SP[8] 1; ASSERT SP[9] 1; ASSERT SP[10] 1; ASSERT SP[11] 1; ASSERT SP[12] 1; ASSERT SP[13] 1; ASSERT SP[14] 1; ASSERT SP[15] 1;
+    }
+
+    TEST "Push -> SP=0xFFFE" {
+        SET Inc 0, Dec 1, Reset 0;
+        EVAL;
+        ASSERT Next[0] 0; ASSERT Next[1] 1; ASSERT Next[2] 1; ASSERT Next[3] 1; ASSERT Next[4] 1; ASSERT Next[5] 1; ASSERT Next[6] 1; ASSERT Next[7] 1; ASSERT Next[8] 1; ASSERT Next[9] 1; ASSERT Next[10] 1; ASSERT Next[11] 1; ASSERT Next[12] 1; ASSERT Next[13] 1; ASSERT Next[14] 1; ASSERT Next[15] 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Inc 0, Dec 0, Reset 0;
+        EVAL;
+        ASSERT SP[0] 0; ASSERT SP[1] 1; ASSERT SP[2] 1; ASSERT SP[3] 1; ASSERT SP[4] 1; ASSERT SP[5] 1; ASSERT SP[6] 1; ASSERT SP[7] 1; ASSERT SP[8] 1; ASSERT SP[9] 1; ASSERT SP[10] 1; ASSERT SP[11] 1; ASSERT SP[12] 1; ASSERT SP[13] 1; ASSERT SP[14] 1; ASSERT SP[15] 1;
+    }
+
+    TEST "Pop -> SP=0xFFFF" {
+        SET Inc 1, Dec 0, Reset 0;
+        EVAL;
+        ASSERT Next[0] 1; ASSERT Next[1] 1; ASSERT Next[2] 1; ASSERT Next[3] 1; ASSERT Next[4] 1; ASSERT Next[5] 1; ASSERT Next[6] 1; ASSERT Next[7] 1; ASSERT Next[8] 1; ASSERT Next[9] 1; ASSERT Next[10] 1; ASSERT Next[11] 1; ASSERT Next[12] 1; ASSERT Next[13] 1; ASSERT Next[14] 1; ASSERT Next[15] 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Inc 0, Dec 0, Reset 0;
+        EVAL;
+        ASSERT SP[0] 1; ASSERT SP[1] 1; ASSERT SP[2] 1; ASSERT SP[3] 1; ASSERT SP[4] 1; ASSERT SP[5] 1; ASSERT SP[6] 1; ASSERT SP[7] 1; ASSERT SP[8] 1; ASSERT SP[9] 1; ASSERT SP[10] 1; ASSERT SP[11] 1; ASSERT SP[12] 1; ASSERT SP[13] 1; ASSERT SP[14] 1; ASSERT SP[15] 1;
+    }
+
+    TEST "Hold -> SP=0xFFFF" {
+        SET Inc 0, Dec 0, Reset 0;
+        EVAL;
+        ASSERT Next[0] 1; ASSERT Next[1] 1; ASSERT Next[2] 1; ASSERT Next[3] 1; ASSERT Next[4] 1; ASSERT Next[5] 1; ASSERT Next[6] 1; ASSERT Next[7] 1; ASSERT Next[8] 1; ASSERT Next[9] 1; ASSERT Next[10] 1; ASSERT Next[11] 1; ASSERT Next[12] 1; ASSERT Next[13] 1; ASSERT Next[14] 1; ASSERT Next[15] 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Inc 0, Dec 0, Reset 0;
+        EVAL;
+        ASSERT SP[0] 1; ASSERT SP[1] 1; ASSERT SP[2] 1; ASSERT SP[3] 1; ASSERT SP[4] 1; ASSERT SP[5] 1; ASSERT SP[6] 1; ASSERT SP[7] 1; ASSERT SP[8] 1; ASSERT SP[9] 1; ASSERT SP[10] 1; ASSERT SP[11] 1; ASSERT SP[12] 1; ASSERT SP[13] 1; ASSERT SP[14] 1; ASSERT SP[15] 1;
+    }
+
+    TEST "Push -> SP=0xFFFE" {
+        SET Inc 0, Dec 1, Reset 0;
+        EVAL;
+        ASSERT Next[0] 0; ASSERT Next[1] 1; ASSERT Next[2] 1; ASSERT Next[3] 1; ASSERT Next[4] 1; ASSERT Next[5] 1; ASSERT Next[6] 1; ASSERT Next[7] 1; ASSERT Next[8] 1; ASSERT Next[9] 1; ASSERT Next[10] 1; ASSERT Next[11] 1; ASSERT Next[12] 1; ASSERT Next[13] 1; ASSERT Next[14] 1; ASSERT Next[15] 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Inc 0, Dec 0, Reset 0;
+        EVAL;
+        ASSERT SP[0] 0; ASSERT SP[1] 1; ASSERT SP[2] 1; ASSERT SP[3] 1; ASSERT SP[4] 1; ASSERT SP[5] 1; ASSERT SP[6] 1; ASSERT SP[7] 1; ASSERT SP[8] 1; ASSERT SP[9] 1; ASSERT SP[10] 1; ASSERT SP[11] 1; ASSERT SP[12] 1; ASSERT SP[13] 1; ASSERT SP[14] 1; ASSERT SP[15] 1;
+    }
+
+    TEST "Reset -> SP=0x0000" {
+        SET Inc 0, Dec 0, Reset 1;
+        EVAL;
+        ASSERT Next[0] 0; ASSERT Next[1] 1; ASSERT Next[2] 1; ASSERT Next[3] 1; ASSERT Next[4] 1; ASSERT Next[5] 1; ASSERT Next[6] 1; ASSERT Next[7] 1; ASSERT Next[8] 1; ASSERT Next[9] 1; ASSERT Next[10] 1; ASSERT Next[11] 1; ASSERT Next[12] 1; ASSERT Next[13] 1; ASSERT Next[14] 1; ASSERT Next[15] 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Inc 0, Dec 0, Reset 0;
+        EVAL;
+        ASSERT SP[0] 0; ASSERT SP[1] 0; ASSERT SP[2] 0; ASSERT SP[3] 0; ASSERT SP[4] 0; ASSERT SP[5] 0; ASSERT SP[6] 0; ASSERT SP[7] 0; ASSERT SP[8] 0; ASSERT SP[9] 0; ASSERT SP[10] 0; ASSERT SP[11] 0; ASSERT SP[12] 0; ASSERT SP[13] 0; ASSERT SP[14] 0; ASSERT SP[15] 0;
+    }
+
+    TEST "Pop from 0 -> SP=0x0001" {
+        SET Inc 1, Dec 0, Reset 0;
+        EVAL;
+        ASSERT Next[0] 1; ASSERT Next[1] 0; ASSERT Next[2] 0; ASSERT Next[3] 0; ASSERT Next[4] 0; ASSERT Next[5] 0; ASSERT Next[6] 0; ASSERT Next[7] 0; ASSERT Next[8] 0; ASSERT Next[9] 0; ASSERT Next[10] 0; ASSERT Next[11] 0; ASSERT Next[12] 0; ASSERT Next[13] 0; ASSERT Next[14] 0; ASSERT Next[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Inc 0, Dec 0, Reset 0;
+        EVAL;
+        ASSERT SP[0] 1; ASSERT SP[1] 0; ASSERT SP[2] 0; ASSERT SP[3] 0; ASSERT SP[4] 0; ASSERT SP[5] 0; ASSERT SP[6] 0; ASSERT SP[7] 0; ASSERT SP[8] 0; ASSERT SP[9] 0; ASSERT SP[10] 0; ASSERT SP[11] 0; ASSERT SP[12] 0; ASSERT SP[13] 0; ASSERT SP[14] 0; ASSERT SP[15] 0;
+    }
+}

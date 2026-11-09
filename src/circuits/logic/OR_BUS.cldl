@@ -1,0 +1,14 @@
+CIRCUIT OR_BUS<W> {
+    // Bitwise OR of two W-bit buses (one OR gate per bit, like OR_8B).
+    INPUT A[W];
+    INPUT B[W];
+
+    OUTPUT Out[W];
+
+    FOR i IN 0..W {
+        PART G[i]: OR;
+        CONNECT A[i] -> G[i].in1;
+        CONNECT B[i] -> G[i].in2;
+        CONNECT G[i].out -> Out[i];
+    }
+}

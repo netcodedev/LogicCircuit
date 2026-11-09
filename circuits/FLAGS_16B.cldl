@@ -1,0 +1,37 @@
+CIRCUIT FLAGS_16B {
+    // Flag register: Z (zero), N (negative), C (carry), V (overflow).
+    // Z and N are loaded together (LoadZN), C and V together (LoadCV), so
+    // logic instructions can update Z/N and keep C/V. Reset clears all four.
+    INPUT ZIn;
+    INPUT NIn;
+    INPUT CIn;
+    INPUT VIn;
+    INPUT LoadZN;
+    INPUT LoadCV;
+    INPUT Reset;
+    INPUT CLK;
+
+    OUTPUT Z;
+    OUTPUT N;
+    OUTPUT C;
+    OUTPUT V;
+
+    PART RegZN: REGISTER_R<2>; // bit 0 = Z, bit 1 = N
+    PART RegCV: REGISTER_R<2>; // bit 0 = C, bit 1 = V
+
+    CONNECT ZIn -> RegZN.Data[0];
+    CONNECT NIn -> RegZN.Data[1];
+    CONNECT CIn -> RegCV.Data[0];
+    CONNECT VIn -> RegCV.Data[1];
+    CONNECT LoadZN -> RegZN.Load;
+    CONNECT LoadCV -> RegCV.Load;
+    CONNECT Reset -> RegZN.Reset;
+    CONNECT Reset -> RegCV.Reset;
+    CONNECT CLK -> RegZN.CLK;
+    CONNECT CLK -> RegCV.CLK;
+
+    CONNECT RegZN.Q[0] -> Z;
+    CONNECT RegZN.Q[1] -> N;
+    CONNECT RegCV.Q[0] -> C;
+    CONNECT RegCV.Q[1] -> V;
+}

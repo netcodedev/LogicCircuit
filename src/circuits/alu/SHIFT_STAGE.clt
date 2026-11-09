@@ -1,0 +1,31 @@
+// Tests for one barrel shifter stage, SHIFT_STAGE<8, 3>
+
+TESTS FOR SHIFT_STAGE<8,3> {
+    TEST "Sel=0 Rot=0 Fill=0: 0xB5 -> 0xB5" {
+        SET In[0] 1, In[1] 0, In[2] 1, In[3] 0, In[4] 1, In[5] 1, In[6] 0, In[7] 1;
+        SET Sel 0, Rot 0, Fill 0;
+        EVAL;
+        ASSERT Out[0] 1; ASSERT Out[1] 0; ASSERT Out[2] 1; ASSERT Out[3] 0; ASSERT Out[4] 1; ASSERT Out[5] 1; ASSERT Out[6] 0; ASSERT Out[7] 1;
+    }
+
+    TEST "Sel=1 Rot=0 Fill=0: 0xB5 -> 0x16" {
+        SET In[0] 1, In[1] 0, In[2] 1, In[3] 0, In[4] 1, In[5] 1, In[6] 0, In[7] 1;
+        SET Sel 1, Rot 0, Fill 0;
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 1; ASSERT Out[2] 1; ASSERT Out[3] 0; ASSERT Out[4] 1; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0;
+    }
+
+    TEST "Sel=1 Rot=0 Fill=1: 0xB5 -> 0xF6" {
+        SET In[0] 1, In[1] 0, In[2] 1, In[3] 0, In[4] 1, In[5] 1, In[6] 0, In[7] 1;
+        SET Sel 1, Rot 0, Fill 1;
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 1; ASSERT Out[2] 1; ASSERT Out[3] 0; ASSERT Out[4] 1; ASSERT Out[5] 1; ASSERT Out[6] 1; ASSERT Out[7] 1;
+    }
+
+    TEST "Sel=1 Rot=1 Fill=0: 0xB5 -> 0xB6" {
+        SET In[0] 1, In[1] 0, In[2] 1, In[3] 0, In[4] 1, In[5] 1, In[6] 0, In[7] 1;
+        SET Sel 1, Rot 1, Fill 0;
+        EVAL;
+        ASSERT Out[0] 0; ASSERT Out[1] 1; ASSERT Out[2] 1; ASSERT Out[3] 0; ASSERT Out[4] 1; ASSERT Out[5] 1; ASSERT Out[6] 0; ASSERT Out[7] 1;
+    }
+}

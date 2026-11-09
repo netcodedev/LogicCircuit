@@ -1,7 +1,8 @@
 use include_dir::{Dir, include_dir};
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 mod circuit_builder;
+mod elaborate;
 mod view;
 
 pub use view::{CircuitView, ConnectionView, EndpointView, FlatBlock, FlatCircuit, FlatLevel, FlatPin, PartView, PinView};
@@ -100,6 +101,10 @@ pub struct CldlDefinition {
 
 /// This struct holds all known circuit definitions and can build them.
 pub struct CircuitBuilder {
-    /// A map from circuit name (e.g., "XOR") to its parsed definition.
-    definitions: HashMap<String, CldlDefinition>,
+    /// A map from circuit name (e.g., "XOR", "REGISTER<16>") to its
+    /// elaborated definition. Parametric definitions are added on first use
+    /// (see `instantiate`), hence the `RefCell`.
+    definitions: RefCell<HashMap<String, Rc<CldlDefinition>>>,
+    /// Parametric definitions (`CIRCUIT REGISTER<W>`) by base name.
+    templates: HashMap<String, elaborate::Template>,
 }

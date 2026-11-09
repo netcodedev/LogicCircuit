@@ -1,0 +1,56 @@
+CIRCUIT COND_16B {
+    // Branch condition of Bcc from the flags. Cond[3..1] selects a base
+    // condition, Cond[0] inverts it (as on ARM):
+    //
+    //   Cond  name  taken if          Cond  name  taken if
+    //    0    EQ    Z                  1    NE    !Z
+    //    2    CS    C  (unsigned >=)   3    CC    !C (unsigned <)
+    //    4    MI    N                  5    PL    !N
+    //    6    VS    V                  7    VC    !V
+    //    8    HI    C & !Z             9    LS    !C | Z
+    //   10    GE    N == V            11    LT    N != V
+    //   12    GT    !Z & (N == V)     13    LE    Z | (N != V)
+    //   14    AL    always            15    NV    never
+    INPUT Cond[4];
+    INPUT Z, N, C, V;
+
+    OUTPUT Take;
+
+    PART NotZ: NOT;
+    PART Hi: AND;        // C & !Z
+    PART NeqV: XNOR;     // N == V
+    PART Gt: AND;        // !Z & (N == V)
+    PART C_TRUE: NOR;    // Constant 1
+    PART MuxLo: MUX_4_1_BUS<1>; // Cond[3]=0: Z, C, N, V
+    PART MuxHi: MUX_4_1_BUS<1>; // Cond[3]=1: HI, GE, GT, 1
+    PART MuxBase: MUX_2_1;
+    PART Invert: XOR;
+
+    CONNECT Z -> NotZ.in;
+    CONNECT C -> Hi.in1;
+    CONNECT NotZ.out -> Hi.in2;
+    CONNECT N -> NeqV.in1;
+    CONNECT V -> NeqV.in2;
+    CONNECT NotZ.out -> Gt.in1;
+    CONNECT NeqV.out -> Gt.in2;
+
+    CONNECT Z -> MuxLo.In[0];
+    CONNECT C -> MuxLo.In[1];
+    CONNECT N -> MuxLo.In[2];
+    CONNECT V -> MuxLo.In[3];
+    CONNECT Hi.out -> MuxHi.In[0];
+    CONNECT NeqV.out -> MuxHi.In[1];
+    CONNECT Gt.out -> MuxHi.In[2];
+    CONNECT C_TRUE.out -> MuxHi.In[3];
+    CONNECT Cond[1] -> MuxLo.S[0];
+    CONNECT Cond[2] -> MuxLo.S[1];
+    CONNECT Cond[1] -> MuxHi.S[0];
+    CONNECT Cond[2] -> MuxHi.S[1];
+
+    CONNECT MuxLo.Out[0] -> MuxBase.A;
+    CONNECT MuxHi.Out[0] -> MuxBase.B;
+    CONNECT Cond[3] -> MuxBase.S;
+    CONNECT MuxBase.Out -> Invert.in1;
+    CONNECT Cond[0] -> Invert.in2;
+    CONNECT Invert.out -> Take;
+}

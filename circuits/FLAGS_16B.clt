@@ -1,0 +1,48 @@
+// Tests for the flag register (each test continues from the previous one)
+
+TESTS FOR FLAGS_16B {
+    TEST "Starts cleared" {
+        EVAL;
+        ASSERT Z 0; ASSERT N 0; ASSERT C 0; ASSERT V 0;
+    }
+
+    TEST "Load all" {
+        SET ZIn 1, NIn 1, CIn 1, VIn 1, LoadZN 1, LoadCV 1, Reset 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET LoadZN 0, LoadCV 0, Reset 0;
+        EVAL;
+        ASSERT Z 1; ASSERT N 1; ASSERT C 1; ASSERT V 1;
+    }
+
+    TEST "Load Z/N only" {
+        SET ZIn 0, NIn 1, CIn 0, VIn 0, LoadZN 1, LoadCV 0, Reset 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET LoadZN 0, LoadCV 0, Reset 0;
+        EVAL;
+        ASSERT Z 0; ASSERT N 1; ASSERT C 1; ASSERT V 1;
+    }
+
+    TEST "Load C/V only" {
+        SET ZIn 1, NIn 0, CIn 0, VIn 1, LoadZN 0, LoadCV 1, Reset 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET LoadZN 0, LoadCV 0, Reset 0;
+        EVAL;
+        ASSERT Z 0; ASSERT N 1; ASSERT C 0; ASSERT V 1;
+    }
+
+    TEST "No load" {
+        SET ZIn 0, NIn 0, CIn 1, VIn 0, LoadZN 0, LoadCV 0, Reset 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET LoadZN 0, LoadCV 0, Reset 0;
+        EVAL;
+        ASSERT Z 0; ASSERT N 1; ASSERT C 0; ASSERT V 1;
+    }
+
+    TEST "Reset" {
+        SET ZIn 1, NIn 1, CIn 1, VIn 1, LoadZN 1, LoadCV 1, Reset 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET LoadZN 0, LoadCV 0, Reset 0;
+        EVAL;
+        ASSERT Z 0; ASSERT N 0; ASSERT C 0; ASSERT V 0;
+    }
+}

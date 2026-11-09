@@ -1,0 +1,597 @@
+// Tests for the 16-bit ALU: every ALU function code with its control bits, results and flags
+
+TESTS FOR ALU_16B {
+    TEST "ADD 0x04D2, 0x10E1 = 0x15B3 C0 Z0 N0 V0" {
+        SET A[0] 0, A[1] 1, A[2] 0, A[3] 0, A[4] 1, A[5] 0, A[6] 1, A[7] 1, A[8] 0, A[9] 0, A[10] 1, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 1, B[6] 1, B[7] 1, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 1, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 0, ZeroA 0, S[0] 0, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 1; ASSERT Result[1] 1; ASSERT Result[2] 0; ASSERT Result[3] 0; ASSERT Result[4] 1; ASSERT Result[5] 1; ASSERT Result[6] 0; ASSERT Result[7] 1; ASSERT Result[8] 1; ASSERT Result[9] 0; ASSERT Result[10] 1; ASSERT Result[11] 0; ASSERT Result[12] 1; ASSERT Result[13] 0; ASSERT Result[14] 0; ASSERT Result[15] 0;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 0; ASSERT V 0;
+    }
+
+    TEST "ADD 0x7FFF, 0x0001 = 0x8000 C0 Z0 N1 V1" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1, A[4] 1, A[5] 1, A[6] 1, A[7] 1, A[8] 1, A[9] 1, A[10] 1, A[11] 1, A[12] 1, A[13] 1, A[14] 1, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 0, ZeroA 0, S[0] 0, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 0; ASSERT Result[1] 0; ASSERT Result[2] 0; ASSERT Result[3] 0; ASSERT Result[4] 0; ASSERT Result[5] 0; ASSERT Result[6] 0; ASSERT Result[7] 0; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 0; ASSERT Result[11] 0; ASSERT Result[12] 0; ASSERT Result[13] 0; ASSERT Result[14] 0; ASSERT Result[15] 1;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 1; ASSERT V 1;
+    }
+
+    TEST "ADD 0x8000, 0x0001 = 0x8001 C0 Z0 N1 V0" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 1;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 0, ZeroA 0, S[0] 0, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 1; ASSERT Result[1] 0; ASSERT Result[2] 0; ASSERT Result[3] 0; ASSERT Result[4] 0; ASSERT Result[5] 0; ASSERT Result[6] 0; ASSERT Result[7] 0; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 0; ASSERT Result[11] 0; ASSERT Result[12] 0; ASSERT Result[13] 0; ASSERT Result[14] 0; ASSERT Result[15] 1;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 1; ASSERT V 0;
+    }
+
+    TEST "ADD 0x0005, 0x0005 = 0x000A C0 Z0 N0 V0" {
+        SET A[0] 1, A[1] 0, A[2] 1, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 1, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 0, ZeroA 0, S[0] 0, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 0; ASSERT Result[1] 1; ASSERT Result[2] 0; ASSERT Result[3] 1; ASSERT Result[4] 0; ASSERT Result[5] 0; ASSERT Result[6] 0; ASSERT Result[7] 0; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 0; ASSERT Result[11] 0; ASSERT Result[12] 0; ASSERT Result[13] 0; ASSERT Result[14] 0; ASSERT Result[15] 0;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 0; ASSERT V 0;
+    }
+
+    TEST "ADD 0x0000, 0xFFFF = 0xFFFF C0 Z0 N1 V0" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 1, B[2] 1, B[3] 1, B[4] 1, B[5] 1, B[6] 1, B[7] 1, B[8] 1, B[9] 1, B[10] 1, B[11] 1, B[12] 1, B[13] 1, B[14] 1, B[15] 1;
+        SET Cin 0, InvB 0, ZeroA 0, S[0] 0, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 1; ASSERT Result[1] 1; ASSERT Result[2] 1; ASSERT Result[3] 1; ASSERT Result[4] 1; ASSERT Result[5] 1; ASSERT Result[6] 1; ASSERT Result[7] 1; ASSERT Result[8] 1; ASSERT Result[9] 1; ASSERT Result[10] 1; ASSERT Result[11] 1; ASSERT Result[12] 1; ASSERT Result[13] 1; ASSERT Result[14] 1; ASSERT Result[15] 1;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 1; ASSERT V 0;
+    }
+
+    TEST "ADD 0xF0F0, 0x3C3C = 0x2D2C C1 Z0 N0 V0" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 1, A[5] 1, A[6] 1, A[7] 1, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 1, A[13] 1, A[14] 1, A[15] 1;
+        SET B[0] 0, B[1] 0, B[2] 1, B[3] 1, B[4] 1, B[5] 1, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 1, B[11] 1, B[12] 1, B[13] 1, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 0, ZeroA 0, S[0] 0, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 0; ASSERT Result[1] 0; ASSERT Result[2] 1; ASSERT Result[3] 1; ASSERT Result[4] 0; ASSERT Result[5] 1; ASSERT Result[6] 0; ASSERT Result[7] 0; ASSERT Result[8] 1; ASSERT Result[9] 0; ASSERT Result[10] 1; ASSERT Result[11] 1; ASSERT Result[12] 0; ASSERT Result[13] 1; ASSERT Result[14] 0; ASSERT Result[15] 0;
+        ASSERT Cout 1; ASSERT Z 0; ASSERT N 0; ASSERT V 0;
+    }
+
+    TEST "SUB 0x04D2, 0x10E1 = 0xF3F1 C0 Z0 N1 V0" {
+        SET A[0] 0, A[1] 1, A[2] 0, A[3] 0, A[4] 1, A[5] 0, A[6] 1, A[7] 1, A[8] 0, A[9] 0, A[10] 1, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 1, B[6] 1, B[7] 1, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 1, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 1, InvB 1, ZeroA 0, S[0] 0, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 1; ASSERT Result[1] 0; ASSERT Result[2] 0; ASSERT Result[3] 0; ASSERT Result[4] 1; ASSERT Result[5] 1; ASSERT Result[6] 1; ASSERT Result[7] 1; ASSERT Result[8] 1; ASSERT Result[9] 1; ASSERT Result[10] 0; ASSERT Result[11] 0; ASSERT Result[12] 1; ASSERT Result[13] 1; ASSERT Result[14] 1; ASSERT Result[15] 1;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 1; ASSERT V 0;
+    }
+
+    TEST "SUB 0x7FFF, 0x0001 = 0x7FFE C1 Z0 N0 V0" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1, A[4] 1, A[5] 1, A[6] 1, A[7] 1, A[8] 1, A[9] 1, A[10] 1, A[11] 1, A[12] 1, A[13] 1, A[14] 1, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 1, InvB 1, ZeroA 0, S[0] 0, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 0; ASSERT Result[1] 1; ASSERT Result[2] 1; ASSERT Result[3] 1; ASSERT Result[4] 1; ASSERT Result[5] 1; ASSERT Result[6] 1; ASSERT Result[7] 1; ASSERT Result[8] 1; ASSERT Result[9] 1; ASSERT Result[10] 1; ASSERT Result[11] 1; ASSERT Result[12] 1; ASSERT Result[13] 1; ASSERT Result[14] 1; ASSERT Result[15] 0;
+        ASSERT Cout 1; ASSERT Z 0; ASSERT N 0; ASSERT V 0;
+    }
+
+    TEST "SUB 0x8000, 0x0001 = 0x7FFF C1 Z0 N0 V1" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 1;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 1, InvB 1, ZeroA 0, S[0] 0, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 1; ASSERT Result[1] 1; ASSERT Result[2] 1; ASSERT Result[3] 1; ASSERT Result[4] 1; ASSERT Result[5] 1; ASSERT Result[6] 1; ASSERT Result[7] 1; ASSERT Result[8] 1; ASSERT Result[9] 1; ASSERT Result[10] 1; ASSERT Result[11] 1; ASSERT Result[12] 1; ASSERT Result[13] 1; ASSERT Result[14] 1; ASSERT Result[15] 0;
+        ASSERT Cout 1; ASSERT Z 0; ASSERT N 0; ASSERT V 1;
+    }
+
+    TEST "SUB 0x0005, 0x0005 = 0x0000 C1 Z1 N0 V0" {
+        SET A[0] 1, A[1] 0, A[2] 1, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 1, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 1, InvB 1, ZeroA 0, S[0] 0, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 0; ASSERT Result[1] 0; ASSERT Result[2] 0; ASSERT Result[3] 0; ASSERT Result[4] 0; ASSERT Result[5] 0; ASSERT Result[6] 0; ASSERT Result[7] 0; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 0; ASSERT Result[11] 0; ASSERT Result[12] 0; ASSERT Result[13] 0; ASSERT Result[14] 0; ASSERT Result[15] 0;
+        ASSERT Cout 1; ASSERT Z 1; ASSERT N 0; ASSERT V 0;
+    }
+
+    TEST "SUB 0x0000, 0xFFFF = 0x0001 C0 Z0 N0 V0" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 1, B[2] 1, B[3] 1, B[4] 1, B[5] 1, B[6] 1, B[7] 1, B[8] 1, B[9] 1, B[10] 1, B[11] 1, B[12] 1, B[13] 1, B[14] 1, B[15] 1;
+        SET Cin 1, InvB 1, ZeroA 0, S[0] 0, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 1; ASSERT Result[1] 0; ASSERT Result[2] 0; ASSERT Result[3] 0; ASSERT Result[4] 0; ASSERT Result[5] 0; ASSERT Result[6] 0; ASSERT Result[7] 0; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 0; ASSERT Result[11] 0; ASSERT Result[12] 0; ASSERT Result[13] 0; ASSERT Result[14] 0; ASSERT Result[15] 0;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 0; ASSERT V 0;
+    }
+
+    TEST "SUB 0xF0F0, 0x3C3C = 0xB4B4 C1 Z0 N1 V0" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 1, A[5] 1, A[6] 1, A[7] 1, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 1, A[13] 1, A[14] 1, A[15] 1;
+        SET B[0] 0, B[1] 0, B[2] 1, B[3] 1, B[4] 1, B[5] 1, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 1, B[11] 1, B[12] 1, B[13] 1, B[14] 0, B[15] 0;
+        SET Cin 1, InvB 1, ZeroA 0, S[0] 0, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 0; ASSERT Result[1] 0; ASSERT Result[2] 1; ASSERT Result[3] 0; ASSERT Result[4] 1; ASSERT Result[5] 1; ASSERT Result[6] 0; ASSERT Result[7] 1; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 1; ASSERT Result[11] 0; ASSERT Result[12] 1; ASSERT Result[13] 1; ASSERT Result[14] 0; ASSERT Result[15] 1;
+        ASSERT Cout 1; ASSERT Z 0; ASSERT N 1; ASSERT V 0;
+    }
+
+    TEST "ADC 0x04D2, 0x10E1 (C=0) = 0x15B3 C0 Z0 N0 V0" {
+        SET A[0] 0, A[1] 1, A[2] 0, A[3] 0, A[4] 1, A[5] 0, A[6] 1, A[7] 1, A[8] 0, A[9] 0, A[10] 1, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 1, B[6] 1, B[7] 1, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 1, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 0, ZeroA 0, S[0] 0, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 1; ASSERT Result[1] 1; ASSERT Result[2] 0; ASSERT Result[3] 0; ASSERT Result[4] 1; ASSERT Result[5] 1; ASSERT Result[6] 0; ASSERT Result[7] 1; ASSERT Result[8] 1; ASSERT Result[9] 0; ASSERT Result[10] 1; ASSERT Result[11] 0; ASSERT Result[12] 1; ASSERT Result[13] 0; ASSERT Result[14] 0; ASSERT Result[15] 0;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 0; ASSERT V 0;
+    }
+
+    TEST "ADC 0x7FFF, 0x0001 (C=1) = 0x8001 C0 Z0 N1 V1" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1, A[4] 1, A[5] 1, A[6] 1, A[7] 1, A[8] 1, A[9] 1, A[10] 1, A[11] 1, A[12] 1, A[13] 1, A[14] 1, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 1, InvB 0, ZeroA 0, S[0] 0, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 1; ASSERT Result[1] 0; ASSERT Result[2] 0; ASSERT Result[3] 0; ASSERT Result[4] 0; ASSERT Result[5] 0; ASSERT Result[6] 0; ASSERT Result[7] 0; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 0; ASSERT Result[11] 0; ASSERT Result[12] 0; ASSERT Result[13] 0; ASSERT Result[14] 0; ASSERT Result[15] 1;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 1; ASSERT V 1;
+    }
+
+    TEST "ADC 0x8000, 0x0001 (C=0) = 0x8001 C0 Z0 N1 V0" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 1;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 0, ZeroA 0, S[0] 0, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 1; ASSERT Result[1] 0; ASSERT Result[2] 0; ASSERT Result[3] 0; ASSERT Result[4] 0; ASSERT Result[5] 0; ASSERT Result[6] 0; ASSERT Result[7] 0; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 0; ASSERT Result[11] 0; ASSERT Result[12] 0; ASSERT Result[13] 0; ASSERT Result[14] 0; ASSERT Result[15] 1;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 1; ASSERT V 0;
+    }
+
+    TEST "ADC 0x0005, 0x0005 (C=1) = 0x000B C0 Z0 N0 V0" {
+        SET A[0] 1, A[1] 0, A[2] 1, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 1, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 1, InvB 0, ZeroA 0, S[0] 0, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 1; ASSERT Result[1] 1; ASSERT Result[2] 0; ASSERT Result[3] 1; ASSERT Result[4] 0; ASSERT Result[5] 0; ASSERT Result[6] 0; ASSERT Result[7] 0; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 0; ASSERT Result[11] 0; ASSERT Result[12] 0; ASSERT Result[13] 0; ASSERT Result[14] 0; ASSERT Result[15] 0;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 0; ASSERT V 0;
+    }
+
+    TEST "ADC 0x0000, 0xFFFF (C=0) = 0xFFFF C0 Z0 N1 V0" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 1, B[2] 1, B[3] 1, B[4] 1, B[5] 1, B[6] 1, B[7] 1, B[8] 1, B[9] 1, B[10] 1, B[11] 1, B[12] 1, B[13] 1, B[14] 1, B[15] 1;
+        SET Cin 0, InvB 0, ZeroA 0, S[0] 0, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 1; ASSERT Result[1] 1; ASSERT Result[2] 1; ASSERT Result[3] 1; ASSERT Result[4] 1; ASSERT Result[5] 1; ASSERT Result[6] 1; ASSERT Result[7] 1; ASSERT Result[8] 1; ASSERT Result[9] 1; ASSERT Result[10] 1; ASSERT Result[11] 1; ASSERT Result[12] 1; ASSERT Result[13] 1; ASSERT Result[14] 1; ASSERT Result[15] 1;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 1; ASSERT V 0;
+    }
+
+    TEST "ADC 0xF0F0, 0x3C3C (C=1) = 0x2D2D C1 Z0 N0 V0" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 1, A[5] 1, A[6] 1, A[7] 1, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 1, A[13] 1, A[14] 1, A[15] 1;
+        SET B[0] 0, B[1] 0, B[2] 1, B[3] 1, B[4] 1, B[5] 1, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 1, B[11] 1, B[12] 1, B[13] 1, B[14] 0, B[15] 0;
+        SET Cin 1, InvB 0, ZeroA 0, S[0] 0, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 1; ASSERT Result[1] 0; ASSERT Result[2] 1; ASSERT Result[3] 1; ASSERT Result[4] 0; ASSERT Result[5] 1; ASSERT Result[6] 0; ASSERT Result[7] 0; ASSERT Result[8] 1; ASSERT Result[9] 0; ASSERT Result[10] 1; ASSERT Result[11] 1; ASSERT Result[12] 0; ASSERT Result[13] 1; ASSERT Result[14] 0; ASSERT Result[15] 0;
+        ASSERT Cout 1; ASSERT Z 0; ASSERT N 0; ASSERT V 0;
+    }
+
+    TEST "SBC 0x04D2, 0x10E1 (C=0) = 0xF3F0 C0 Z0 N1 V0" {
+        SET A[0] 0, A[1] 1, A[2] 0, A[3] 0, A[4] 1, A[5] 0, A[6] 1, A[7] 1, A[8] 0, A[9] 0, A[10] 1, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 1, B[6] 1, B[7] 1, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 1, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 1, ZeroA 0, S[0] 0, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 0; ASSERT Result[1] 0; ASSERT Result[2] 0; ASSERT Result[3] 0; ASSERT Result[4] 1; ASSERT Result[5] 1; ASSERT Result[6] 1; ASSERT Result[7] 1; ASSERT Result[8] 1; ASSERT Result[9] 1; ASSERT Result[10] 0; ASSERT Result[11] 0; ASSERT Result[12] 1; ASSERT Result[13] 1; ASSERT Result[14] 1; ASSERT Result[15] 1;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 1; ASSERT V 0;
+    }
+
+    TEST "SBC 0x7FFF, 0x0001 (C=1) = 0x7FFE C1 Z0 N0 V0" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1, A[4] 1, A[5] 1, A[6] 1, A[7] 1, A[8] 1, A[9] 1, A[10] 1, A[11] 1, A[12] 1, A[13] 1, A[14] 1, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 1, InvB 1, ZeroA 0, S[0] 0, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 0; ASSERT Result[1] 1; ASSERT Result[2] 1; ASSERT Result[3] 1; ASSERT Result[4] 1; ASSERT Result[5] 1; ASSERT Result[6] 1; ASSERT Result[7] 1; ASSERT Result[8] 1; ASSERT Result[9] 1; ASSERT Result[10] 1; ASSERT Result[11] 1; ASSERT Result[12] 1; ASSERT Result[13] 1; ASSERT Result[14] 1; ASSERT Result[15] 0;
+        ASSERT Cout 1; ASSERT Z 0; ASSERT N 0; ASSERT V 0;
+    }
+
+    TEST "SBC 0x8000, 0x0001 (C=0) = 0x7FFE C1 Z0 N0 V1" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 1;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 1, ZeroA 0, S[0] 0, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 0; ASSERT Result[1] 1; ASSERT Result[2] 1; ASSERT Result[3] 1; ASSERT Result[4] 1; ASSERT Result[5] 1; ASSERT Result[6] 1; ASSERT Result[7] 1; ASSERT Result[8] 1; ASSERT Result[9] 1; ASSERT Result[10] 1; ASSERT Result[11] 1; ASSERT Result[12] 1; ASSERT Result[13] 1; ASSERT Result[14] 1; ASSERT Result[15] 0;
+        ASSERT Cout 1; ASSERT Z 0; ASSERT N 0; ASSERT V 1;
+    }
+
+    TEST "SBC 0x0005, 0x0005 (C=1) = 0x0000 C1 Z1 N0 V0" {
+        SET A[0] 1, A[1] 0, A[2] 1, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 1, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 1, InvB 1, ZeroA 0, S[0] 0, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 0; ASSERT Result[1] 0; ASSERT Result[2] 0; ASSERT Result[3] 0; ASSERT Result[4] 0; ASSERT Result[5] 0; ASSERT Result[6] 0; ASSERT Result[7] 0; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 0; ASSERT Result[11] 0; ASSERT Result[12] 0; ASSERT Result[13] 0; ASSERT Result[14] 0; ASSERT Result[15] 0;
+        ASSERT Cout 1; ASSERT Z 1; ASSERT N 0; ASSERT V 0;
+    }
+
+    TEST "SBC 0x0000, 0xFFFF (C=0) = 0x0000 C0 Z1 N0 V0" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 1, B[2] 1, B[3] 1, B[4] 1, B[5] 1, B[6] 1, B[7] 1, B[8] 1, B[9] 1, B[10] 1, B[11] 1, B[12] 1, B[13] 1, B[14] 1, B[15] 1;
+        SET Cin 0, InvB 1, ZeroA 0, S[0] 0, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 0; ASSERT Result[1] 0; ASSERT Result[2] 0; ASSERT Result[3] 0; ASSERT Result[4] 0; ASSERT Result[5] 0; ASSERT Result[6] 0; ASSERT Result[7] 0; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 0; ASSERT Result[11] 0; ASSERT Result[12] 0; ASSERT Result[13] 0; ASSERT Result[14] 0; ASSERT Result[15] 0;
+        ASSERT Cout 0; ASSERT Z 1; ASSERT N 0; ASSERT V 0;
+    }
+
+    TEST "SBC 0xF0F0, 0x3C3C (C=1) = 0xB4B4 C1 Z0 N1 V0" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 1, A[5] 1, A[6] 1, A[7] 1, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 1, A[13] 1, A[14] 1, A[15] 1;
+        SET B[0] 0, B[1] 0, B[2] 1, B[3] 1, B[4] 1, B[5] 1, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 1, B[11] 1, B[12] 1, B[13] 1, B[14] 0, B[15] 0;
+        SET Cin 1, InvB 1, ZeroA 0, S[0] 0, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 0; ASSERT Result[1] 0; ASSERT Result[2] 1; ASSERT Result[3] 0; ASSERT Result[4] 1; ASSERT Result[5] 1; ASSERT Result[6] 0; ASSERT Result[7] 1; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 1; ASSERT Result[11] 0; ASSERT Result[12] 1; ASSERT Result[13] 1; ASSERT Result[14] 0; ASSERT Result[15] 1;
+        ASSERT Cout 1; ASSERT Z 0; ASSERT N 1; ASSERT V 0;
+    }
+
+    TEST "AND 0x04D2, 0x10E1 = 0x00C0 C0 Z0 N0 V0" {
+        SET A[0] 0, A[1] 1, A[2] 0, A[3] 0, A[4] 1, A[5] 0, A[6] 1, A[7] 1, A[8] 0, A[9] 0, A[10] 1, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 1, B[6] 1, B[7] 1, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 1, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 0, ZeroA 0, S[0] 1, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 0; ASSERT Result[1] 0; ASSERT Result[2] 0; ASSERT Result[3] 0; ASSERT Result[4] 0; ASSERT Result[5] 0; ASSERT Result[6] 1; ASSERT Result[7] 1; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 0; ASSERT Result[11] 0; ASSERT Result[12] 0; ASSERT Result[13] 0; ASSERT Result[14] 0; ASSERT Result[15] 0;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 0; ASSERT V 0;
+    }
+
+    TEST "AND 0x7FFF, 0x0001 = 0x0001 C0 Z0 N0 V1" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1, A[4] 1, A[5] 1, A[6] 1, A[7] 1, A[8] 1, A[9] 1, A[10] 1, A[11] 1, A[12] 1, A[13] 1, A[14] 1, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 0, ZeroA 0, S[0] 1, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 1; ASSERT Result[1] 0; ASSERT Result[2] 0; ASSERT Result[3] 0; ASSERT Result[4] 0; ASSERT Result[5] 0; ASSERT Result[6] 0; ASSERT Result[7] 0; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 0; ASSERT Result[11] 0; ASSERT Result[12] 0; ASSERT Result[13] 0; ASSERT Result[14] 0; ASSERT Result[15] 0;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 0; ASSERT V 1;
+    }
+
+    TEST "AND 0x8000, 0x0001 = 0x0000 C0 Z1 N0 V0" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 1;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 0, ZeroA 0, S[0] 1, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 0; ASSERT Result[1] 0; ASSERT Result[2] 0; ASSERT Result[3] 0; ASSERT Result[4] 0; ASSERT Result[5] 0; ASSERT Result[6] 0; ASSERT Result[7] 0; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 0; ASSERT Result[11] 0; ASSERT Result[12] 0; ASSERT Result[13] 0; ASSERT Result[14] 0; ASSERT Result[15] 0;
+        ASSERT Cout 0; ASSERT Z 1; ASSERT N 0; ASSERT V 0;
+    }
+
+    TEST "AND 0x0005, 0x0005 = 0x0005 C0 Z0 N0 V0" {
+        SET A[0] 1, A[1] 0, A[2] 1, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 1, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 0, ZeroA 0, S[0] 1, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 1; ASSERT Result[1] 0; ASSERT Result[2] 1; ASSERT Result[3] 0; ASSERT Result[4] 0; ASSERT Result[5] 0; ASSERT Result[6] 0; ASSERT Result[7] 0; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 0; ASSERT Result[11] 0; ASSERT Result[12] 0; ASSERT Result[13] 0; ASSERT Result[14] 0; ASSERT Result[15] 0;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 0; ASSERT V 0;
+    }
+
+    TEST "AND 0x0000, 0xFFFF = 0x0000 C0 Z1 N0 V0" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 1, B[2] 1, B[3] 1, B[4] 1, B[5] 1, B[6] 1, B[7] 1, B[8] 1, B[9] 1, B[10] 1, B[11] 1, B[12] 1, B[13] 1, B[14] 1, B[15] 1;
+        SET Cin 0, InvB 0, ZeroA 0, S[0] 1, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 0; ASSERT Result[1] 0; ASSERT Result[2] 0; ASSERT Result[3] 0; ASSERT Result[4] 0; ASSERT Result[5] 0; ASSERT Result[6] 0; ASSERT Result[7] 0; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 0; ASSERT Result[11] 0; ASSERT Result[12] 0; ASSERT Result[13] 0; ASSERT Result[14] 0; ASSERT Result[15] 0;
+        ASSERT Cout 0; ASSERT Z 1; ASSERT N 0; ASSERT V 0;
+    }
+
+    TEST "AND 0xF0F0, 0x3C3C = 0x3030 C1 Z0 N0 V0" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 1, A[5] 1, A[6] 1, A[7] 1, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 1, A[13] 1, A[14] 1, A[15] 1;
+        SET B[0] 0, B[1] 0, B[2] 1, B[3] 1, B[4] 1, B[5] 1, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 1, B[11] 1, B[12] 1, B[13] 1, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 0, ZeroA 0, S[0] 1, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 0; ASSERT Result[1] 0; ASSERT Result[2] 0; ASSERT Result[3] 0; ASSERT Result[4] 1; ASSERT Result[5] 1; ASSERT Result[6] 0; ASSERT Result[7] 0; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 0; ASSERT Result[11] 0; ASSERT Result[12] 1; ASSERT Result[13] 1; ASSERT Result[14] 0; ASSERT Result[15] 0;
+        ASSERT Cout 1; ASSERT Z 0; ASSERT N 0; ASSERT V 0;
+    }
+
+    TEST "OR 0x04D2, 0x10E1 = 0x14F3 C0 Z0 N0 V0" {
+        SET A[0] 0, A[1] 1, A[2] 0, A[3] 0, A[4] 1, A[5] 0, A[6] 1, A[7] 1, A[8] 0, A[9] 0, A[10] 1, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 1, B[6] 1, B[7] 1, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 1, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 0, ZeroA 0, S[0] 0, S[1] 1;
+        EVAL;
+        ASSERT Result[0] 1; ASSERT Result[1] 1; ASSERT Result[2] 0; ASSERT Result[3] 0; ASSERT Result[4] 1; ASSERT Result[5] 1; ASSERT Result[6] 1; ASSERT Result[7] 1; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 1; ASSERT Result[11] 0; ASSERT Result[12] 1; ASSERT Result[13] 0; ASSERT Result[14] 0; ASSERT Result[15] 0;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 0; ASSERT V 0;
+    }
+
+    TEST "OR 0x7FFF, 0x0001 = 0x7FFF C0 Z0 N0 V1" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1, A[4] 1, A[5] 1, A[6] 1, A[7] 1, A[8] 1, A[9] 1, A[10] 1, A[11] 1, A[12] 1, A[13] 1, A[14] 1, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 0, ZeroA 0, S[0] 0, S[1] 1;
+        EVAL;
+        ASSERT Result[0] 1; ASSERT Result[1] 1; ASSERT Result[2] 1; ASSERT Result[3] 1; ASSERT Result[4] 1; ASSERT Result[5] 1; ASSERT Result[6] 1; ASSERT Result[7] 1; ASSERT Result[8] 1; ASSERT Result[9] 1; ASSERT Result[10] 1; ASSERT Result[11] 1; ASSERT Result[12] 1; ASSERT Result[13] 1; ASSERT Result[14] 1; ASSERT Result[15] 0;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 0; ASSERT V 1;
+    }
+
+    TEST "OR 0x8000, 0x0001 = 0x8001 C0 Z0 N1 V0" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 1;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 0, ZeroA 0, S[0] 0, S[1] 1;
+        EVAL;
+        ASSERT Result[0] 1; ASSERT Result[1] 0; ASSERT Result[2] 0; ASSERT Result[3] 0; ASSERT Result[4] 0; ASSERT Result[5] 0; ASSERT Result[6] 0; ASSERT Result[7] 0; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 0; ASSERT Result[11] 0; ASSERT Result[12] 0; ASSERT Result[13] 0; ASSERT Result[14] 0; ASSERT Result[15] 1;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 1; ASSERT V 0;
+    }
+
+    TEST "OR 0x0005, 0x0005 = 0x0005 C0 Z0 N0 V0" {
+        SET A[0] 1, A[1] 0, A[2] 1, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 1, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 0, ZeroA 0, S[0] 0, S[1] 1;
+        EVAL;
+        ASSERT Result[0] 1; ASSERT Result[1] 0; ASSERT Result[2] 1; ASSERT Result[3] 0; ASSERT Result[4] 0; ASSERT Result[5] 0; ASSERT Result[6] 0; ASSERT Result[7] 0; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 0; ASSERT Result[11] 0; ASSERT Result[12] 0; ASSERT Result[13] 0; ASSERT Result[14] 0; ASSERT Result[15] 0;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 0; ASSERT V 0;
+    }
+
+    TEST "OR 0x0000, 0xFFFF = 0xFFFF C0 Z0 N1 V0" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 1, B[2] 1, B[3] 1, B[4] 1, B[5] 1, B[6] 1, B[7] 1, B[8] 1, B[9] 1, B[10] 1, B[11] 1, B[12] 1, B[13] 1, B[14] 1, B[15] 1;
+        SET Cin 0, InvB 0, ZeroA 0, S[0] 0, S[1] 1;
+        EVAL;
+        ASSERT Result[0] 1; ASSERT Result[1] 1; ASSERT Result[2] 1; ASSERT Result[3] 1; ASSERT Result[4] 1; ASSERT Result[5] 1; ASSERT Result[6] 1; ASSERT Result[7] 1; ASSERT Result[8] 1; ASSERT Result[9] 1; ASSERT Result[10] 1; ASSERT Result[11] 1; ASSERT Result[12] 1; ASSERT Result[13] 1; ASSERT Result[14] 1; ASSERT Result[15] 1;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 1; ASSERT V 0;
+    }
+
+    TEST "OR 0xF0F0, 0x3C3C = 0xFCFC C1 Z0 N1 V0" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 1, A[5] 1, A[6] 1, A[7] 1, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 1, A[13] 1, A[14] 1, A[15] 1;
+        SET B[0] 0, B[1] 0, B[2] 1, B[3] 1, B[4] 1, B[5] 1, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 1, B[11] 1, B[12] 1, B[13] 1, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 0, ZeroA 0, S[0] 0, S[1] 1;
+        EVAL;
+        ASSERT Result[0] 0; ASSERT Result[1] 0; ASSERT Result[2] 1; ASSERT Result[3] 1; ASSERT Result[4] 1; ASSERT Result[5] 1; ASSERT Result[6] 1; ASSERT Result[7] 1; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 1; ASSERT Result[11] 1; ASSERT Result[12] 1; ASSERT Result[13] 1; ASSERT Result[14] 1; ASSERT Result[15] 1;
+        ASSERT Cout 1; ASSERT Z 0; ASSERT N 1; ASSERT V 0;
+    }
+
+    TEST "XOR 0x04D2, 0x10E1 = 0x1433 C0 Z0 N0 V0" {
+        SET A[0] 0, A[1] 1, A[2] 0, A[3] 0, A[4] 1, A[5] 0, A[6] 1, A[7] 1, A[8] 0, A[9] 0, A[10] 1, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 1, B[6] 1, B[7] 1, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 1, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 0, ZeroA 0, S[0] 1, S[1] 1;
+        EVAL;
+        ASSERT Result[0] 1; ASSERT Result[1] 1; ASSERT Result[2] 0; ASSERT Result[3] 0; ASSERT Result[4] 1; ASSERT Result[5] 1; ASSERT Result[6] 0; ASSERT Result[7] 0; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 1; ASSERT Result[11] 0; ASSERT Result[12] 1; ASSERT Result[13] 0; ASSERT Result[14] 0; ASSERT Result[15] 0;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 0; ASSERT V 0;
+    }
+
+    TEST "XOR 0x7FFF, 0x0001 = 0x7FFE C0 Z0 N0 V1" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1, A[4] 1, A[5] 1, A[6] 1, A[7] 1, A[8] 1, A[9] 1, A[10] 1, A[11] 1, A[12] 1, A[13] 1, A[14] 1, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 0, ZeroA 0, S[0] 1, S[1] 1;
+        EVAL;
+        ASSERT Result[0] 0; ASSERT Result[1] 1; ASSERT Result[2] 1; ASSERT Result[3] 1; ASSERT Result[4] 1; ASSERT Result[5] 1; ASSERT Result[6] 1; ASSERT Result[7] 1; ASSERT Result[8] 1; ASSERT Result[9] 1; ASSERT Result[10] 1; ASSERT Result[11] 1; ASSERT Result[12] 1; ASSERT Result[13] 1; ASSERT Result[14] 1; ASSERT Result[15] 0;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 0; ASSERT V 1;
+    }
+
+    TEST "XOR 0x8000, 0x0001 = 0x8001 C0 Z0 N1 V0" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 1;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 0, ZeroA 0, S[0] 1, S[1] 1;
+        EVAL;
+        ASSERT Result[0] 1; ASSERT Result[1] 0; ASSERT Result[2] 0; ASSERT Result[3] 0; ASSERT Result[4] 0; ASSERT Result[5] 0; ASSERT Result[6] 0; ASSERT Result[7] 0; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 0; ASSERT Result[11] 0; ASSERT Result[12] 0; ASSERT Result[13] 0; ASSERT Result[14] 0; ASSERT Result[15] 1;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 1; ASSERT V 0;
+    }
+
+    TEST "XOR 0x0005, 0x0005 = 0x0000 C0 Z1 N0 V0" {
+        SET A[0] 1, A[1] 0, A[2] 1, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 1, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 0, ZeroA 0, S[0] 1, S[1] 1;
+        EVAL;
+        ASSERT Result[0] 0; ASSERT Result[1] 0; ASSERT Result[2] 0; ASSERT Result[3] 0; ASSERT Result[4] 0; ASSERT Result[5] 0; ASSERT Result[6] 0; ASSERT Result[7] 0; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 0; ASSERT Result[11] 0; ASSERT Result[12] 0; ASSERT Result[13] 0; ASSERT Result[14] 0; ASSERT Result[15] 0;
+        ASSERT Cout 0; ASSERT Z 1; ASSERT N 0; ASSERT V 0;
+    }
+
+    TEST "XOR 0x0000, 0xFFFF = 0xFFFF C0 Z0 N1 V0" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 1, B[2] 1, B[3] 1, B[4] 1, B[5] 1, B[6] 1, B[7] 1, B[8] 1, B[9] 1, B[10] 1, B[11] 1, B[12] 1, B[13] 1, B[14] 1, B[15] 1;
+        SET Cin 0, InvB 0, ZeroA 0, S[0] 1, S[1] 1;
+        EVAL;
+        ASSERT Result[0] 1; ASSERT Result[1] 1; ASSERT Result[2] 1; ASSERT Result[3] 1; ASSERT Result[4] 1; ASSERT Result[5] 1; ASSERT Result[6] 1; ASSERT Result[7] 1; ASSERT Result[8] 1; ASSERT Result[9] 1; ASSERT Result[10] 1; ASSERT Result[11] 1; ASSERT Result[12] 1; ASSERT Result[13] 1; ASSERT Result[14] 1; ASSERT Result[15] 1;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 1; ASSERT V 0;
+    }
+
+    TEST "XOR 0xF0F0, 0x3C3C = 0xCCCC C1 Z0 N1 V0" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 1, A[5] 1, A[6] 1, A[7] 1, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 1, A[13] 1, A[14] 1, A[15] 1;
+        SET B[0] 0, B[1] 0, B[2] 1, B[3] 1, B[4] 1, B[5] 1, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 1, B[11] 1, B[12] 1, B[13] 1, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 0, ZeroA 0, S[0] 1, S[1] 1;
+        EVAL;
+        ASSERT Result[0] 0; ASSERT Result[1] 0; ASSERT Result[2] 1; ASSERT Result[3] 1; ASSERT Result[4] 0; ASSERT Result[5] 0; ASSERT Result[6] 1; ASSERT Result[7] 1; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 1; ASSERT Result[11] 1; ASSERT Result[12] 0; ASSERT Result[13] 0; ASSERT Result[14] 1; ASSERT Result[15] 1;
+        ASSERT Cout 1; ASSERT Z 0; ASSERT N 1; ASSERT V 0;
+    }
+
+    TEST "BIC 0x04D2, 0x10E1 = 0x0412 C0 Z0 N0 V0" {
+        SET A[0] 0, A[1] 1, A[2] 0, A[3] 0, A[4] 1, A[5] 0, A[6] 1, A[7] 1, A[8] 0, A[9] 0, A[10] 1, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 1, B[6] 1, B[7] 1, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 1, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 1, ZeroA 0, S[0] 1, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 0; ASSERT Result[1] 1; ASSERT Result[2] 0; ASSERT Result[3] 0; ASSERT Result[4] 1; ASSERT Result[5] 0; ASSERT Result[6] 0; ASSERT Result[7] 0; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 1; ASSERT Result[11] 0; ASSERT Result[12] 0; ASSERT Result[13] 0; ASSERT Result[14] 0; ASSERT Result[15] 0;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 0; ASSERT V 0;
+    }
+
+    TEST "BIC 0x7FFF, 0x0001 = 0x7FFE C1 Z0 N0 V0" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1, A[4] 1, A[5] 1, A[6] 1, A[7] 1, A[8] 1, A[9] 1, A[10] 1, A[11] 1, A[12] 1, A[13] 1, A[14] 1, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 1, ZeroA 0, S[0] 1, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 0; ASSERT Result[1] 1; ASSERT Result[2] 1; ASSERT Result[3] 1; ASSERT Result[4] 1; ASSERT Result[5] 1; ASSERT Result[6] 1; ASSERT Result[7] 1; ASSERT Result[8] 1; ASSERT Result[9] 1; ASSERT Result[10] 1; ASSERT Result[11] 1; ASSERT Result[12] 1; ASSERT Result[13] 1; ASSERT Result[14] 1; ASSERT Result[15] 0;
+        ASSERT Cout 1; ASSERT Z 0; ASSERT N 0; ASSERT V 0;
+    }
+
+    TEST "BIC 0x8000, 0x0001 = 0x8000 C1 Z0 N1 V1" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 1;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 1, ZeroA 0, S[0] 1, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 0; ASSERT Result[1] 0; ASSERT Result[2] 0; ASSERT Result[3] 0; ASSERT Result[4] 0; ASSERT Result[5] 0; ASSERT Result[6] 0; ASSERT Result[7] 0; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 0; ASSERT Result[11] 0; ASSERT Result[12] 0; ASSERT Result[13] 0; ASSERT Result[14] 0; ASSERT Result[15] 1;
+        ASSERT Cout 1; ASSERT Z 0; ASSERT N 1; ASSERT V 1;
+    }
+
+    TEST "BIC 0x0005, 0x0005 = 0x0000 C0 Z1 N0 V0" {
+        SET A[0] 1, A[1] 0, A[2] 1, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 1, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 1, ZeroA 0, S[0] 1, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 0; ASSERT Result[1] 0; ASSERT Result[2] 0; ASSERT Result[3] 0; ASSERT Result[4] 0; ASSERT Result[5] 0; ASSERT Result[6] 0; ASSERT Result[7] 0; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 0; ASSERT Result[11] 0; ASSERT Result[12] 0; ASSERT Result[13] 0; ASSERT Result[14] 0; ASSERT Result[15] 0;
+        ASSERT Cout 0; ASSERT Z 1; ASSERT N 0; ASSERT V 0;
+    }
+
+    TEST "BIC 0x0000, 0xFFFF = 0x0000 C0 Z1 N0 V0" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 1, B[2] 1, B[3] 1, B[4] 1, B[5] 1, B[6] 1, B[7] 1, B[8] 1, B[9] 1, B[10] 1, B[11] 1, B[12] 1, B[13] 1, B[14] 1, B[15] 1;
+        SET Cin 0, InvB 1, ZeroA 0, S[0] 1, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 0; ASSERT Result[1] 0; ASSERT Result[2] 0; ASSERT Result[3] 0; ASSERT Result[4] 0; ASSERT Result[5] 0; ASSERT Result[6] 0; ASSERT Result[7] 0; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 0; ASSERT Result[11] 0; ASSERT Result[12] 0; ASSERT Result[13] 0; ASSERT Result[14] 0; ASSERT Result[15] 0;
+        ASSERT Cout 0; ASSERT Z 1; ASSERT N 0; ASSERT V 0;
+    }
+
+    TEST "BIC 0xF0F0, 0x3C3C = 0xC0C0 C1 Z0 N1 V0" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 1, A[5] 1, A[6] 1, A[7] 1, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 1, A[13] 1, A[14] 1, A[15] 1;
+        SET B[0] 0, B[1] 0, B[2] 1, B[3] 1, B[4] 1, B[5] 1, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 1, B[11] 1, B[12] 1, B[13] 1, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 1, ZeroA 0, S[0] 1, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 0; ASSERT Result[1] 0; ASSERT Result[2] 0; ASSERT Result[3] 0; ASSERT Result[4] 0; ASSERT Result[5] 0; ASSERT Result[6] 1; ASSERT Result[7] 1; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 0; ASSERT Result[11] 0; ASSERT Result[12] 0; ASSERT Result[13] 0; ASSERT Result[14] 1; ASSERT Result[15] 1;
+        ASSERT Cout 1; ASSERT Z 0; ASSERT N 1; ASSERT V 0;
+    }
+
+    TEST "MOV 0x04D2, 0x10E1 = 0x10E1 C0 Z0 N0 V0" {
+        SET A[0] 0, A[1] 1, A[2] 0, A[3] 0, A[4] 1, A[5] 0, A[6] 1, A[7] 1, A[8] 0, A[9] 0, A[10] 1, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 1, B[6] 1, B[7] 1, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 1, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 0, ZeroA 1, S[0] 0, S[1] 1;
+        EVAL;
+        ASSERT Result[0] 1; ASSERT Result[1] 0; ASSERT Result[2] 0; ASSERT Result[3] 0; ASSERT Result[4] 0; ASSERT Result[5] 1; ASSERT Result[6] 1; ASSERT Result[7] 1; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 0; ASSERT Result[11] 0; ASSERT Result[12] 1; ASSERT Result[13] 0; ASSERT Result[14] 0; ASSERT Result[15] 0;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 0; ASSERT V 0;
+    }
+
+    TEST "MOV 0x7FFF, 0x0001 = 0x0001 C0 Z0 N0 V0" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1, A[4] 1, A[5] 1, A[6] 1, A[7] 1, A[8] 1, A[9] 1, A[10] 1, A[11] 1, A[12] 1, A[13] 1, A[14] 1, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 0, ZeroA 1, S[0] 0, S[1] 1;
+        EVAL;
+        ASSERT Result[0] 1; ASSERT Result[1] 0; ASSERT Result[2] 0; ASSERT Result[3] 0; ASSERT Result[4] 0; ASSERT Result[5] 0; ASSERT Result[6] 0; ASSERT Result[7] 0; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 0; ASSERT Result[11] 0; ASSERT Result[12] 0; ASSERT Result[13] 0; ASSERT Result[14] 0; ASSERT Result[15] 0;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 0; ASSERT V 0;
+    }
+
+    TEST "MOV 0x8000, 0x0001 = 0x0001 C0 Z0 N0 V0" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 1;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 0, ZeroA 1, S[0] 0, S[1] 1;
+        EVAL;
+        ASSERT Result[0] 1; ASSERT Result[1] 0; ASSERT Result[2] 0; ASSERT Result[3] 0; ASSERT Result[4] 0; ASSERT Result[5] 0; ASSERT Result[6] 0; ASSERT Result[7] 0; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 0; ASSERT Result[11] 0; ASSERT Result[12] 0; ASSERT Result[13] 0; ASSERT Result[14] 0; ASSERT Result[15] 0;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 0; ASSERT V 0;
+    }
+
+    TEST "MOV 0x0005, 0x0005 = 0x0005 C0 Z0 N0 V0" {
+        SET A[0] 1, A[1] 0, A[2] 1, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 1, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 0, ZeroA 1, S[0] 0, S[1] 1;
+        EVAL;
+        ASSERT Result[0] 1; ASSERT Result[1] 0; ASSERT Result[2] 1; ASSERT Result[3] 0; ASSERT Result[4] 0; ASSERT Result[5] 0; ASSERT Result[6] 0; ASSERT Result[7] 0; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 0; ASSERT Result[11] 0; ASSERT Result[12] 0; ASSERT Result[13] 0; ASSERT Result[14] 0; ASSERT Result[15] 0;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 0; ASSERT V 0;
+    }
+
+    TEST "MOV 0x0000, 0xFFFF = 0xFFFF C0 Z0 N1 V0" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 1, B[2] 1, B[3] 1, B[4] 1, B[5] 1, B[6] 1, B[7] 1, B[8] 1, B[9] 1, B[10] 1, B[11] 1, B[12] 1, B[13] 1, B[14] 1, B[15] 1;
+        SET Cin 0, InvB 0, ZeroA 1, S[0] 0, S[1] 1;
+        EVAL;
+        ASSERT Result[0] 1; ASSERT Result[1] 1; ASSERT Result[2] 1; ASSERT Result[3] 1; ASSERT Result[4] 1; ASSERT Result[5] 1; ASSERT Result[6] 1; ASSERT Result[7] 1; ASSERT Result[8] 1; ASSERT Result[9] 1; ASSERT Result[10] 1; ASSERT Result[11] 1; ASSERT Result[12] 1; ASSERT Result[13] 1; ASSERT Result[14] 1; ASSERT Result[15] 1;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 1; ASSERT V 0;
+    }
+
+    TEST "MOV 0xF0F0, 0x3C3C = 0x3C3C C0 Z0 N0 V0" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 1, A[5] 1, A[6] 1, A[7] 1, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 1, A[13] 1, A[14] 1, A[15] 1;
+        SET B[0] 0, B[1] 0, B[2] 1, B[3] 1, B[4] 1, B[5] 1, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 1, B[11] 1, B[12] 1, B[13] 1, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 0, ZeroA 1, S[0] 0, S[1] 1;
+        EVAL;
+        ASSERT Result[0] 0; ASSERT Result[1] 0; ASSERT Result[2] 1; ASSERT Result[3] 1; ASSERT Result[4] 1; ASSERT Result[5] 1; ASSERT Result[6] 0; ASSERT Result[7] 0; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 1; ASSERT Result[11] 1; ASSERT Result[12] 1; ASSERT Result[13] 1; ASSERT Result[14] 0; ASSERT Result[15] 0;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 0; ASSERT V 0;
+    }
+
+    TEST "NOT 0x04D2, 0x10E1 = 0xEF1E C0 Z0 N1 V0" {
+        SET A[0] 0, A[1] 1, A[2] 0, A[3] 0, A[4] 1, A[5] 0, A[6] 1, A[7] 1, A[8] 0, A[9] 0, A[10] 1, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 1, B[6] 1, B[7] 1, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 1, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 1, ZeroA 1, S[0] 0, S[1] 1;
+        EVAL;
+        ASSERT Result[0] 0; ASSERT Result[1] 1; ASSERT Result[2] 1; ASSERT Result[3] 1; ASSERT Result[4] 1; ASSERT Result[5] 0; ASSERT Result[6] 0; ASSERT Result[7] 0; ASSERT Result[8] 1; ASSERT Result[9] 1; ASSERT Result[10] 1; ASSERT Result[11] 1; ASSERT Result[12] 0; ASSERT Result[13] 1; ASSERT Result[14] 1; ASSERT Result[15] 1;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 1; ASSERT V 0;
+    }
+
+    TEST "NOT 0x7FFF, 0x0001 = 0xFFFE C0 Z0 N1 V0" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1, A[4] 1, A[5] 1, A[6] 1, A[7] 1, A[8] 1, A[9] 1, A[10] 1, A[11] 1, A[12] 1, A[13] 1, A[14] 1, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 1, ZeroA 1, S[0] 0, S[1] 1;
+        EVAL;
+        ASSERT Result[0] 0; ASSERT Result[1] 1; ASSERT Result[2] 1; ASSERT Result[3] 1; ASSERT Result[4] 1; ASSERT Result[5] 1; ASSERT Result[6] 1; ASSERT Result[7] 1; ASSERT Result[8] 1; ASSERT Result[9] 1; ASSERT Result[10] 1; ASSERT Result[11] 1; ASSERT Result[12] 1; ASSERT Result[13] 1; ASSERT Result[14] 1; ASSERT Result[15] 1;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 1; ASSERT V 0;
+    }
+
+    TEST "NOT 0x8000, 0x0001 = 0xFFFE C0 Z0 N1 V0" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 1;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 1, ZeroA 1, S[0] 0, S[1] 1;
+        EVAL;
+        ASSERT Result[0] 0; ASSERT Result[1] 1; ASSERT Result[2] 1; ASSERT Result[3] 1; ASSERT Result[4] 1; ASSERT Result[5] 1; ASSERT Result[6] 1; ASSERT Result[7] 1; ASSERT Result[8] 1; ASSERT Result[9] 1; ASSERT Result[10] 1; ASSERT Result[11] 1; ASSERT Result[12] 1; ASSERT Result[13] 1; ASSERT Result[14] 1; ASSERT Result[15] 1;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 1; ASSERT V 0;
+    }
+
+    TEST "NOT 0x0005, 0x0005 = 0xFFFA C0 Z0 N1 V0" {
+        SET A[0] 1, A[1] 0, A[2] 1, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 1, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 1, ZeroA 1, S[0] 0, S[1] 1;
+        EVAL;
+        ASSERT Result[0] 0; ASSERT Result[1] 1; ASSERT Result[2] 0; ASSERT Result[3] 1; ASSERT Result[4] 1; ASSERT Result[5] 1; ASSERT Result[6] 1; ASSERT Result[7] 1; ASSERT Result[8] 1; ASSERT Result[9] 1; ASSERT Result[10] 1; ASSERT Result[11] 1; ASSERT Result[12] 1; ASSERT Result[13] 1; ASSERT Result[14] 1; ASSERT Result[15] 1;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 1; ASSERT V 0;
+    }
+
+    TEST "NOT 0x0000, 0xFFFF = 0x0000 C0 Z1 N0 V0" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 1, B[2] 1, B[3] 1, B[4] 1, B[5] 1, B[6] 1, B[7] 1, B[8] 1, B[9] 1, B[10] 1, B[11] 1, B[12] 1, B[13] 1, B[14] 1, B[15] 1;
+        SET Cin 0, InvB 1, ZeroA 1, S[0] 0, S[1] 1;
+        EVAL;
+        ASSERT Result[0] 0; ASSERT Result[1] 0; ASSERT Result[2] 0; ASSERT Result[3] 0; ASSERT Result[4] 0; ASSERT Result[5] 0; ASSERT Result[6] 0; ASSERT Result[7] 0; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 0; ASSERT Result[11] 0; ASSERT Result[12] 0; ASSERT Result[13] 0; ASSERT Result[14] 0; ASSERT Result[15] 0;
+        ASSERT Cout 0; ASSERT Z 1; ASSERT N 0; ASSERT V 0;
+    }
+
+    TEST "NOT 0xF0F0, 0x3C3C = 0xC3C3 C0 Z0 N1 V0" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 1, A[5] 1, A[6] 1, A[7] 1, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 1, A[13] 1, A[14] 1, A[15] 1;
+        SET B[0] 0, B[1] 0, B[2] 1, B[3] 1, B[4] 1, B[5] 1, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 1, B[11] 1, B[12] 1, B[13] 1, B[14] 0, B[15] 0;
+        SET Cin 0, InvB 1, ZeroA 1, S[0] 0, S[1] 1;
+        EVAL;
+        ASSERT Result[0] 1; ASSERT Result[1] 1; ASSERT Result[2] 0; ASSERT Result[3] 0; ASSERT Result[4] 0; ASSERT Result[5] 0; ASSERT Result[6] 1; ASSERT Result[7] 1; ASSERT Result[8] 1; ASSERT Result[9] 1; ASSERT Result[10] 0; ASSERT Result[11] 0; ASSERT Result[12] 0; ASSERT Result[13] 0; ASSERT Result[14] 1; ASSERT Result[15] 1;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 1; ASSERT V 0;
+    }
+
+    TEST "NEG 0x04D2, 0x10E1 = 0xEF1F C0 Z0 N1 V0" {
+        SET A[0] 0, A[1] 1, A[2] 0, A[3] 0, A[4] 1, A[5] 0, A[6] 1, A[7] 1, A[8] 0, A[9] 0, A[10] 1, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 1, B[6] 1, B[7] 1, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 1, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 1, InvB 1, ZeroA 1, S[0] 0, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 1; ASSERT Result[1] 1; ASSERT Result[2] 1; ASSERT Result[3] 1; ASSERT Result[4] 1; ASSERT Result[5] 0; ASSERT Result[6] 0; ASSERT Result[7] 0; ASSERT Result[8] 1; ASSERT Result[9] 1; ASSERT Result[10] 1; ASSERT Result[11] 1; ASSERT Result[12] 0; ASSERT Result[13] 1; ASSERT Result[14] 1; ASSERT Result[15] 1;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 1; ASSERT V 0;
+    }
+
+    TEST "NEG 0x7FFF, 0x0001 = 0xFFFF C0 Z0 N1 V0" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1, A[4] 1, A[5] 1, A[6] 1, A[7] 1, A[8] 1, A[9] 1, A[10] 1, A[11] 1, A[12] 1, A[13] 1, A[14] 1, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 1, InvB 1, ZeroA 1, S[0] 0, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 1; ASSERT Result[1] 1; ASSERT Result[2] 1; ASSERT Result[3] 1; ASSERT Result[4] 1; ASSERT Result[5] 1; ASSERT Result[6] 1; ASSERT Result[7] 1; ASSERT Result[8] 1; ASSERT Result[9] 1; ASSERT Result[10] 1; ASSERT Result[11] 1; ASSERT Result[12] 1; ASSERT Result[13] 1; ASSERT Result[14] 1; ASSERT Result[15] 1;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 1; ASSERT V 0;
+    }
+
+    TEST "NEG 0x8000, 0x0001 = 0xFFFF C0 Z0 N1 V0" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 1;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 1, InvB 1, ZeroA 1, S[0] 0, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 1; ASSERT Result[1] 1; ASSERT Result[2] 1; ASSERT Result[3] 1; ASSERT Result[4] 1; ASSERT Result[5] 1; ASSERT Result[6] 1; ASSERT Result[7] 1; ASSERT Result[8] 1; ASSERT Result[9] 1; ASSERT Result[10] 1; ASSERT Result[11] 1; ASSERT Result[12] 1; ASSERT Result[13] 1; ASSERT Result[14] 1; ASSERT Result[15] 1;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 1; ASSERT V 0;
+    }
+
+    TEST "NEG 0x0005, 0x0005 = 0xFFFB C0 Z0 N1 V0" {
+        SET A[0] 1, A[1] 0, A[2] 1, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 1, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Cin 1, InvB 1, ZeroA 1, S[0] 0, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 1; ASSERT Result[1] 1; ASSERT Result[2] 0; ASSERT Result[3] 1; ASSERT Result[4] 1; ASSERT Result[5] 1; ASSERT Result[6] 1; ASSERT Result[7] 1; ASSERT Result[8] 1; ASSERT Result[9] 1; ASSERT Result[10] 1; ASSERT Result[11] 1; ASSERT Result[12] 1; ASSERT Result[13] 1; ASSERT Result[14] 1; ASSERT Result[15] 1;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 1; ASSERT V 0;
+    }
+
+    TEST "NEG 0x0000, 0xFFFF = 0x0001 C0 Z0 N0 V0" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 1, B[2] 1, B[3] 1, B[4] 1, B[5] 1, B[6] 1, B[7] 1, B[8] 1, B[9] 1, B[10] 1, B[11] 1, B[12] 1, B[13] 1, B[14] 1, B[15] 1;
+        SET Cin 1, InvB 1, ZeroA 1, S[0] 0, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 1; ASSERT Result[1] 0; ASSERT Result[2] 0; ASSERT Result[3] 0; ASSERT Result[4] 0; ASSERT Result[5] 0; ASSERT Result[6] 0; ASSERT Result[7] 0; ASSERT Result[8] 0; ASSERT Result[9] 0; ASSERT Result[10] 0; ASSERT Result[11] 0; ASSERT Result[12] 0; ASSERT Result[13] 0; ASSERT Result[14] 0; ASSERT Result[15] 0;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 0; ASSERT V 0;
+    }
+
+    TEST "NEG 0xF0F0, 0x3C3C = 0xC3C4 C0 Z0 N1 V0" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 1, A[5] 1, A[6] 1, A[7] 1, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 1, A[13] 1, A[14] 1, A[15] 1;
+        SET B[0] 0, B[1] 0, B[2] 1, B[3] 1, B[4] 1, B[5] 1, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 1, B[11] 1, B[12] 1, B[13] 1, B[14] 0, B[15] 0;
+        SET Cin 1, InvB 1, ZeroA 1, S[0] 0, S[1] 0;
+        EVAL;
+        ASSERT Result[0] 0; ASSERT Result[1] 0; ASSERT Result[2] 1; ASSERT Result[3] 0; ASSERT Result[4] 0; ASSERT Result[5] 0; ASSERT Result[6] 1; ASSERT Result[7] 1; ASSERT Result[8] 1; ASSERT Result[9] 1; ASSERT Result[10] 0; ASSERT Result[11] 0; ASSERT Result[12] 0; ASSERT Result[13] 0; ASSERT Result[14] 1; ASSERT Result[15] 1;
+        ASSERT Cout 0; ASSERT Z 0; ASSERT N 1; ASSERT V 0;
+    }
+}

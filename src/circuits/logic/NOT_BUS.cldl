@@ -1,0 +1,12 @@
+CIRCUIT NOT_BUS<W> {
+    // Bitwise NOT of a W-bit bus.
+    INPUT A[W];
+
+    OUTPUT Out[W];
+
+    FOR i IN 0..W {
+        PART G[i]: NOT;
+        CONNECT A[i] -> G[i].in;
+        CONNECT G[i].out -> Out[i];
+    }
+}
