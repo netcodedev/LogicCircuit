@@ -1,0 +1,517 @@
+// Tests for CONTROL_UNIT_16B: every opcode and function code, all control
+// signals checked (reserved encodings must not enable anything).
+
+TESTS FOR CONTROL_UNIT_16B {
+    TEST "SYS HALT (op 0, fn 0)" {
+        SET Op[0] 0, Op[1] 0, Op[2] 0, Op[3] 0, Fn[0] 0, Fn[1] 0, Fn[2] 0, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 0; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 0; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 1; ASSERT ShLeft 1; ASSERT ShRot 0; ASSERT ShArith 0; ASSERT ShImm 0;
+    }
+
+    TEST "SYS NOP (op 0, fn 1)" {
+        SET Op[0] 0, Op[1] 0, Op[2] 0, Op[3] 0, Fn[0] 1, Fn[1] 0, Fn[2] 0, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 0; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 0; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 0; ASSERT ShRot 0; ASSERT ShArith 0; ASSERT ShImm 0;
+    }
+
+    TEST "SYS RET (op 0, fn 2)" {
+        SET Op[0] 0, Op[1] 0, Op[2] 0, Op[3] 0, Fn[0] 0, Fn[1] 1, Fn[2] 0, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 0; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 0; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 1; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 1; ASSERT Jump 1; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 1; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 1; ASSERT ShRot 1; ASSERT ShArith 0; ASSERT ShImm 0;
+    }
+
+    TEST "SYS JR (op 0, fn 3)" {
+        SET Op[0] 0, Op[1] 0, Op[2] 0, Op[3] 0, Fn[0] 1, Fn[1] 1, Fn[2] 0, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 0; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 0; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 1; ASSERT TargetSel[1] 0; ASSERT Jump 1; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 0; ASSERT ShRot 1; ASSERT ShArith 0; ASSERT ShImm 0;
+    }
+
+    TEST "SYS CALLR (op 0, fn 4)" {
+        SET Op[0] 0, Op[1] 0, Op[2] 0, Op[3] 0, Fn[0] 0, Fn[1] 0, Fn[2] 1, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 0; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 0; ASSERT LoadCV 0;
+        ASSERT MemWrite 1; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 1; ASSERT MemDataSel 1; ASSERT TargetSel[0] 1; ASSERT TargetSel[1] 0; ASSERT Jump 1; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 1; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 1; ASSERT ShRot 0; ASSERT ShArith 1; ASSERT ShImm 0;
+    }
+
+    TEST "SYS PUSH (op 0, fn 5)" {
+        SET Op[0] 0, Op[1] 0, Op[2] 0, Op[3] 0, Fn[0] 1, Fn[1] 0, Fn[2] 1, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 0; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 0; ASSERT LoadCV 0;
+        ASSERT MemWrite 1; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 1; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 1; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 0; ASSERT ShRot 0; ASSERT ShArith 1; ASSERT ShImm 0;
+    }
+
+    TEST "SYS POP (op 0, fn 6)" {
+        SET Op[0] 0, Op[1] 0, Op[2] 0, Op[3] 0, Fn[0] 0, Fn[1] 1, Fn[2] 1, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 1; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 1; ASSERT LoadZN 0; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 1; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 1; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 1; ASSERT ShRot 1; ASSERT ShArith 1; ASSERT ShImm 0;
+    }
+
+    TEST "SYS OUT (op 0, fn 7)" {
+        SET Op[0] 0, Op[1] 0, Op[2] 0, Op[3] 0, Fn[0] 1, Fn[1] 1, Fn[2] 1, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 0; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 0; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 1; ASSERT Halt 0; ASSERT ShLeft 0; ASSERT ShRot 1; ASSERT ShArith 1; ASSERT ShImm 0;
+    }
+
+    TEST "SYS IN (op 0, fn 8)" {
+        SET Op[0] 0, Op[1] 0, Op[2] 0, Op[3] 0, Fn[0] 0, Fn[1] 0, Fn[2] 0, Fn[3] 1;
+        EVAL;
+        ASSERT RegWrite 1; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 1; ASSERT WbSel[1] 1; ASSERT LoadZN 0; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 1; ASSERT ShRot 0; ASSERT ShArith 0; ASSERT ShImm 1;
+    }
+
+    TEST "SYS reserved 9 (op 0, fn 9)" {
+        SET Op[0] 0, Op[1] 0, Op[2] 0, Op[3] 0, Fn[0] 1, Fn[1] 0, Fn[2] 0, Fn[3] 1;
+        EVAL;
+        ASSERT RegWrite 0; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 0; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 0; ASSERT ShRot 0; ASSERT ShArith 0; ASSERT ShImm 1;
+    }
+
+    TEST "SYS reserved 10 (op 0, fn 10)" {
+        SET Op[0] 0, Op[1] 0, Op[2] 0, Op[3] 0, Fn[0] 0, Fn[1] 1, Fn[2] 0, Fn[3] 1;
+        EVAL;
+        ASSERT RegWrite 0; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 0; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 1; ASSERT ShRot 1; ASSERT ShArith 0; ASSERT ShImm 1;
+    }
+
+    TEST "SYS reserved 11 (op 0, fn 11)" {
+        SET Op[0] 0, Op[1] 0, Op[2] 0, Op[3] 0, Fn[0] 1, Fn[1] 1, Fn[2] 0, Fn[3] 1;
+        EVAL;
+        ASSERT RegWrite 0; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 0; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 0; ASSERT ShRot 1; ASSERT ShArith 0; ASSERT ShImm 1;
+    }
+
+    TEST "SYS reserved 12 (op 0, fn 12)" {
+        SET Op[0] 0, Op[1] 0, Op[2] 0, Op[3] 0, Fn[0] 0, Fn[1] 0, Fn[2] 1, Fn[3] 1;
+        EVAL;
+        ASSERT RegWrite 0; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 0; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 1; ASSERT ShRot 0; ASSERT ShArith 1; ASSERT ShImm 1;
+    }
+
+    TEST "SYS reserved 13 (op 0, fn 13)" {
+        SET Op[0] 0, Op[1] 0, Op[2] 0, Op[3] 0, Fn[0] 1, Fn[1] 0, Fn[2] 1, Fn[3] 1;
+        EVAL;
+        ASSERT RegWrite 0; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 0; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 0; ASSERT ShRot 0; ASSERT ShArith 1; ASSERT ShImm 1;
+    }
+
+    TEST "SYS reserved 14 (op 0, fn 14)" {
+        SET Op[0] 0, Op[1] 0, Op[2] 0, Op[3] 0, Fn[0] 0, Fn[1] 1, Fn[2] 1, Fn[3] 1;
+        EVAL;
+        ASSERT RegWrite 0; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 0; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 1; ASSERT ShRot 1; ASSERT ShArith 1; ASSERT ShImm 1;
+    }
+
+    TEST "SYS reserved 15 (op 0, fn 15)" {
+        SET Op[0] 0, Op[1] 0, Op[2] 0, Op[3] 0, Fn[0] 1, Fn[1] 1, Fn[2] 1, Fn[3] 1;
+        EVAL;
+        ASSERT RegWrite 0; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 0; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 0; ASSERT ShRot 1; ASSERT ShArith 1; ASSERT ShImm 1;
+    }
+
+    TEST "ALU ADD (op 1, fn 0)" {
+        SET Op[0] 1, Op[1] 0, Op[2] 0, Op[3] 0, Fn[0] 0, Fn[1] 0, Fn[2] 0, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 1; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 1; ASSERT LoadCV 1;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 1; ASSERT ShRot 0; ASSERT ShArith 0; ASSERT ShImm 0;
+    }
+
+    TEST "ALU SUB (op 1, fn 1)" {
+        SET Op[0] 1, Op[1] 0, Op[2] 0, Op[3] 0, Fn[0] 1, Fn[1] 0, Fn[2] 0, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 1; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 1; ASSERT ZeroA 0; ASSERT CinOne 1; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 1; ASSERT LoadCV 1;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 0; ASSERT ShRot 0; ASSERT ShArith 0; ASSERT ShImm 0;
+    }
+
+    TEST "ALU ADC (op 1, fn 2)" {
+        SET Op[0] 1, Op[1] 0, Op[2] 0, Op[3] 0, Fn[0] 0, Fn[1] 1, Fn[2] 0, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 1; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 1; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 1; ASSERT LoadCV 1;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 1; ASSERT ShRot 1; ASSERT ShArith 0; ASSERT ShImm 0;
+    }
+
+    TEST "ALU SBC (op 1, fn 3)" {
+        SET Op[0] 1, Op[1] 0, Op[2] 0, Op[3] 0, Fn[0] 1, Fn[1] 1, Fn[2] 0, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 1; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 1; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 1; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 1; ASSERT LoadCV 1;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 0; ASSERT ShRot 1; ASSERT ShArith 0; ASSERT ShImm 0;
+    }
+
+    TEST "ALU AND (op 1, fn 4)" {
+        SET Op[0] 1, Op[1] 0, Op[2] 0, Op[3] 0, Fn[0] 0, Fn[1] 0, Fn[2] 1, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 1; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 1; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 1; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 1; ASSERT ShRot 0; ASSERT ShArith 1; ASSERT ShImm 0;
+    }
+
+    TEST "ALU OR (op 1, fn 5)" {
+        SET Op[0] 1, Op[1] 0, Op[2] 0, Op[3] 0, Fn[0] 1, Fn[1] 0, Fn[2] 1, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 1; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 1;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 1; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 0; ASSERT ShRot 0; ASSERT ShArith 1; ASSERT ShImm 0;
+    }
+
+    TEST "ALU XOR (op 1, fn 6)" {
+        SET Op[0] 1, Op[1] 0, Op[2] 0, Op[3] 0, Fn[0] 0, Fn[1] 1, Fn[2] 1, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 1; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 1; ASSERT AluS[1] 1;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 1; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 1; ASSERT ShRot 1; ASSERT ShArith 1; ASSERT ShImm 0;
+    }
+
+    TEST "ALU BIC (op 1, fn 7)" {
+        SET Op[0] 1, Op[1] 0, Op[2] 0, Op[3] 0, Fn[0] 1, Fn[1] 1, Fn[2] 1, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 1; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 1; ASSERT AluS[1] 0;
+        ASSERT InvB 1; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 1; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 0; ASSERT ShRot 1; ASSERT ShArith 1; ASSERT ShImm 0;
+    }
+
+    TEST "ALU MOV (op 1, fn 8)" {
+        SET Op[0] 1, Op[1] 0, Op[2] 0, Op[3] 0, Fn[0] 0, Fn[1] 0, Fn[2] 0, Fn[3] 1;
+        EVAL;
+        ASSERT RegWrite 1; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 1;
+        ASSERT InvB 0; ASSERT ZeroA 1; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 1; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 1; ASSERT ShRot 0; ASSERT ShArith 0; ASSERT ShImm 1;
+    }
+
+    TEST "ALU NOT (op 1, fn 9)" {
+        SET Op[0] 1, Op[1] 0, Op[2] 0, Op[3] 0, Fn[0] 1, Fn[1] 0, Fn[2] 0, Fn[3] 1;
+        EVAL;
+        ASSERT RegWrite 1; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 1;
+        ASSERT InvB 1; ASSERT ZeroA 1; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 1; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 0; ASSERT ShRot 0; ASSERT ShArith 0; ASSERT ShImm 1;
+    }
+
+    TEST "ALU NEG (op 1, fn 10)" {
+        SET Op[0] 1, Op[1] 0, Op[2] 0, Op[3] 0, Fn[0] 0, Fn[1] 1, Fn[2] 0, Fn[3] 1;
+        EVAL;
+        ASSERT RegWrite 1; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 1; ASSERT ZeroA 1; ASSERT CinOne 1; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 1; ASSERT LoadCV 1;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 1; ASSERT ShRot 1; ASSERT ShArith 0; ASSERT ShImm 1;
+    }
+
+    TEST "ALU CMP (op 1, fn 11)" {
+        SET Op[0] 1, Op[1] 0, Op[2] 0, Op[3] 0, Fn[0] 1, Fn[1] 1, Fn[2] 0, Fn[3] 1;
+        EVAL;
+        ASSERT RegWrite 0; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 1; ASSERT ZeroA 0; ASSERT CinOne 1; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 1; ASSERT LoadCV 1;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 0; ASSERT ShRot 1; ASSERT ShArith 0; ASSERT ShImm 1;
+    }
+
+    TEST "ALU TEST (op 1, fn 12)" {
+        SET Op[0] 1, Op[1] 0, Op[2] 0, Op[3] 0, Fn[0] 0, Fn[1] 0, Fn[2] 1, Fn[3] 1;
+        EVAL;
+        ASSERT RegWrite 0; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 1; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 1; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 1; ASSERT ShRot 0; ASSERT ShArith 1; ASSERT ShImm 1;
+    }
+
+    TEST "ALU reserved 13 (op 1, fn 13)" {
+        SET Op[0] 1, Op[1] 0, Op[2] 0, Op[3] 0, Fn[0] 1, Fn[1] 0, Fn[2] 1, Fn[3] 1;
+        EVAL;
+        ASSERT RegWrite 0; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 0; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 0; ASSERT ShRot 0; ASSERT ShArith 1; ASSERT ShImm 1;
+    }
+
+    TEST "ALU reserved 14 (op 1, fn 14)" {
+        SET Op[0] 1, Op[1] 0, Op[2] 0, Op[3] 0, Fn[0] 0, Fn[1] 1, Fn[2] 1, Fn[3] 1;
+        EVAL;
+        ASSERT RegWrite 0; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 0; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 1; ASSERT ShRot 1; ASSERT ShArith 1; ASSERT ShImm 1;
+    }
+
+    TEST "ALU reserved 15 (op 1, fn 15)" {
+        SET Op[0] 1, Op[1] 0, Op[2] 0, Op[3] 0, Fn[0] 1, Fn[1] 1, Fn[2] 1, Fn[3] 1;
+        EVAL;
+        ASSERT RegWrite 0; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 0; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 0; ASSERT ShRot 1; ASSERT ShArith 1; ASSERT ShImm 1;
+    }
+
+    TEST "SHIFT SHL (op 2, fn 0)" {
+        SET Op[0] 0, Op[1] 1, Op[2] 0, Op[3] 0, Fn[0] 0, Fn[1] 0, Fn[2] 0, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 1; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 1; ASSERT WbSel[1] 0; ASSERT LoadZN 1; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 1; ASSERT ShRot 0; ASSERT ShArith 0; ASSERT ShImm 0;
+    }
+
+    TEST "SHIFT SHR (op 2, fn 1)" {
+        SET Op[0] 0, Op[1] 1, Op[2] 0, Op[3] 0, Fn[0] 1, Fn[1] 0, Fn[2] 0, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 1; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 1; ASSERT WbSel[1] 0; ASSERT LoadZN 1; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 0; ASSERT ShRot 0; ASSERT ShArith 0; ASSERT ShImm 0;
+    }
+
+    TEST "SHIFT ROL (op 2, fn 2)" {
+        SET Op[0] 0, Op[1] 1, Op[2] 0, Op[3] 0, Fn[0] 0, Fn[1] 1, Fn[2] 0, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 1; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 1; ASSERT WbSel[1] 0; ASSERT LoadZN 1; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 1; ASSERT ShRot 1; ASSERT ShArith 0; ASSERT ShImm 0;
+    }
+
+    TEST "SHIFT ROR (op 2, fn 3)" {
+        SET Op[0] 0, Op[1] 1, Op[2] 0, Op[3] 0, Fn[0] 1, Fn[1] 1, Fn[2] 0, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 1; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 1; ASSERT WbSel[1] 0; ASSERT LoadZN 1; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 0; ASSERT ShRot 1; ASSERT ShArith 0; ASSERT ShImm 0;
+    }
+
+    TEST "SHIFT SAR (op 2, fn 5)" {
+        SET Op[0] 0, Op[1] 1, Op[2] 0, Op[3] 0, Fn[0] 1, Fn[1] 0, Fn[2] 1, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 1; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 1; ASSERT WbSel[1] 0; ASSERT LoadZN 1; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 0; ASSERT ShRot 0; ASSERT ShArith 1; ASSERT ShImm 0;
+    }
+
+    TEST "SHIFT SHL imm (op 2, fn 8)" {
+        SET Op[0] 0, Op[1] 1, Op[2] 0, Op[3] 0, Fn[0] 0, Fn[1] 0, Fn[2] 0, Fn[3] 1;
+        EVAL;
+        ASSERT RegWrite 1; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 1; ASSERT WbSel[1] 0; ASSERT LoadZN 1; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 1; ASSERT ShRot 0; ASSERT ShArith 0; ASSERT ShImm 1;
+    }
+
+    TEST "SHIFT SAR imm (op 2, fn 13)" {
+        SET Op[0] 0, Op[1] 1, Op[2] 0, Op[3] 0, Fn[0] 1, Fn[1] 0, Fn[2] 1, Fn[3] 1;
+        EVAL;
+        ASSERT RegWrite 1; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 1; ASSERT WbSel[1] 0; ASSERT LoadZN 1; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 0; ASSERT ShRot 0; ASSERT ShArith 1; ASSERT ShImm 1;
+    }
+
+    TEST "LW (op 3, fn 0)" {
+        SET Op[0] 1, Op[1] 1, Op[2] 0, Op[3] 0, Fn[0] 0, Fn[1] 0, Fn[2] 0, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 1; ASSERT ASrc 1; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 1; ASSERT ImmSel[1] 1; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 1; ASSERT LoadZN 0; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 1; ASSERT ShRot 0; ASSERT ShArith 0; ASSERT ShImm 0;
+    }
+
+    TEST "LW off 15 (op 3, fn 15)" {
+        SET Op[0] 1, Op[1] 1, Op[2] 0, Op[3] 0, Fn[0] 1, Fn[1] 1, Fn[2] 1, Fn[3] 1;
+        EVAL;
+        ASSERT RegWrite 1; ASSERT ASrc 1; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 1; ASSERT ImmSel[1] 1; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 1; ASSERT LoadZN 0; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 0; ASSERT ShRot 1; ASSERT ShArith 1; ASSERT ShImm 1;
+    }
+
+    TEST "SW (op 4, fn 7)" {
+        SET Op[0] 0, Op[1] 0, Op[2] 1, Op[3] 0, Fn[0] 1, Fn[1] 1, Fn[2] 1, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 0; ASSERT ASrc 1; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 1; ASSERT ImmSel[1] 1; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 0; ASSERT LoadCV 0;
+        ASSERT MemWrite 1; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 0; ASSERT ShRot 1; ASSERT ShArith 1; ASSERT ShImm 0;
+    }
+
+    TEST "Bcc (op 5, fn 0)" {
+        SET Op[0] 1, Op[1] 0, Op[2] 1, Op[3] 0, Fn[0] 0, Fn[1] 0, Fn[2] 0, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 0; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 0; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 1;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 1; ASSERT ShRot 0; ASSERT ShArith 0; ASSERT ShImm 0;
+    }
+
+    TEST "Bcc (offset bits in Fn) (op 5, fn 9)" {
+        SET Op[0] 1, Op[1] 0, Op[2] 1, Op[3] 0, Fn[0] 1, Fn[1] 0, Fn[2] 0, Fn[3] 1;
+        EVAL;
+        ASSERT RegWrite 0; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 0; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 1;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 0; ASSERT ShRot 0; ASSERT ShArith 0; ASSERT ShImm 1;
+    }
+
+    TEST "LONG LI (op 6, fn 0)" {
+        SET Op[0] 0, Op[1] 1, Op[2] 1, Op[3] 0, Fn[0] 0, Fn[1] 0, Fn[2] 0, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 1; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 1; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 1;
+        ASSERT InvB 0; ASSERT ZeroA 1; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 0; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 1; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 1; ASSERT ShRot 0; ASSERT ShArith 0; ASSERT ShImm 0;
+    }
+
+    TEST "LONG JMP (op 6, fn 1)" {
+        SET Op[0] 0, Op[1] 1, Op[2] 1, Op[3] 0, Fn[0] 1, Fn[1] 0, Fn[2] 0, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 0; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 0; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 1; ASSERT BranchInstr 0;
+        ASSERT Step2 1; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 0; ASSERT ShRot 0; ASSERT ShArith 0; ASSERT ShImm 0;
+    }
+
+    TEST "LONG CALL (op 6, fn 2)" {
+        SET Op[0] 0, Op[1] 1, Op[2] 1, Op[3] 0, Fn[0] 0, Fn[1] 1, Fn[2] 0, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 0; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 0; ASSERT LoadCV 0;
+        ASSERT MemWrite 1; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 1; ASSERT MemDataSel 1; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 1; ASSERT BranchInstr 0;
+        ASSERT Step2 1; ASSERT SpInc 0; ASSERT SpDec 1; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 1; ASSERT ShRot 1; ASSERT ShArith 0; ASSERT ShImm 0;
+    }
+
+    TEST "LONG reserved 3 (op 6, fn 3)" {
+        SET Op[0] 0, Op[1] 1, Op[2] 1, Op[3] 0, Fn[0] 1, Fn[1] 1, Fn[2] 0, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 0; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 0; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 1; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 0; ASSERT ShRot 1; ASSERT ShArith 0; ASSERT ShImm 0;
+    }
+
+    TEST "reserved op 7 (op 7, fn 0)" {
+        SET Op[0] 1, Op[1] 1, Op[2] 1, Op[3] 0, Fn[0] 0, Fn[1] 0, Fn[2] 0, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 0; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 0; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 1; ASSERT ShRot 0; ASSERT ShArith 0; ASSERT ShImm 0;
+    }
+
+    TEST "MOVI (op 8, fn 5)" {
+        SET Op[0] 0, Op[1] 0, Op[2] 0, Op[3] 1, Fn[0] 1, Fn[1] 0, Fn[2] 1, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 1; ASSERT ASrc 0; ASSERT BSrc[0] 1; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 1;
+        ASSERT InvB 0; ASSERT ZeroA 1; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 0; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 0; ASSERT ShRot 0; ASSERT ShArith 1; ASSERT ShImm 0;
+    }
+
+    TEST "ADDI (op 9, fn 5)" {
+        SET Op[0] 1, Op[1] 0, Op[2] 0, Op[3] 1, Fn[0] 1, Fn[1] 0, Fn[2] 1, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 1; ASSERT ASrc 0; ASSERT BSrc[0] 1; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 1; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 1; ASSERT LoadCV 1;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 0; ASSERT ShRot 0; ASSERT ShArith 1; ASSERT ShImm 0;
+    }
+
+    TEST "CMPI (op 10, fn 5)" {
+        SET Op[0] 0, Op[1] 1, Op[2] 0, Op[3] 1, Fn[0] 1, Fn[1] 0, Fn[2] 1, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 0; ASSERT ASrc 0; ASSERT BSrc[0] 1; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 1; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 1; ASSERT ZeroA 0; ASSERT CinOne 1; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 1; ASSERT LoadCV 1;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 0; ASSERT ShRot 0; ASSERT ShArith 1; ASSERT ShImm 0;
+    }
+
+    TEST "ANDI (op 11, fn 5)" {
+        SET Op[0] 1, Op[1] 1, Op[2] 0, Op[3] 1, Fn[0] 1, Fn[1] 0, Fn[2] 1, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 1; ASSERT ASrc 0; ASSERT BSrc[0] 1; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 1; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 1; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 0; ASSERT ShRot 0; ASSERT ShArith 1; ASSERT ShImm 0;
+    }
+
+    TEST "ORI (op 12, fn 5)" {
+        SET Op[0] 0, Op[1] 0, Op[2] 1, Op[3] 1, Fn[0] 1, Fn[1] 0, Fn[2] 1, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 1; ASSERT ASrc 0; ASSERT BSrc[0] 1; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 1;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 1; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 0; ASSERT ShRot 0; ASSERT ShArith 1; ASSERT ShImm 0;
+    }
+
+    TEST "XORI (op 13, fn 5)" {
+        SET Op[0] 1, Op[1] 0, Op[2] 1, Op[3] 1, Fn[0] 1, Fn[1] 0, Fn[2] 1, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 1; ASSERT ASrc 0; ASSERT BSrc[0] 1; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 1; ASSERT AluS[1] 1;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 1; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 0; ASSERT ShRot 0; ASSERT ShArith 1; ASSERT ShImm 0;
+    }
+
+    TEST "LUI (op 14, fn 5)" {
+        SET Op[0] 0, Op[1] 1, Op[2] 1, Op[3] 1, Fn[0] 1, Fn[1] 0, Fn[2] 1, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 1; ASSERT ASrc 0; ASSERT BSrc[0] 1; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 1; ASSERT AluS[0] 0; ASSERT AluS[1] 1;
+        ASSERT InvB 0; ASSERT ZeroA 1; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 0; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 0; ASSERT ShRot 0; ASSERT ShArith 1; ASSERT ShImm 0;
+    }
+
+    TEST "reserved op 15 (op 15, fn 5)" {
+        SET Op[0] 1, Op[1] 1, Op[2] 1, Op[3] 1, Fn[0] 1, Fn[1] 0, Fn[2] 1, Fn[3] 0;
+        EVAL;
+        ASSERT RegWrite 0; ASSERT ASrc 0; ASSERT BSrc[0] 0; ASSERT BSrc[1] 0; ASSERT ImmSel[0] 0; ASSERT ImmSel[1] 0; ASSERT AluS[0] 0; ASSERT AluS[1] 0;
+        ASSERT InvB 0; ASSERT ZeroA 0; ASSERT CinOne 0; ASSERT CinCarry 0; ASSERT WbSel[0] 0; ASSERT WbSel[1] 0; ASSERT LoadZN 0; ASSERT LoadCV 0;
+        ASSERT MemWrite 0; ASSERT MemAddrSel[0] 0; ASSERT MemAddrSel[1] 0; ASSERT MemDataSel 0; ASSERT TargetSel[0] 0; ASSERT TargetSel[1] 0; ASSERT Jump 0; ASSERT BranchInstr 0;
+        ASSERT Step2 0; ASSERT SpInc 0; ASSERT SpDec 0; ASSERT OutEnable 0; ASSERT Halt 0; ASSERT ShLeft 0; ASSERT ShRot 0; ASSERT ShArith 1; ASSERT ShImm 0;
+    }
+}

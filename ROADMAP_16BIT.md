@@ -46,23 +46,62 @@ ausgeschrieben werden müssen.
 
 ## ISA
 
-Feld `op` = Bits 15..12.
+Endgültig festgelegt am 2026-11-09 (Phase 3). Felder: `op` = Bits 15..12,
+`Rd` = 11..8, `Rs` = 7..4, `fn` = 3..0, `imm8` = 7..0. Rechenbefehle wirken
+auf `Rd` (`Rd ← Rd op Rs`). Register-Operanden von SYS-Befehlen stehen
+immer im Rd-Feld. Reservierte Codes wirken wie NOP (LONG mit reserviertem
+fn überspringt trotzdem zwei Wörter).
 
-| op | Name | Format | Befehle |
-|----|------|--------|---------|
-| 0 | SYS | `[0][Rd][Rs][fn]` | fn: 0 HALT, 1 NOP, 2 RET, 3 JR Rs, 4 CALLR Rs, 5 PUSH Rs, 6 POP Rd, 7 OUT Rs, 8 IN Rd |
-| 1 | ALU | `[1][Rd][Rs][fn]` | fn: 0 ADD, 1 SUB, 2 ADC, 3 SBC, 4 AND, 5 OR, 6 XOR, 7 BIC, 8 MOV, 9 NOT, 10 NEG, 11 CMP, 12 TEST, 13–15 frei (MULL/MULH) |
-| 2 | SHIFT | `[2][Rd][Rs/imm4][fn]` | fn: SHL, SHR, SAR, ROL, ROR – um Registerwert oder Immediate |
-| 3 | LW | `[3][Rd][Rs][off4]` | `LW Rd, [Rs+off]` |
-| 4 | SW | `[4][Rd][Rs][off4]` | `SW Rd, [Rs+off]` (mem[Rs+off] ← Rd) |
-| 5 | Bcc | `[5][cond][off8]` | relativ (PC+1+off, off vorzeichenbehaftet); cond: EQ NE CS CC MI PL VS VC HI LS GE LT GT LE AL |
-| 6 | LONG | `[6][Rd][-][fn]` + Wort | `LI Rd, imm16`, `JMP addr16`, `CALL addr16` |
-| 7 | – | | frei |
-| 8–15 | OPI | `[op][Rd][imm8]` | MOVI, ADDI (imm8 vorzeichenerweitert), CMPI, ANDI, ORI, XORI, LUI (Rd ← imm8≪8 \| Rd[7..0]), 1 frei |
+| op | Befehl | Kodierung | Wirkung | Flags |
+|----|--------|-----------|---------|-------|
+| 0 | HALT | `0 - - 0` | PC bleibt stehen | |
+| 0 | NOP | `0 - - 1` | | |
+| 0 | RET | `0 - - 2` | PC ← mem[SP]; SP ← SP+1 | |
+| 0 | JR Rd | `0 Rd - 3` | PC ← Rd | |
+| 0 | CALLR Rd | `0 Rd - 4` | SP ← SP−1; mem[SP] ← PC+1; PC ← Rd | |
+| 0 | PUSH Rd | `0 Rd - 5` | SP ← SP−1; mem[SP] ← Rd | |
+| 0 | POP Rd | `0 Rd - 6` | Rd ← mem[SP]; SP ← SP+1 | |
+| 0 | OUT Rd | `0 Rd - 7` | Out ← Rd | |
+| 0 | IN Rd | `0 Rd - 8` | Rd ← In | |
+| 1 | ADD SUB ADC SBC | `1 Rd Rs 0..3` | Rd ← Rd ± Rs (+C) | ZNCV |
+| 1 | AND OR XOR BIC | `1 Rd Rs 4..7` | BIC: Rd ← Rd AND NOT Rs | ZN |
+| 1 | MOV NOT | `1 Rd Rs 8, 9` | Rd ← Rs bzw. NOT Rs | ZN |
+| 1 | NEG | `1 Rd Rs 10` | Rd ← −Rs | ZNCV |
+| 1 | CMP | `1 Rd Rs 11` | Rd − Rs, ohne Rückschreiben | ZNCV |
+| 1 | TEST | `1 Rd Rs 12` | Rd AND Rs, ohne Rückschreiben | ZN |
+| 2 | SHL SHR ROL ROR SAR | `2 Rd Rs k` | Rd ← Rd schieben um Rs[3..0]; k = 0, 1, 2, 3, 5 | ZN |
+| 2 | … mit Immediate | `2 Rd n 8+k` | um n (0..15) aus dem Rs-Feld | ZN |
+| 3 | LW Rd, [Rs+off] | `3 Rd Rs off4` | Rd ← mem[Rs + off4] | |
+| 4 | SW Rd, [Rs+off] | `4 Rd Rs off4` | mem[Rs + off4] ← Rd | |
+| 5 | Bcc off | `5 cond off8` | wenn cond: PC ← PC+1+off8 (vorzeichenbehaftet) | |
+| 6 | LI Rd, imm16 | `6 Rd - 0` + Wort | Rd ← imm16 | |
+| 6 | JMP addr16 | `6 - - 1` + Wort | PC ← addr16 | |
+| 6 | CALL addr16 | `6 - - 2` + Wort | SP ← SP−1; mem[SP] ← PC+2; PC ← addr16 | |
+| 7 | – | | reserviert | |
+| 8 | MOVI Rd, imm8 | `8 Rd imm8` | Rd ← imm8 (ohne Vorzeichen) | |
+| 9 | ADDI Rd, imm8 | `9 Rd imm8` | Rd ← Rd + imm8 (vorzeichenbehaftet, −128..127) | ZNCV |
+| 10 | CMPI Rd, imm8 | `A Rd imm8` | Rd − imm8 (vorzeichenbehaftet), ohne Rückschreiben | ZNCV |
+| 11 | ANDI ORI XORI | `B/C/D Rd imm8` | imm8 ohne Vorzeichen | ZN |
+| 14 | LUI Rd, imm8 | `E Rd imm8` | Rd ← imm8 ≪ 8 (mit ORI zusammen eine 16-Bit-Konstante) | |
+| 15 | – | | reserviert | |
 
-Die genaue Bitbelegung (fn-Nummern bei SHIFT/LONG, Reihenfolge der OPI,
-Flag-Semantik von ADC/SBC/CMP) wird in Phase 3 festgezurrt und steht dann in
-`src/isa.rs` als einzige Quelle.
+**Bedingungen** (`cond`, wie ARM): 0 EQ, 1 NE, 2 CS/HS (≥ ohne Vorzeichen),
+3 CC/LO (<), 4 MI, 5 PL, 6 VS, 7 VC, 8 HI, 9 LS, 10 GE, 11 LT, 12 GT, 13 LE,
+14 AL (immer), 15 NV (nie). C nach SUB/CMP: 1 = kein Borgen.
+
+**Flags:** Z und N kommen aus dem Wert, der zurückgeschrieben würde (ALU
+oder Schieber); C und V aus dem Addierer. MOVI, LUI, LI, LW, POP und IN
+lassen die Flags unverändert, damit zwischen CMP und Bcc Konstanten geladen
+werden können.
+
+**Steuersignale** (`CONTROL_UNIT_16B`, 774 NANDs): RegWrite, ASrc
+(0 Rd, 1 Imm), BSrc (0 Rs, 1 Imm, 2 zweites Wort), ImmSel (0 imm8, 1 imm8
+vorzeichenerweitert, 2 imm8≪8, 3 off4), AluS (ADD/AND/OR/XOR), InvB, ZeroA,
+CinOne, CinCarry, WbSel (0 ALU, 1 Schieber, 2 Speicher, 3 In), LoadZN, LoadCV,
+MemWrite, MemAddrSel (0 ALU, 1 SP, 2 SP−1), MemDataSel (0 Rd,
+1 Rücksprungadresse), TargetSel (0 zweites Wort, 1 Rd, 2 Speicher), Jump,
+BranchInstr, Step2, SpInc, SpDec, OutEnable, Halt, ShLeft/ShRot/ShArith/ShImm
+(direkt aus fn).
 
 ---
 
@@ -151,8 +190,15 @@ Eingängen/Flipflops und Ausgängen/Flipflops (neu in `cargo run -- nands`).
 
 ## Phase 3 – ISA und Steuerwerk
 
-- [ ] Bitbelegung final, Steuersignale je Opcode/Funktionscode
-- [ ] `CONTROL_UNIT_16B` mit Tests pro Opcode/Funktionscode
+- [x] Bitbelegung final, Steuersignale je Opcode/Funktionscode (Tabelle oben,
+      2026-11-09). Änderungen gegenüber Phase 0: LUI setzt das untere Byte auf 0
+      (LUI + ORI statt LUI mit Erhalt), SYS-Register im Rd-Feld,
+      Schiebe-fn 0 SHL, 1 SHR, 2 ROL, 3 ROR, 5 SAR (Steuerbits direkt aus fn)
+- [x] `CONTROL_UNIT_16B` (774 NANDs, Tiefe 33): Opcode-Decoder plus je ein
+      Decoder für die fn von SYS, ALU und LONG, ODER-Bäume aus `OR_WIDE<G>`.
+      Tests: 58 Opcode/fn-Kombinationen (jede Instruktion und reservierte Codes) mit allen Steuersignalen
+- [x] `COND_16B` (74 NANDs): alle 16 Bedingungen × 16 Flag-Kombinationen
+- [x] `.clt` (427 + 173), `cargo test`, `verify-verilog` 80 Suiten in 4 Varianten grün
 
 ## Phase 4 – CPU_16B und COMPUTER_16B
 

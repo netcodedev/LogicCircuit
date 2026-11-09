@@ -1,0 +1,323 @@
+// Tests for COND_16B: every condition against every combination of Z, N, C, V.
+
+TESTS FOR COND_16B {
+    TEST "EQ (cond 0)" {
+        SET Cond[0] 0, Cond[1] 0, Cond[2] 0, Cond[3] 0;
+        SET Z 0, N 0, C 0, V 0; EVAL; ASSERT Take 0;
+        SET Z 1, N 0, C 0, V 0; EVAL; ASSERT Take 1;
+        SET Z 0, N 1, C 0, V 0; EVAL; ASSERT Take 0;
+        SET Z 1, N 1, C 0, V 0; EVAL; ASSERT Take 1;
+        SET Z 0, N 0, C 1, V 0; EVAL; ASSERT Take 0;
+        SET Z 1, N 0, C 1, V 0; EVAL; ASSERT Take 1;
+        SET Z 0, N 1, C 1, V 0; EVAL; ASSERT Take 0;
+        SET Z 1, N 1, C 1, V 0; EVAL; ASSERT Take 1;
+        SET Z 0, N 0, C 0, V 1; EVAL; ASSERT Take 0;
+        SET Z 1, N 0, C 0, V 1; EVAL; ASSERT Take 1;
+        SET Z 0, N 1, C 0, V 1; EVAL; ASSERT Take 0;
+        SET Z 1, N 1, C 0, V 1; EVAL; ASSERT Take 1;
+        SET Z 0, N 0, C 1, V 1; EVAL; ASSERT Take 0;
+        SET Z 1, N 0, C 1, V 1; EVAL; ASSERT Take 1;
+        SET Z 0, N 1, C 1, V 1; EVAL; ASSERT Take 0;
+        SET Z 1, N 1, C 1, V 1; EVAL; ASSERT Take 1;
+    }
+
+    TEST "NE (cond 1)" {
+        SET Cond[0] 1, Cond[1] 0, Cond[2] 0, Cond[3] 0;
+        SET Z 0, N 0, C 0, V 0; EVAL; ASSERT Take 1;
+        SET Z 1, N 0, C 0, V 0; EVAL; ASSERT Take 0;
+        SET Z 0, N 1, C 0, V 0; EVAL; ASSERT Take 1;
+        SET Z 1, N 1, C 0, V 0; EVAL; ASSERT Take 0;
+        SET Z 0, N 0, C 1, V 0; EVAL; ASSERT Take 1;
+        SET Z 1, N 0, C 1, V 0; EVAL; ASSERT Take 0;
+        SET Z 0, N 1, C 1, V 0; EVAL; ASSERT Take 1;
+        SET Z 1, N 1, C 1, V 0; EVAL; ASSERT Take 0;
+        SET Z 0, N 0, C 0, V 1; EVAL; ASSERT Take 1;
+        SET Z 1, N 0, C 0, V 1; EVAL; ASSERT Take 0;
+        SET Z 0, N 1, C 0, V 1; EVAL; ASSERT Take 1;
+        SET Z 1, N 1, C 0, V 1; EVAL; ASSERT Take 0;
+        SET Z 0, N 0, C 1, V 1; EVAL; ASSERT Take 1;
+        SET Z 1, N 0, C 1, V 1; EVAL; ASSERT Take 0;
+        SET Z 0, N 1, C 1, V 1; EVAL; ASSERT Take 1;
+        SET Z 1, N 1, C 1, V 1; EVAL; ASSERT Take 0;
+    }
+
+    TEST "CS (cond 2)" {
+        SET Cond[0] 0, Cond[1] 1, Cond[2] 0, Cond[3] 0;
+        SET Z 0, N 0, C 0, V 0; EVAL; ASSERT Take 0;
+        SET Z 1, N 0, C 0, V 0; EVAL; ASSERT Take 0;
+        SET Z 0, N 1, C 0, V 0; EVAL; ASSERT Take 0;
+        SET Z 1, N 1, C 0, V 0; EVAL; ASSERT Take 0;
+        SET Z 0, N 0, C 1, V 0; EVAL; ASSERT Take 1;
+        SET Z 1, N 0, C 1, V 0; EVAL; ASSERT Take 1;
+        SET Z 0, N 1, C 1, V 0; EVAL; ASSERT Take 1;
+        SET Z 1, N 1, C 1, V 0; EVAL; ASSERT Take 1;
+        SET Z 0, N 0, C 0, V 1; EVAL; ASSERT Take 0;
+        SET Z 1, N 0, C 0, V 1; EVAL; ASSERT Take 0;
+        SET Z 0, N 1, C 0, V 1; EVAL; ASSERT Take 0;
+        SET Z 1, N 1, C 0, V 1; EVAL; ASSERT Take 0;
+        SET Z 0, N 0, C 1, V 1; EVAL; ASSERT Take 1;
+        SET Z 1, N 0, C 1, V 1; EVAL; ASSERT Take 1;
+        SET Z 0, N 1, C 1, V 1; EVAL; ASSERT Take 1;
+        SET Z 1, N 1, C 1, V 1; EVAL; ASSERT Take 1;
+    }
+
+    TEST "CC (cond 3)" {
+        SET Cond[0] 1, Cond[1] 1, Cond[2] 0, Cond[3] 0;
+        SET Z 0, N 0, C 0, V 0; EVAL; ASSERT Take 1;
+        SET Z 1, N 0, C 0, V 0; EVAL; ASSERT Take 1;
+        SET Z 0, N 1, C 0, V 0; EVAL; ASSERT Take 1;
+        SET Z 1, N 1, C 0, V 0; EVAL; ASSERT Take 1;
+        SET Z 0, N 0, C 1, V 0; EVAL; ASSERT Take 0;
+        SET Z 1, N 0, C 1, V 0; EVAL; ASSERT Take 0;
+        SET Z 0, N 1, C 1, V 0; EVAL; ASSERT Take 0;
+        SET Z 1, N 1, C 1, V 0; EVAL; ASSERT Take 0;
+        SET Z 0, N 0, C 0, V 1; EVAL; ASSERT Take 1;
+        SET Z 1, N 0, C 0, V 1; EVAL; ASSERT Take 1;
+        SET Z 0, N 1, C 0, V 1; EVAL; ASSERT Take 1;
+        SET Z 1, N 1, C 0, V 1; EVAL; ASSERT Take 1;
+        SET Z 0, N 0, C 1, V 1; EVAL; ASSERT Take 0;
+        SET Z 1, N 0, C 1, V 1; EVAL; ASSERT Take 0;
+        SET Z 0, N 1, C 1, V 1; EVAL; ASSERT Take 0;
+        SET Z 1, N 1, C 1, V 1; EVAL; ASSERT Take 0;
+    }
+
+    TEST "MI (cond 4)" {
+        SET Cond[0] 0, Cond[1] 0, Cond[2] 1, Cond[3] 0;
+        SET Z 0, N 0, C 0, V 0; EVAL; ASSERT Take 0;
+        SET Z 1, N 0, C 0, V 0; EVAL; ASSERT Take 0;
+        SET Z 0, N 1, C 0, V 0; EVAL; ASSERT Take 1;
+        SET Z 1, N 1, C 0, V 0; EVAL; ASSERT Take 1;
+        SET Z 0, N 0, C 1, V 0; EVAL; ASSERT Take 0;
+        SET Z 1, N 0, C 1, V 0; EVAL; ASSERT Take 0;
+        SET Z 0, N 1, C 1, V 0; EVAL; ASSERT Take 1;
+        SET Z 1, N 1, C 1, V 0; EVAL; ASSERT Take 1;
+        SET Z 0, N 0, C 0, V 1; EVAL; ASSERT Take 0;
+        SET Z 1, N 0, C 0, V 1; EVAL; ASSERT Take 0;
+        SET Z 0, N 1, C 0, V 1; EVAL; ASSERT Take 1;
+        SET Z 1, N 1, C 0, V 1; EVAL; ASSERT Take 1;
+        SET Z 0, N 0, C 1, V 1; EVAL; ASSERT Take 0;
+        SET Z 1, N 0, C 1, V 1; EVAL; ASSERT Take 0;
+        SET Z 0, N 1, C 1, V 1; EVAL; ASSERT Take 1;
+        SET Z 1, N 1, C 1, V 1; EVAL; ASSERT Take 1;
+    }
+
+    TEST "PL (cond 5)" {
+        SET Cond[0] 1, Cond[1] 0, Cond[2] 1, Cond[3] 0;
+        SET Z 0, N 0, C 0, V 0; EVAL; ASSERT Take 1;
+        SET Z 1, N 0, C 0, V 0; EVAL; ASSERT Take 1;
+        SET Z 0, N 1, C 0, V 0; EVAL; ASSERT Take 0;
+        SET Z 1, N 1, C 0, V 0; EVAL; ASSERT Take 0;
+        SET Z 0, N 0, C 1, V 0; EVAL; ASSERT Take 1;
+        SET Z 1, N 0, C 1, V 0; EVAL; ASSERT Take 1;
+        SET Z 0, N 1, C 1, V 0; EVAL; ASSERT Take 0;
+        SET Z 1, N 1, C 1, V 0; EVAL; ASSERT Take 0;
+        SET Z 0, N 0, C 0, V 1; EVAL; ASSERT Take 1;
+        SET Z 1, N 0, C 0, V 1; EVAL; ASSERT Take 1;
+        SET Z 0, N 1, C 0, V 1; EVAL; ASSERT Take 0;
+        SET Z 1, N 1, C 0, V 1; EVAL; ASSERT Take 0;
+        SET Z 0, N 0, C 1, V 1; EVAL; ASSERT Take 1;
+        SET Z 1, N 0, C 1, V 1; EVAL; ASSERT Take 1;
+        SET Z 0, N 1, C 1, V 1; EVAL; ASSERT Take 0;
+        SET Z 1, N 1, C 1, V 1; EVAL; ASSERT Take 0;
+    }
+
+    TEST "VS (cond 6)" {
+        SET Cond[0] 0, Cond[1] 1, Cond[2] 1, Cond[3] 0;
+        SET Z 0, N 0, C 0, V 0; EVAL; ASSERT Take 0;
+        SET Z 1, N 0, C 0, V 0; EVAL; ASSERT Take 0;
+        SET Z 0, N 1, C 0, V 0; EVAL; ASSERT Take 0;
+        SET Z 1, N 1, C 0, V 0; EVAL; ASSERT Take 0;
+        SET Z 0, N 0, C 1, V 0; EVAL; ASSERT Take 0;
+        SET Z 1, N 0, C 1, V 0; EVAL; ASSERT Take 0;
+        SET Z 0, N 1, C 1, V 0; EVAL; ASSERT Take 0;
+        SET Z 1, N 1, C 1, V 0; EVAL; ASSERT Take 0;
+        SET Z 0, N 0, C 0, V 1; EVAL; ASSERT Take 1;
+        SET Z 1, N 0, C 0, V 1; EVAL; ASSERT Take 1;
+        SET Z 0, N 1, C 0, V 1; EVAL; ASSERT Take 1;
+        SET Z 1, N 1, C 0, V 1; EVAL; ASSERT Take 1;
+        SET Z 0, N 0, C 1, V 1; EVAL; ASSERT Take 1;
+        SET Z 1, N 0, C 1, V 1; EVAL; ASSERT Take 1;
+        SET Z 0, N 1, C 1, V 1; EVAL; ASSERT Take 1;
+        SET Z 1, N 1, C 1, V 1; EVAL; ASSERT Take 1;
+    }
+
+    TEST "VC (cond 7)" {
+        SET Cond[0] 1, Cond[1] 1, Cond[2] 1, Cond[3] 0;
+        SET Z 0, N 0, C 0, V 0; EVAL; ASSERT Take 1;
+        SET Z 1, N 0, C 0, V 0; EVAL; ASSERT Take 1;
+        SET Z 0, N 1, C 0, V 0; EVAL; ASSERT Take 1;
+        SET Z 1, N 1, C 0, V 0; EVAL; ASSERT Take 1;
+        SET Z 0, N 0, C 1, V 0; EVAL; ASSERT Take 1;
+        SET Z 1, N 0, C 1, V 0; EVAL; ASSERT Take 1;
+        SET Z 0, N 1, C 1, V 0; EVAL; ASSERT Take 1;
+        SET Z 1, N 1, C 1, V 0; EVAL; ASSERT Take 1;
+        SET Z 0, N 0, C 0, V 1; EVAL; ASSERT Take 0;
+        SET Z 1, N 0, C 0, V 1; EVAL; ASSERT Take 0;
+        SET Z 0, N 1, C 0, V 1; EVAL; ASSERT Take 0;
+        SET Z 1, N 1, C 0, V 1; EVAL; ASSERT Take 0;
+        SET Z 0, N 0, C 1, V 1; EVAL; ASSERT Take 0;
+        SET Z 1, N 0, C 1, V 1; EVAL; ASSERT Take 0;
+        SET Z 0, N 1, C 1, V 1; EVAL; ASSERT Take 0;
+        SET Z 1, N 1, C 1, V 1; EVAL; ASSERT Take 0;
+    }
+
+    TEST "HI (cond 8)" {
+        SET Cond[0] 0, Cond[1] 0, Cond[2] 0, Cond[3] 1;
+        SET Z 0, N 0, C 0, V 0; EVAL; ASSERT Take 0;
+        SET Z 1, N 0, C 0, V 0; EVAL; ASSERT Take 0;
+        SET Z 0, N 1, C 0, V 0; EVAL; ASSERT Take 0;
+        SET Z 1, N 1, C 0, V 0; EVAL; ASSERT Take 0;
+        SET Z 0, N 0, C 1, V 0; EVAL; ASSERT Take 1;
+        SET Z 1, N 0, C 1, V 0; EVAL; ASSERT Take 0;
+        SET Z 0, N 1, C 1, V 0; EVAL; ASSERT Take 1;
+        SET Z 1, N 1, C 1, V 0; EVAL; ASSERT Take 0;
+        SET Z 0, N 0, C 0, V 1; EVAL; ASSERT Take 0;
+        SET Z 1, N 0, C 0, V 1; EVAL; ASSERT Take 0;
+        SET Z 0, N 1, C 0, V 1; EVAL; ASSERT Take 0;
+        SET Z 1, N 1, C 0, V 1; EVAL; ASSERT Take 0;
+        SET Z 0, N 0, C 1, V 1; EVAL; ASSERT Take 1;
+        SET Z 1, N 0, C 1, V 1; EVAL; ASSERT Take 0;
+        SET Z 0, N 1, C 1, V 1; EVAL; ASSERT Take 1;
+        SET Z 1, N 1, C 1, V 1; EVAL; ASSERT Take 0;
+    }
+
+    TEST "LS (cond 9)" {
+        SET Cond[0] 1, Cond[1] 0, Cond[2] 0, Cond[3] 1;
+        SET Z 0, N 0, C 0, V 0; EVAL; ASSERT Take 1;
+        SET Z 1, N 0, C 0, V 0; EVAL; ASSERT Take 1;
+        SET Z 0, N 1, C 0, V 0; EVAL; ASSERT Take 1;
+        SET Z 1, N 1, C 0, V 0; EVAL; ASSERT Take 1;
+        SET Z 0, N 0, C 1, V 0; EVAL; ASSERT Take 0;
+        SET Z 1, N 0, C 1, V 0; EVAL; ASSERT Take 1;
+        SET Z 0, N 1, C 1, V 0; EVAL; ASSERT Take 0;
+        SET Z 1, N 1, C 1, V 0; EVAL; ASSERT Take 1;
+        SET Z 0, N 0, C 0, V 1; EVAL; ASSERT Take 1;
+        SET Z 1, N 0, C 0, V 1; EVAL; ASSERT Take 1;
+        SET Z 0, N 1, C 0, V 1; EVAL; ASSERT Take 1;
+        SET Z 1, N 1, C 0, V 1; EVAL; ASSERT Take 1;
+        SET Z 0, N 0, C 1, V 1; EVAL; ASSERT Take 0;
+        SET Z 1, N 0, C 1, V 1; EVAL; ASSERT Take 1;
+        SET Z 0, N 1, C 1, V 1; EVAL; ASSERT Take 0;
+        SET Z 1, N 1, C 1, V 1; EVAL; ASSERT Take 1;
+    }
+
+    TEST "GE (cond 10)" {
+        SET Cond[0] 0, Cond[1] 1, Cond[2] 0, Cond[3] 1;
+        SET Z 0, N 0, C 0, V 0; EVAL; ASSERT Take 1;
+        SET Z 1, N 0, C 0, V 0; EVAL; ASSERT Take 1;
+        SET Z 0, N 1, C 0, V 0; EVAL; ASSERT Take 0;
+        SET Z 1, N 1, C 0, V 0; EVAL; ASSERT Take 0;
+        SET Z 0, N 0, C 1, V 0; EVAL; ASSERT Take 1;
+        SET Z 1, N 0, C 1, V 0; EVAL; ASSERT Take 1;
+        SET Z 0, N 1, C 1, V 0; EVAL; ASSERT Take 0;
+        SET Z 1, N 1, C 1, V 0; EVAL; ASSERT Take 0;
+        SET Z 0, N 0, C 0, V 1; EVAL; ASSERT Take 0;
+        SET Z 1, N 0, C 0, V 1; EVAL; ASSERT Take 0;
+        SET Z 0, N 1, C 0, V 1; EVAL; ASSERT Take 1;
+        SET Z 1, N 1, C 0, V 1; EVAL; ASSERT Take 1;
+        SET Z 0, N 0, C 1, V 1; EVAL; ASSERT Take 0;
+        SET Z 1, N 0, C 1, V 1; EVAL; ASSERT Take 0;
+        SET Z 0, N 1, C 1, V 1; EVAL; ASSERT Take 1;
+        SET Z 1, N 1, C 1, V 1; EVAL; ASSERT Take 1;
+    }
+
+    TEST "LT (cond 11)" {
+        SET Cond[0] 1, Cond[1] 1, Cond[2] 0, Cond[3] 1;
+        SET Z 0, N 0, C 0, V 0; EVAL; ASSERT Take 0;
+        SET Z 1, N 0, C 0, V 0; EVAL; ASSERT Take 0;
+        SET Z 0, N 1, C 0, V 0; EVAL; ASSERT Take 1;
+        SET Z 1, N 1, C 0, V 0; EVAL; ASSERT Take 1;
+        SET Z 0, N 0, C 1, V 0; EVAL; ASSERT Take 0;
+        SET Z 1, N 0, C 1, V 0; EVAL; ASSERT Take 0;
+        SET Z 0, N 1, C 1, V 0; EVAL; ASSERT Take 1;
+        SET Z 1, N 1, C 1, V 0; EVAL; ASSERT Take 1;
+        SET Z 0, N 0, C 0, V 1; EVAL; ASSERT Take 1;
+        SET Z 1, N 0, C 0, V 1; EVAL; ASSERT Take 1;
+        SET Z 0, N 1, C 0, V 1; EVAL; ASSERT Take 0;
+        SET Z 1, N 1, C 0, V 1; EVAL; ASSERT Take 0;
+        SET Z 0, N 0, C 1, V 1; EVAL; ASSERT Take 1;
+        SET Z 1, N 0, C 1, V 1; EVAL; ASSERT Take 1;
+        SET Z 0, N 1, C 1, V 1; EVAL; ASSERT Take 0;
+        SET Z 1, N 1, C 1, V 1; EVAL; ASSERT Take 0;
+    }
+
+    TEST "GT (cond 12)" {
+        SET Cond[0] 0, Cond[1] 0, Cond[2] 1, Cond[3] 1;
+        SET Z 0, N 0, C 0, V 0; EVAL; ASSERT Take 1;
+        SET Z 1, N 0, C 0, V 0; EVAL; ASSERT Take 0;
+        SET Z 0, N 1, C 0, V 0; EVAL; ASSERT Take 0;
+        SET Z 1, N 1, C 0, V 0; EVAL; ASSERT Take 0;
+        SET Z 0, N 0, C 1, V 0; EVAL; ASSERT Take 1;
+        SET Z 1, N 0, C 1, V 0; EVAL; ASSERT Take 0;
+        SET Z 0, N 1, C 1, V 0; EVAL; ASSERT Take 0;
+        SET Z 1, N 1, C 1, V 0; EVAL; ASSERT Take 0;
+        SET Z 0, N 0, C 0, V 1; EVAL; ASSERT Take 0;
+        SET Z 1, N 0, C 0, V 1; EVAL; ASSERT Take 0;
+        SET Z 0, N 1, C 0, V 1; EVAL; ASSERT Take 1;
+        SET Z 1, N 1, C 0, V 1; EVAL; ASSERT Take 0;
+        SET Z 0, N 0, C 1, V 1; EVAL; ASSERT Take 0;
+        SET Z 1, N 0, C 1, V 1; EVAL; ASSERT Take 0;
+        SET Z 0, N 1, C 1, V 1; EVAL; ASSERT Take 1;
+        SET Z 1, N 1, C 1, V 1; EVAL; ASSERT Take 0;
+    }
+
+    TEST "LE (cond 13)" {
+        SET Cond[0] 1, Cond[1] 0, Cond[2] 1, Cond[3] 1;
+        SET Z 0, N 0, C 0, V 0; EVAL; ASSERT Take 0;
+        SET Z 1, N 0, C 0, V 0; EVAL; ASSERT Take 1;
+        SET Z 0, N 1, C 0, V 0; EVAL; ASSERT Take 1;
+        SET Z 1, N 1, C 0, V 0; EVAL; ASSERT Take 1;
+        SET Z 0, N 0, C 1, V 0; EVAL; ASSERT Take 0;
+        SET Z 1, N 0, C 1, V 0; EVAL; ASSERT Take 1;
+        SET Z 0, N 1, C 1, V 0; EVAL; ASSERT Take 1;
+        SET Z 1, N 1, C 1, V 0; EVAL; ASSERT Take 1;
+        SET Z 0, N 0, C 0, V 1; EVAL; ASSERT Take 1;
+        SET Z 1, N 0, C 0, V 1; EVAL; ASSERT Take 1;
+        SET Z 0, N 1, C 0, V 1; EVAL; ASSERT Take 0;
+        SET Z 1, N 1, C 0, V 1; EVAL; ASSERT Take 1;
+        SET Z 0, N 0, C 1, V 1; EVAL; ASSERT Take 1;
+        SET Z 1, N 0, C 1, V 1; EVAL; ASSERT Take 1;
+        SET Z 0, N 1, C 1, V 1; EVAL; ASSERT Take 0;
+        SET Z 1, N 1, C 1, V 1; EVAL; ASSERT Take 1;
+    }
+
+    TEST "AL (cond 14)" {
+        SET Cond[0] 0, Cond[1] 1, Cond[2] 1, Cond[3] 1;
+        SET Z 0, N 0, C 0, V 0; EVAL; ASSERT Take 1;
+        SET Z 1, N 0, C 0, V 0; EVAL; ASSERT Take 1;
+        SET Z 0, N 1, C 0, V 0; EVAL; ASSERT Take 1;
+        SET Z 1, N 1, C 0, V 0; EVAL; ASSERT Take 1;
+        SET Z 0, N 0, C 1, V 0; EVAL; ASSERT Take 1;
+        SET Z 1, N 0, C 1, V 0; EVAL; ASSERT Take 1;
+        SET Z 0, N 1, C 1, V 0; EVAL; ASSERT Take 1;
+        SET Z 1, N 1, C 1, V 0; EVAL; ASSERT Take 1;
+        SET Z 0, N 0, C 0, V 1; EVAL; ASSERT Take 1;
+        SET Z 1, N 0, C 0, V 1; EVAL; ASSERT Take 1;
+        SET Z 0, N 1, C 0, V 1; EVAL; ASSERT Take 1;
+        SET Z 1, N 1, C 0, V 1; EVAL; ASSERT Take 1;
+        SET Z 0, N 0, C 1, V 1; EVAL; ASSERT Take 1;
+        SET Z 1, N 0, C 1, V 1; EVAL; ASSERT Take 1;
+        SET Z 0, N 1, C 1, V 1; EVAL; ASSERT Take 1;
+        SET Z 1, N 1, C 1, V 1; EVAL; ASSERT Take 1;
+    }
+
+    TEST "NV (cond 15)" {
+        SET Cond[0] 1, Cond[1] 1, Cond[2] 1, Cond[3] 1;
+        SET Z 0, N 0, C 0, V 0; EVAL; ASSERT Take 0;
+        SET Z 1, N 0, C 0, V 0; EVAL; ASSERT Take 0;
+        SET Z 0, N 1, C 0, V 0; EVAL; ASSERT Take 0;
+        SET Z 1, N 1, C 0, V 0; EVAL; ASSERT Take 0;
+        SET Z 0, N 0, C 1, V 0; EVAL; ASSERT Take 0;
+        SET Z 1, N 0, C 1, V 0; EVAL; ASSERT Take 0;
+        SET Z 0, N 1, C 1, V 0; EVAL; ASSERT Take 0;
+        SET Z 1, N 1, C 1, V 0; EVAL; ASSERT Take 0;
+        SET Z 0, N 0, C 0, V 1; EVAL; ASSERT Take 0;
+        SET Z 1, N 0, C 0, V 1; EVAL; ASSERT Take 0;
+        SET Z 0, N 1, C 0, V 1; EVAL; ASSERT Take 0;
+        SET Z 1, N 1, C 0, V 1; EVAL; ASSERT Take 0;
+        SET Z 0, N 0, C 1, V 1; EVAL; ASSERT Take 0;
+        SET Z 1, N 0, C 1, V 1; EVAL; ASSERT Take 0;
+        SET Z 0, N 1, C 1, V 1; EVAL; ASSERT Take 0;
+        SET Z 1, N 1, C 1, V 1; EVAL; ASSERT Take 0;
+    }
+}

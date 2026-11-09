@@ -1,0 +1,276 @@
+CIRCUIT CONTROL_UNIT_16B {
+    // Decodes a CPU_16B instruction into control signals (see the ISA table
+    // in ROADMAP_16BIT.md and src/isa.rs). Op = Instruction[15..12],
+    // Fn = Instruction[3..0]. Four decoders: one for the opcode, and one each
+    // for the function codes of SYS (op 0), ALU (op 1) and LONG (op 6),
+    // enabled by their opcode line. Every control signal is the OR of the
+    // decoder lines of the instructions that need it. Reserved encodings
+    // decode to no signal at all (a NOP), except that LONG always takes two
+    // words.
+    //
+    // The shifter controls come straight from Fn (SHIFT, op 2):
+    //   Fn[3] = amount from the Rs field (1) or from register Rs (0)
+    //   Fn[2..0]: 0 SHL, 1 SHR, 2 ROL, 3 ROR, 5 SAR (4, 6, 7 reserved)
+    //   ShLeft = !Fn[0], ShRot = Fn[1], ShArith = Fn[2]
+
+    INPUT Op[4];
+    INPUT Fn[4];
+
+    OUTPUT RegWrite;
+    OUTPUT ASrc;
+    OUTPUT BSrc[2];
+    OUTPUT ImmSel[2];
+    OUTPUT AluS[2];
+    OUTPUT InvB;
+    OUTPUT ZeroA;
+    OUTPUT CinOne;
+    OUTPUT CinCarry;
+    OUTPUT WbSel[2];
+    OUTPUT LoadZN;
+    OUTPUT LoadCV;
+    OUTPUT MemWrite;
+    OUTPUT MemAddrSel[2];
+    OUTPUT MemDataSel;
+    OUTPUT TargetSel[2];
+    OUTPUT Jump;
+    OUTPUT BranchInstr;
+    OUTPUT Step2;
+    OUTPUT SpInc;
+    OUTPUT SpDec;
+    OUTPUT OutEnable;
+    OUTPUT Halt;
+    OUTPUT ShLeft;
+    OUTPUT ShRot;
+    OUTPUT ShArith;
+    OUTPUT ShImm;
+
+    // --- Parts ---
+    PART C_TRUE: NOR; // Constant 1 (VCC), NOR(0,0) = 1
+    PART OpDec: DECODER_4_16;
+    PART SysDec: DECODER_4_16;  // op 0: HALT NOP RET JR CALLR PUSH POP OUT IN
+    PART AluDec: DECODER_4_16;  // op 1: ADD SUB ADC SBC AND OR XOR BIC MOV NOT NEG CMP TEST
+    PART LongDec: DECODER_4_16; // op 6: LI JMP CALL
+    PART NotFn0: NOT;
+
+    PART Or_RegWrite: OR_WIDE<6>; // RegWrite: write Rd
+    PART Or_ASrc: OR; // ASrc: ALU A: 0 = Rd, 1 = immediate
+    PART Or_BSrc0: OR_WIDE<2>; // BSrc[0]: ALU B: 0 = Rs, 1 = immediate, 2 = second word
+    PART Or_ImmSel0: OR_WIDE<1>; // ImmSel[0]: immediate: 0 = imm8, 1 = sign-extended imm8, 2 = imm8 << 8, 3 = off4
+    PART Or_ImmSel1: OR_WIDE<1>;
+    PART Or_AluS0: OR_WIDE<2>; // AluS[0]: ALU result: 0 = ADD, 1 = AND, 2 = OR, 3 = XOR
+    PART Or_AluS1: OR_WIDE<3>;
+    PART Or_InvB: OR_WIDE<2>; // InvB: ALU B inverted
+    PART Or_ZeroA: OR_WIDE<2>; // ZeroA: ALU A forced to 0
+    PART Or_CinOne: OR_WIDE<1>; // CinOne: ALU carry-in 1
+    PART Or_CinCarry: OR; // CinCarry: ALU carry-in = C flag
+    PART Or_WbSel0: OR; // WbSel[0]: Rd gets: 0 = ALU, 1 = shifter, 2 = memory, 3 = In port
+    PART Or_WbSel1: OR_WIDE<1>;
+    PART Or_LoadZN: OR_WIDE<5>; // LoadZN: store Z and N
+    PART Or_LoadCV: OR_WIDE<2>; // LoadCV: store C and V
+    PART Or_MemWrite: OR_WIDE<1>; // MemWrite: write data memory
+    PART Or_MemAddrSel0: OR; // MemAddrSel[0]: memory address: 0 = ALU, 1 = SP, 2 = SP - 1
+    PART Or_MemAddrSel1: OR_WIDE<1>;
+    PART Or_MemDataSel: OR; // MemDataSel: memory data: 0 = Rd, 1 = return address
+    PART Or_TargetSel0: OR; // TargetSel[0]: jump target: 0 = second word, 1 = Rd, 2 = memory
+    PART Or_Jump: OR_WIDE<2>; // Jump: load the jump target into the PC
+    PART Or_SpInc: OR; // SpInc: SP + 1
+    PART Or_SpDec: OR_WIDE<1>; // SpDec: SP - 1
+
+    // --- Decoders ---
+    CONNECT C_TRUE.out -> OpDec.Enable;
+    CONNECT Op -> OpDec.A;
+    CONNECT Fn -> SysDec.A;
+    CONNECT Fn -> AluDec.A;
+    CONNECT Fn -> LongDec.A;
+    CONNECT OpDec.O[0] -> SysDec.Enable;
+    CONNECT OpDec.O[1] -> AluDec.Enable;
+    CONNECT OpDec.O[6] -> LongDec.Enable;
+
+    // --- Shifter controls ---
+    CONNECT Fn[0] -> NotFn0.in;
+    CONNECT NotFn0.out -> ShLeft;
+    CONNECT Fn[1] -> ShRot;
+    CONNECT Fn[2] -> ShArith;
+    CONNECT Fn[3] -> ShImm;
+
+    // --- Control signals ---
+    // RegWrite = ADD | SUB | ADC | SBC | AND | OR | XOR | BIC | MOV | NOT | NEG | SH | LW | LI | POP | IN | MOVI | ADDI | ANDI | ORI | XORI | LUI
+    CONNECT AluDec.O[0] -> Or_RegWrite.In[0];
+    CONNECT AluDec.O[1] -> Or_RegWrite.In[1];
+    CONNECT AluDec.O[2] -> Or_RegWrite.In[2];
+    CONNECT AluDec.O[3] -> Or_RegWrite.In[3];
+    CONNECT AluDec.O[4] -> Or_RegWrite.In[4];
+    CONNECT AluDec.O[5] -> Or_RegWrite.In[5];
+    CONNECT AluDec.O[6] -> Or_RegWrite.In[6];
+    CONNECT AluDec.O[7] -> Or_RegWrite.In[7];
+    CONNECT AluDec.O[8] -> Or_RegWrite.In[8];
+    CONNECT AluDec.O[9] -> Or_RegWrite.In[9];
+    CONNECT AluDec.O[10] -> Or_RegWrite.In[10];
+    CONNECT OpDec.O[2] -> Or_RegWrite.In[11];
+    CONNECT OpDec.O[3] -> Or_RegWrite.In[12];
+    CONNECT LongDec.O[0] -> Or_RegWrite.In[13];
+    CONNECT SysDec.O[6] -> Or_RegWrite.In[14];
+    CONNECT SysDec.O[8] -> Or_RegWrite.In[15];
+    CONNECT OpDec.O[8] -> Or_RegWrite.In[16];
+    CONNECT OpDec.O[9] -> Or_RegWrite.In[17];
+    CONNECT OpDec.O[11] -> Or_RegWrite.In[18];
+    CONNECT OpDec.O[12] -> Or_RegWrite.In[19];
+    CONNECT OpDec.O[13] -> Or_RegWrite.In[20];
+    CONNECT OpDec.O[14] -> Or_RegWrite.In[21];
+    CONNECT Or_RegWrite.Out -> RegWrite;
+    // ASrc = LW | SW
+    CONNECT OpDec.O[3] -> Or_ASrc.in1;
+    CONNECT OpDec.O[4] -> Or_ASrc.in2;
+    CONNECT Or_ASrc.out -> ASrc;
+    // BSrc[0] = MOVI | ADDI | CMPI | ANDI | ORI | XORI | LUI
+    CONNECT OpDec.O[8] -> Or_BSrc0.In[0];
+    CONNECT OpDec.O[9] -> Or_BSrc0.In[1];
+    CONNECT OpDec.O[10] -> Or_BSrc0.In[2];
+    CONNECT OpDec.O[11] -> Or_BSrc0.In[3];
+    CONNECT OpDec.O[12] -> Or_BSrc0.In[4];
+    CONNECT OpDec.O[13] -> Or_BSrc0.In[5];
+    CONNECT OpDec.O[14] -> Or_BSrc0.In[6];
+    CONNECT Or_BSrc0.Out -> BSrc[0];
+    CONNECT LongDec.O[0] -> BSrc[1];
+    // ImmSel[0] = ADDI | CMPI | LW | SW
+    CONNECT OpDec.O[9] -> Or_ImmSel0.In[0];
+    CONNECT OpDec.O[10] -> Or_ImmSel0.In[1];
+    CONNECT OpDec.O[3] -> Or_ImmSel0.In[2];
+    CONNECT OpDec.O[4] -> Or_ImmSel0.In[3];
+    CONNECT Or_ImmSel0.Out -> ImmSel[0];
+    // ImmSel[1] = LUI | LW | SW
+    CONNECT OpDec.O[14] -> Or_ImmSel1.In[0];
+    CONNECT OpDec.O[3] -> Or_ImmSel1.In[1];
+    CONNECT OpDec.O[4] -> Or_ImmSel1.In[2];
+    CONNECT Or_ImmSel1.Out -> ImmSel[1];
+    // AluS[0] = AND | XOR | BIC | TEST | ANDI | XORI
+    CONNECT AluDec.O[4] -> Or_AluS0.In[0];
+    CONNECT AluDec.O[6] -> Or_AluS0.In[1];
+    CONNECT AluDec.O[7] -> Or_AluS0.In[2];
+    CONNECT AluDec.O[12] -> Or_AluS0.In[3];
+    CONNECT OpDec.O[11] -> Or_AluS0.In[4];
+    CONNECT OpDec.O[13] -> Or_AluS0.In[5];
+    CONNECT Or_AluS0.Out -> AluS[0];
+    // AluS[1] = OR | XOR | MOV | NOT | ORI | XORI | MOVI | LUI | LI
+    CONNECT AluDec.O[5] -> Or_AluS1.In[0];
+    CONNECT AluDec.O[6] -> Or_AluS1.In[1];
+    CONNECT AluDec.O[8] -> Or_AluS1.In[2];
+    CONNECT AluDec.O[9] -> Or_AluS1.In[3];
+    CONNECT OpDec.O[12] -> Or_AluS1.In[4];
+    CONNECT OpDec.O[13] -> Or_AluS1.In[5];
+    CONNECT OpDec.O[8] -> Or_AluS1.In[6];
+    CONNECT OpDec.O[14] -> Or_AluS1.In[7];
+    CONNECT LongDec.O[0] -> Or_AluS1.In[8];
+    CONNECT Or_AluS1.Out -> AluS[1];
+    // InvB = SUB | SBC | BIC | NOT | NEG | CMP | CMPI
+    CONNECT AluDec.O[1] -> Or_InvB.In[0];
+    CONNECT AluDec.O[3] -> Or_InvB.In[1];
+    CONNECT AluDec.O[7] -> Or_InvB.In[2];
+    CONNECT AluDec.O[9] -> Or_InvB.In[3];
+    CONNECT AluDec.O[10] -> Or_InvB.In[4];
+    CONNECT AluDec.O[11] -> Or_InvB.In[5];
+    CONNECT OpDec.O[10] -> Or_InvB.In[6];
+    CONNECT Or_InvB.Out -> InvB;
+    // ZeroA = MOV | NOT | NEG | MOVI | LUI | LI
+    CONNECT AluDec.O[8] -> Or_ZeroA.In[0];
+    CONNECT AluDec.O[9] -> Or_ZeroA.In[1];
+    CONNECT AluDec.O[10] -> Or_ZeroA.In[2];
+    CONNECT OpDec.O[8] -> Or_ZeroA.In[3];
+    CONNECT OpDec.O[14] -> Or_ZeroA.In[4];
+    CONNECT LongDec.O[0] -> Or_ZeroA.In[5];
+    CONNECT Or_ZeroA.Out -> ZeroA;
+    // CinOne = SUB | NEG | CMP | CMPI
+    CONNECT AluDec.O[1] -> Or_CinOne.In[0];
+    CONNECT AluDec.O[10] -> Or_CinOne.In[1];
+    CONNECT AluDec.O[11] -> Or_CinOne.In[2];
+    CONNECT OpDec.O[10] -> Or_CinOne.In[3];
+    CONNECT Or_CinOne.Out -> CinOne;
+    // CinCarry = ADC | SBC
+    CONNECT AluDec.O[2] -> Or_CinCarry.in1;
+    CONNECT AluDec.O[3] -> Or_CinCarry.in2;
+    CONNECT Or_CinCarry.out -> CinCarry;
+    // WbSel[0] = SH | IN
+    CONNECT OpDec.O[2] -> Or_WbSel0.in1;
+    CONNECT SysDec.O[8] -> Or_WbSel0.in2;
+    CONNECT Or_WbSel0.out -> WbSel[0];
+    // WbSel[1] = LW | POP | IN
+    CONNECT OpDec.O[3] -> Or_WbSel1.In[0];
+    CONNECT SysDec.O[6] -> Or_WbSel1.In[1];
+    CONNECT SysDec.O[8] -> Or_WbSel1.In[2];
+    CONNECT Or_WbSel1.Out -> WbSel[1];
+    // LoadZN = ADD | SUB | ADC | SBC | AND | OR | XOR | BIC | MOV | NOT | NEG | CMP | TEST | SH | ADDI | CMPI | ANDI | ORI | XORI
+    CONNECT AluDec.O[0] -> Or_LoadZN.In[0];
+    CONNECT AluDec.O[1] -> Or_LoadZN.In[1];
+    CONNECT AluDec.O[2] -> Or_LoadZN.In[2];
+    CONNECT AluDec.O[3] -> Or_LoadZN.In[3];
+    CONNECT AluDec.O[4] -> Or_LoadZN.In[4];
+    CONNECT AluDec.O[5] -> Or_LoadZN.In[5];
+    CONNECT AluDec.O[6] -> Or_LoadZN.In[6];
+    CONNECT AluDec.O[7] -> Or_LoadZN.In[7];
+    CONNECT AluDec.O[8] -> Or_LoadZN.In[8];
+    CONNECT AluDec.O[9] -> Or_LoadZN.In[9];
+    CONNECT AluDec.O[10] -> Or_LoadZN.In[10];
+    CONNECT AluDec.O[11] -> Or_LoadZN.In[11];
+    CONNECT AluDec.O[12] -> Or_LoadZN.In[12];
+    CONNECT OpDec.O[2] -> Or_LoadZN.In[13];
+    CONNECT OpDec.O[9] -> Or_LoadZN.In[14];
+    CONNECT OpDec.O[10] -> Or_LoadZN.In[15];
+    CONNECT OpDec.O[11] -> Or_LoadZN.In[16];
+    CONNECT OpDec.O[12] -> Or_LoadZN.In[17];
+    CONNECT OpDec.O[13] -> Or_LoadZN.In[18];
+    CONNECT Or_LoadZN.Out -> LoadZN;
+    // LoadCV = ADD | SUB | ADC | SBC | NEG | CMP | ADDI | CMPI
+    CONNECT AluDec.O[0] -> Or_LoadCV.In[0];
+    CONNECT AluDec.O[1] -> Or_LoadCV.In[1];
+    CONNECT AluDec.O[2] -> Or_LoadCV.In[2];
+    CONNECT AluDec.O[3] -> Or_LoadCV.In[3];
+    CONNECT AluDec.O[10] -> Or_LoadCV.In[4];
+    CONNECT AluDec.O[11] -> Or_LoadCV.In[5];
+    CONNECT OpDec.O[9] -> Or_LoadCV.In[6];
+    CONNECT OpDec.O[10] -> Or_LoadCV.In[7];
+    CONNECT Or_LoadCV.Out -> LoadCV;
+    // MemWrite = SW | CALL | CALLR | PUSH
+    CONNECT OpDec.O[4] -> Or_MemWrite.In[0];
+    CONNECT LongDec.O[2] -> Or_MemWrite.In[1];
+    CONNECT SysDec.O[4] -> Or_MemWrite.In[2];
+    CONNECT SysDec.O[5] -> Or_MemWrite.In[3];
+    CONNECT Or_MemWrite.Out -> MemWrite;
+    // MemAddrSel[0] = RET | POP
+    CONNECT SysDec.O[2] -> Or_MemAddrSel0.in1;
+    CONNECT SysDec.O[6] -> Or_MemAddrSel0.in2;
+    CONNECT Or_MemAddrSel0.out -> MemAddrSel[0];
+    // MemAddrSel[1] = CALL | CALLR | PUSH
+    CONNECT LongDec.O[2] -> Or_MemAddrSel1.In[0];
+    CONNECT SysDec.O[4] -> Or_MemAddrSel1.In[1];
+    CONNECT SysDec.O[5] -> Or_MemAddrSel1.In[2];
+    CONNECT Or_MemAddrSel1.Out -> MemAddrSel[1];
+    // MemDataSel = CALL | CALLR
+    CONNECT LongDec.O[2] -> Or_MemDataSel.in1;
+    CONNECT SysDec.O[4] -> Or_MemDataSel.in2;
+    CONNECT Or_MemDataSel.out -> MemDataSel;
+    // TargetSel[0] = JR | CALLR
+    CONNECT SysDec.O[3] -> Or_TargetSel0.in1;
+    CONNECT SysDec.O[4] -> Or_TargetSel0.in2;
+    CONNECT Or_TargetSel0.out -> TargetSel[0];
+    CONNECT SysDec.O[2] -> TargetSel[1];
+    // Jump = JMP | CALL | RET | JR | CALLR
+    CONNECT LongDec.O[1] -> Or_Jump.In[0];
+    CONNECT LongDec.O[2] -> Or_Jump.In[1];
+    CONNECT SysDec.O[2] -> Or_Jump.In[2];
+    CONNECT SysDec.O[3] -> Or_Jump.In[3];
+    CONNECT SysDec.O[4] -> Or_Jump.In[4];
+    CONNECT Or_Jump.Out -> Jump;
+    CONNECT OpDec.O[5] -> BranchInstr; // Bcc: branch if the condition holds
+    CONNECT OpDec.O[6] -> Step2; // two-word instruction
+    // SpInc = RET | POP
+    CONNECT SysDec.O[2] -> Or_SpInc.in1;
+    CONNECT SysDec.O[6] -> Or_SpInc.in2;
+    CONNECT Or_SpInc.out -> SpInc;
+    // SpDec = CALL | CALLR | PUSH
+    CONNECT LongDec.O[2] -> Or_SpDec.In[0];
+    CONNECT SysDec.O[4] -> Or_SpDec.In[1];
+    CONNECT SysDec.O[5] -> Or_SpDec.In[2];
+    CONNECT Or_SpDec.Out -> SpDec;
+    CONNECT SysDec.O[7] -> OutEnable; // Out <- Rd
+    CONNECT SysDec.O[0] -> Halt; // stop the PC
+}
