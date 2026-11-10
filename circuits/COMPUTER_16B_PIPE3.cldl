@@ -6,6 +6,8 @@ CIRCUIT COMPUTER_16B_PIPE3 {
     INPUT InstructionNext[16];
     INPUT MemDataIn[16];
     INPUT In[16];
+    INPUT IWait;        // 1 = Instruction not valid yet
+    INPUT DWait;        // 1 = data memory access not done yet
     INPUT CLK;
     INPUT Reset;
 
@@ -13,6 +15,7 @@ CIRCUIT COMPUTER_16B_PIPE3 {
     OUTPUT MemAddr[16];
     OUTPUT MemDataOut[16];
     OUTPUT MemWrite;
+    OUTPUT MemRead;
     OUTPUT Halted;
     OUTPUT Out[16];
     OUTPUT Seg3[7];     // Out[15..12], segments a..g
@@ -27,6 +30,8 @@ CIRCUIT COMPUTER_16B_PIPE3 {
     CONNECT InstructionNext -> Cpu.InstructionNext;
     CONNECT MemDataIn -> Cpu.MemDataIn;
     CONNECT In -> Cpu.In;
+    CONNECT IWait -> Cpu.IWait;
+    CONNECT DWait -> Cpu.DWait;
     CONNECT CLK -> Cpu.CLK;
     CONNECT Reset -> Cpu.Reset;
 
@@ -34,6 +39,7 @@ CIRCUIT COMPUTER_16B_PIPE3 {
     CONNECT Cpu.MemAddr -> MemAddr;
     CONNECT Cpu.MemDataOut -> MemDataOut;
     CONNECT Cpu.MemWrite -> MemWrite;
+    CONNECT Cpu.MemRead -> MemRead;
     CONNECT Cpu.Halted -> Halted;
     CONNECT Cpu.Out -> Out;
 

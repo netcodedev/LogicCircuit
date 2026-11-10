@@ -79,6 +79,10 @@ enum Commands {
         /// Print every executed instruction.
         #[arg(long)]
         trace: bool,
+        /// Wait states per memory access, for CPUs with IWait/DWait ports
+        /// (COMPUTER_16B_PIPE3); 0 = memories answer at once.
+        #[arg(long, default_value_t = 0)]
+        mem_latency: usize,
     },
     /// Count the NAND gates a circuit is built from, broken down by part.
     /// Without a name, lists every known circuit.
@@ -370,12 +374,12 @@ fn main() {
                 Err(e) => eprintln!("Error saving .dot file: {}", e),
             }
         }
-        Some(Commands::Run { program, top, input, max_steps, trace }) => {
+        Some(Commands::Run { program, top, input, max_steps, trace, mem_latency }) => {
             let top = top.unwrap_or_else(|| {
                 let in_16 = program.parent().is_some_and(|dir| dir.ends_with("16"));
                 if in_16 { "COMPUTER_16B" } else { "COMPUTER_8B" }.to_string()
             });
-            run_program(&builder, &program, &top, input, max_steps, trace);
+            run_program(&builder, &program, &top, input, max_steps, trace, mem_latency);
         }
         Some(Commands::ExportVerilog { component_name, level, cells, keep_latches, output, names }) => {
             let opts = VerilogOptions {
@@ -512,7 +516,15 @@ fn parse_word(text: &str) -> Result<u16, String> {
     .map_err(|e| format!("expected a 16-bit number: {e}"))
 }
 
-fn run_program(builder: &CircuitBuilder, path: &Path, top: &str, input: u16, max_steps: usize, trace: bool) {
+fn run_program(
+    builder: &CircuitBuilder,
+    path: &Path,
+    top: &str,
+    input: u16,
+    max_steps: usize,
+    trace: bool,
+    latency: usize,
+) {
     let source = std::fs::read_to_string(path).unwrap_or_else(|e| {
         eprintln!("Error reading {:?}: {}", path, e);
         std::process::exit(1);
@@ -534,6 +546,7 @@ fn run_program(builder: &CircuitBuilder, path: &Path, top: &str, input: u16, max
     });
     machine.rom = program.words;
     machine.input = Some(input);
+    machine.latency = latency;
     // Hex digits of the PC and of Out.
     let pc_digits = machine.pc_width().div_ceil(4);
     let out_width = machine::bus_width(&circuit, machine::OUT);

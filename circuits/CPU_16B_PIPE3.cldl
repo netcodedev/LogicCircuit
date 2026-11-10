@@ -31,6 +31,14 @@ CIRCUIT CPU_16B_PIPE3 {
     // HALT stops PC and Ir; Halted rises once the memory stage has nothing
     // left to write, so a store right before HALT still happens.
     //
+    // Slow memories (wait states): IWait = 1 means the instruction memory has
+    // not delivered the word at PC yet: PC holds and the execute stage gets a
+    // NOP (a jump or branch still loads the PC). DWait = 1 while the memory
+    // stage reads or writes (MemRead/MemWrite) means the data memory is not
+    // done: the whole pipeline holds, MemAddr/MemDataOut/MemWrite stay as they
+    // are and nothing is written. Both are active-high so that unconnected
+    // inputs mean "ready".
+    //
     // Memories are external: the CPU drives PC and reads the word at PC on
     // Instruction and the word at PC+1 on InstructionNext (the second word of
     // LI/JMP/CALL). Data memory: the CPU drives MemAddr (and MemDataOut,
@@ -46,6 +54,8 @@ CIRCUIT CPU_16B_PIPE3 {
     INPUT InstructionNext[16]; // word at PC+1 (latched with the word at PC)
     INPUT MemDataIn[16];       // data memory at MemAddr
     INPUT In[16];              // input port (IN)
+    INPUT IWait;               // 1 = Instruction not valid yet
+    INPUT DWait;               // 1 = data memory access not done yet
     INPUT CLK;
     INPUT Reset;
 
@@ -54,6 +64,7 @@ CIRCUIT CPU_16B_PIPE3 {
     OUTPUT MemAddr[16];
     OUTPUT MemDataOut[16];
     OUTPUT MemWrite;
+    OUTPUT MemRead;            // memory stage reads (LW, POP, RET)
     OUTPUT Out[16];            // output register (OUT)
     OUTPUT Halted;             // 1 once HALT executes and memory is done
     OUTPUT FlagZ, FlagN, FlagC, FlagV;
@@ -80,10 +91,15 @@ CIRCUIT CPU_16B_PIPE3 {
     PART Control: CONTROL_UNIT_16B;
     PART Cond: COND_16B;
 
-    PART NotStall: NOT;
-    PART OpGate: AND_BUS<4>;         // Op AND NOT Stall
-    PART FnGate: AND_BUS<3>;         // Fn[3..1] AND NOT Stall
-    PART Fn0Or: OR;                  // Fn[0] OR Stall: a stall decodes as NOP
+    PART ReadOr: OR;                 // MemReadM = Load OR Ret
+    PART AccessOr: OR;               // MemReadM OR MemWriteM
+    PART FreezeAnd: AND;             // DWait AND access: everything holds
+    PART NotFreeze: NOT;
+    PART HoldOr: OR;                 // Stall OR Freeze
+    PART NotHold: NOT;
+    PART OpGate: AND_BUS<4>;         // Op AND NOT Hold
+    PART FnGate: AND_BUS<3>;         // Fn[3..1] AND NOT Hold
+    PART Fn0Or: OR;                  // Fn[0] OR Hold: holding decodes as NOP
 
     PART FwdMuxA: MUX_2_1_BUS<16>;   // Rd: register file or ResultM
     PART FwdMuxB: MUX_2_1_BUS<16>;   // Rs: register file or ResultM
@@ -106,8 +122,9 @@ CIRCUIT CPU_16B_PIPE3 {
     PART CinOr: OR;     // CinOne OR (CinCarry AND C)
     PART BranchAnd: AND;
     PART NotReset: NOT;
-    PART WriteAnd: AND; // RegWriteM AND NOT Reset
+    PART WriteAnd: AND3; // RegWriteM AND NOT Reset AND NOT Freeze
     PART MemAnd: AND;   // MemWriteM AND NOT Reset
+    PART MemReadAnd: AND; // MemReadM AND NOT Reset
     PART NotWb0: NOT;
     PART LoadAnd: AND;  // WbSel = 2: load
     PART NotTs0: NOT;
@@ -115,13 +132,17 @@ CIRCUIT CPU_16B_PIPE3 {
     PART NotRet: NOT;
     PART JumpAnd: AND;  // Jump AND NOT RET
     PART PcJump: OR;    // JumpE OR RetM
-    PART FlushOr1: OR;
-    PART Flush: OR;     // PcJump OR taken branch OR RetE: drop the fetched word
+    PART FlushOr1: OR;  // Redirect: PcJump OR taken branch
+    PART FlushOr2: OR;  // Redirect OR RetE: drop the fetched word
+    PART FlushOr3: OR;  // ... or no word fetched yet (IWait)
+    PART Flush: AND;    // only when Ir advances (not while halted or held)
+    PART NotIWait: NOT;
+    PART PcGo: OR;      // fetched word arrived, or a jump/branch
+    PART PcEnable: AND; // Advance AND PcGo
     PART BusyOr: OR;    // memory stage still writes
     PART NotBusy: NOT;
     PART HaltedAnd: AND;
-    PART EnableAnd: AND; // NOT Halt AND NOT Stall: PC and Ir advance
-    PART C_TRUE: NOR;    // Constant 1 (VCC), NOR(0,0) = 1
+    PART EnableAnd: AND; // Advance = NOT Halt AND NOT Hold: Ir loads
     PART Pre14Not: NOT;  // pre-decode: fetched opcode 6 (LONG) = two words
     PART Pre13Not: NOT;
     PART PreLong: NOR4;
@@ -154,19 +175,29 @@ CIRCUIT CPU_16B_PIPE3 {
     }
     CONNECT CtrlM.Q[4] -> Hazard.RegWriteM;
     CONNECT CtrlM.Q[6] -> Hazard.LoadM;
-    CONNECT Hazard.Stall -> NotStall.in;
+    // Freeze: the memory stage waits for the data memory
+    CONNECT CtrlM.Q[6] -> ReadOr.in1;
+    CONNECT CtrlM.Q[7] -> ReadOr.in2;
+    CONNECT ReadOr.out -> AccessOr.in1;
+    CONNECT CtrlM.Q[5] -> AccessOr.in2;
+    CONNECT DWait -> FreezeAnd.in1;
+    CONNECT AccessOr.out -> FreezeAnd.in2;
+    CONNECT FreezeAnd.out -> NotFreeze.in;
+    CONNECT Hazard.Stall -> HoldOr.in1;
+    CONNECT FreezeAnd.out -> HoldOr.in2;
+    CONNECT HoldOr.out -> NotHold.in;
     FOR i IN 0..4 {
         CONNECT Ir.Q[12+i] -> OpGate.A[i];
     }
-    CONNECT NotStall.out -> OpGate.B;
+    CONNECT NotHold.out -> OpGate.B;
     CONNECT OpGate.Out -> Control.Op;
     FOR i IN 0..3 {
         CONNECT Ir.Q[1+i] -> FnGate.A[i];
         CONNECT FnGate.Out[i] -> Control.Fn[1+i];
     }
-    CONNECT NotStall.out -> FnGate.B;
+    CONNECT NotHold.out -> FnGate.B;
     CONNECT Ir.Q[0] -> Fn0Or.in1;
-    CONNECT Hazard.Stall -> Fn0Or.in2;
+    CONNECT HoldOr.out -> Fn0Or.in2;
     CONNECT Fn0Or.out -> Control.Fn[0];
 
     // 2. Register file: read Rd [11..8] and Rs [7..4] in execute (with
@@ -188,9 +219,10 @@ CIRCUIT CPU_16B_PIPE3 {
     CONNECT CtrlM.Q[6] -> WbMuxM.S;
     CONNECT WbMuxM.Out -> RegFile.DataIn;
     CONNECT Reset -> NotReset.in;
-    CONNECT CtrlM.Q[4] -> WriteAnd.in1;
-    CONNECT NotReset.out -> WriteAnd.in2;
-    CONNECT WriteAnd.out -> RegFile.WriteEnable;
+    CONNECT CtrlM.Q[4] -> WriteAnd.A;
+    CONNECT NotReset.out -> WriteAnd.B;
+    CONNECT NotFreeze.out -> WriteAnd.C;
+    CONNECT WriteAnd.Out -> RegFile.WriteEnable;
 
     // 3. Immediates (unconnected bits read 0)
     FOR i IN 0..8 {
@@ -276,7 +308,8 @@ CIRCUIT CPU_16B_PIPE3 {
     CONNECT PcUnit.Addr -> DataMux.B;   // return address, see PC_FETCH_16B
     CONNECT Control.MemDataSel -> DataMux.S;
 
-    // 9. Pipeline registers execute -> memory (loaded every clock)
+    // 9. Pipeline registers execute -> memory (loaded every clock unless
+    //    the memory stage waits)
     CONNECT WbMux.Out -> ResultM.Data;
     CONNECT AddrMux.Out -> AddrM.Data;
     CONNECT DataMux.Out -> DataM.Data;
@@ -290,10 +323,10 @@ CIRCUIT CPU_16B_PIPE3 {
     CONNECT NotWb0.out -> LoadAnd.in2;
     CONNECT LoadAnd.out -> CtrlM.Data[6];
     CONNECT RetAnd.Out -> CtrlM.Data[7];
-    CONNECT C_TRUE.out -> ResultM.Load;
-    CONNECT C_TRUE.out -> AddrM.Load;
-    CONNECT C_TRUE.out -> DataM.Load;
-    CONNECT C_TRUE.out -> CtrlM.Load;
+    CONNECT NotFreeze.out -> ResultM.Load;
+    CONNECT NotFreeze.out -> AddrM.Load;
+    CONNECT NotFreeze.out -> DataM.Load;
+    CONNECT NotFreeze.out -> CtrlM.Load;
     CONNECT Reset -> CtrlM.Reset;
     CONNECT CLK -> ResultM.CLK;
     CONNECT CLK -> AddrM.CLK;
@@ -306,6 +339,9 @@ CIRCUIT CPU_16B_PIPE3 {
     CONNECT CtrlM.Q[5] -> MemAnd.in1;
     CONNECT NotReset.out -> MemAnd.in2;
     CONNECT MemAnd.out -> MemWrite;
+    CONNECT ReadOr.out -> MemReadAnd.in1;
+    CONNECT NotReset.out -> MemReadAnd.in2;
+    CONNECT MemReadAnd.out -> MemRead;
 
     // 11. Program counter: jumps and branches in execute, RET in memory
     FOR i IN 0..16 {
@@ -331,8 +367,12 @@ CIRCUIT CPU_16B_PIPE3 {
     CONNECT PcJump.out -> PcUnit.Jump;
     CONNECT PcJump.out -> FlushOr1.in1;
     CONNECT BranchAnd.out -> FlushOr1.in2;
-    CONNECT FlushOr1.out -> Flush.in1;
-    CONNECT RetAnd.Out -> Flush.in2;
+    CONNECT FlushOr1.out -> FlushOr2.in1;
+    CONNECT RetAnd.Out -> FlushOr2.in2;
+    CONNECT FlushOr2.out -> FlushOr3.in1;
+    CONNECT IWait -> FlushOr3.in2;
+    CONNECT FlushOr3.out -> Flush.in1;
+    CONNECT EnableAnd.out -> Flush.in2;
     // Branch offset: sign-extended imm8
     FOR i IN 0..8 {
         CONNECT Ir.Q[i] -> PcUnit.Offset[i];
@@ -350,8 +390,13 @@ CIRCUIT CPU_16B_PIPE3 {
     CONNECT BranchAnd.out -> PcUnit.Branch;
     CONNECT Control.Halt -> HaltNot.in;
     CONNECT HaltNot.out -> EnableAnd.in1;
-    CONNECT NotStall.out -> EnableAnd.in2;
-    CONNECT EnableAnd.out -> PcUnit.Enable;
+    CONNECT NotHold.out -> EnableAnd.in2;
+    CONNECT IWait -> NotIWait.in;
+    CONNECT NotIWait.out -> PcGo.in1;
+    CONNECT FlushOr1.out -> PcGo.in2;
+    CONNECT EnableAnd.out -> PcEnable.in1;
+    CONNECT PcGo.out -> PcEnable.in2;
+    CONNECT PcEnable.out -> PcUnit.Enable;
     CONNECT Reset -> PcUnit.Reset;
     CONNECT CLK -> PcUnit.CLK;
     CONNECT PcUnit.Addr -> PC;

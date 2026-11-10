@@ -24,14 +24,24 @@ noch keine Hardware.
 
 ## Phasen
 
-### Phase 1 – Wartefähiger Speicherbus
-- [ ] `IWait`/`DWait` an `CPU_16B_PIPE3` (aktiv-high, damit unverbundene
+### Phase 1 – Wartefähiger Speicherbus (2026-11-10)
+- [x] `IWait`/`DWait` an `CPU_16B_PIPE3` (aktiv-high, damit unverbundene
       Eingänge „bereit“ bedeuten und alles Bisherige gleich bleibt), Ausgang
-      `MemRead`
-- [ ] `IWait`: Befehl noch nicht da → Fetch hält, Execute bekommt eine Blase
-- [ ] `DWait`: Speicherstufe noch nicht fertig → die ganze Pipeline steht
-- [ ] Runner: einstellbare Latenz für Befehls- und Datenspeicher
-      (`run --mem-latency`), Tests mit Latenz
+      `MemRead` (LW, POP, RET in der Speicherstufe)
+- [x] `IWait`: Befehl noch nicht da → PC hält, Execute bekommt eine Blase;
+      ein Sprung lädt den PC trotzdem
+- [x] `DWait` während `MemRead`/`MemWrite`: die ganze Pipeline steht
+      („Freeze“: Steuerwerk sieht NOP wie beim Load-Use-Stall, die
+      Pipeline-Register und das Registerfile schreiben nicht, `MemAddr`,
+      `MemDataOut`, `MemWrite` bleiben stehen). 24.801 NANDs (+~50)
+- [x] Runner: `Machine::latency` bzw. `run --mem-latency N` = N Wartetakte
+      pro Zugriff. Ein fertig geholtes Befehlswort bleibt gültig, solange der
+      PC steht; ein fertiger Datenzugriff ist mit der Taktflanke verbraucht.
+      Fibonacci: 193 / 362 / 700 Takte bei 0 / 1 / 3 Wartetakten
+- [x] Tests: Rust-Test `slow_memories` (0, 1, 3 Wartetakte: gleiche
+      Ergebnisse, mehr Takte); `CPU_16B_PIPE3.clt` und
+      `COMPUTER_16B_PIPE3.clt` enthalten je ein Programm zusätzlich mit 2
+      Wartetakten pro Zugriff (`IWait`/`DWait` im Testharness)
 
 ### Phase 2 – Gemeinsamer Speicher
 - [ ] `CPU_16B_SOC`: ein Speicherbus für Befehle und Daten (von-Neumann),
