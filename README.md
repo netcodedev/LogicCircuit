@@ -39,6 +39,14 @@ the browser's Chip 3D view with an exploded layer stack.*
 - **A complete 8-bit computer** – `COMPUTER_8B` = `CPU_8B` (ALU, 16 × 8
   register file, control unit, program counter) plus a two-digit hex
   7-segment display, 8,064 NANDs in total.
+- **A 32-bit RISC-V SoC** – `SOC_RV32` = `CPU_RV32` (RV32IM + Zicsr, machine
+  mode, three-stage pipeline, traps and interrupts) plus GPIO, an 8-digit hex
+  display, a UART and a CLINT-style timer, 123,293 NANDs, in
+  [`circuits/riscv/`](circuits/riscv). It has its own assembler,
+  instruction-level simulator and runner in [`src/riscv/`](src/riscv), runs
+  assembly and C programs (clang + lld) from [`programs/riscv/`](programs/riscv),
+  and is checked against the instruction-level simulator. Design decisions
+  and measurements: [`ROADMAP_32BIT.md`](ROADMAP_32BIT.md) (German).
 - **Assembler and runner** – a small 16-bit ISA (`ADD`, `SUB`, `AND`, `OR`,
   `XOR`, the `…I` immediate forms, `OUT`, `JMP`, `BRZ`, `LW`, `HALT`) with
   sample programs in [`programs/`](programs).
@@ -82,6 +90,15 @@ its input port:
 
 ```bash
 cargo run --release -- run programs/16/factorial.asm --input 8
+```
+
+Run a program on the RISC-V SoC (`--iss` runs it on the instruction-level
+simulator instead; `.c` files are compiled with clang):
+
+```bash
+cargo run --release -- riscv run programs/riscv/hello.s
+cargo run --release -- riscv run programs/riscv/c/sieve.c
+cargo run --release -- riscv bench
 ```
 
 Count the NAND gates of a circuit (built-in gates counted as their NAND
@@ -216,8 +233,9 @@ CIRCUIT ADDER<W> {
 | `src/cldl`, `src/clt` | Parsers and builders for the circuit and test languages |
 | `src/circuit` | Circuit model, simulator and the built-in gates |
 | `src/circuits/` | Library circuits: primitives (multi-bit gates and the built-in gates' tests), `nand/` (the built-in gates from NAND gates), adders, ALU, muxes, decoders, latches, registers, display |
-| `circuits/` | Larger designs: datapaths, control units, CPUs, `COMPUTER_8B` |
+| `circuits/` | Larger designs: datapaths, control units, CPUs, `COMPUTER_8B`; `riscv/`: the RISC-V SoC |
 | `src/isa.rs`, `src/isa/`, `src/machine.rs` | Instruction sets (8- and 16-bit), assemblers, program runner |
+| `src/riscv/` | RISC-V: instruction table, assembler, instruction-level simulator, runner, `riscv` commands |
 | `src/export` | Verilog export and Icarus testbenches |
 | `src/chip.rs` | `chip build` / `report` around OpenROAD |
 | `src/layout` | DEF/LEF/GDS readers, `layout.bin` format, SVG/PNG renderer |

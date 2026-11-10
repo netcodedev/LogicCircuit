@@ -6,6 +6,7 @@ use logic_circuit::cldl::{FLIP_FLOP, CircuitBuilder, CircuitView, EndpointView, 
 use logic_circuit::export::verilog::{CellLib, VerilogOptions, export_verilog};
 use logic_circuit::isa::Isa;
 use logic_circuit::machine::{self, Machine};
+use logic_circuit::riscv;
 use serde_json::{Value, json};
 use wasm_bindgen::prelude::*;
 
@@ -81,6 +82,10 @@ pub struct Sim {
     circuit: Option<Circuit>,
     /// Memories and clock of the built circuit, if it is runnable.
     machine: Option<Machine>,
+    /// Memory and clock of a RISC-V circuit (CPU_RV32's bus), instead of `machine`.
+    rv: Option<riscv::machine::Machine>,
+    /// The RISC-V program, kept across rebuilds.
+    rv_rom: Vec<u32>,
     /// One circuit per built-in gate type, built from NAND gates: gives the
     /// values of the wires inside a gate for the NAND and transistor views.
     nand_cells: RefCell<HashMap<GateKind, Circuit>>,
@@ -99,6 +104,8 @@ impl Sim {
             builder,
             circuit: None,
             machine: None,
+            rv: None,
+            rv_rom: Vec::new(),
             nand_cells: RefCell::new(HashMap::new()),
             flop_cell: RefCell::new(None),
         }
@@ -225,7 +232,11 @@ impl Sim {
         let circuit = self.builder.build(top);
         circuit.evaluate_stable();
         let old = self.machine.take();
-        self.machine = Machine::new(&circuit).map(|mut m| {
+        self.rv = riscv::machine::Machine::new(&circuit, &self.rv_rom).map(|mut m| {
+            m.reset(&circuit);
+            m
+        });
+        self.machine = Machine::new(&circuit).filter(|_| self.rv.is_none()).map(|mut m| {
             if let Some(old) = old.filter(|o| o.isa() == m.isa()) {
                 m.rom = old.rom;
             }
@@ -242,8 +253,12 @@ impl Sim {
         self.machine.as_ref().map_or(Isa::Cpu8, Machine::isa)
     }
 
-    /// Instruction set of the built circuit: 8 (CPU_8B) or 16 (CPU_16B).
+    /// Instruction set of the built circuit: 8 (CPU_8B), 16 (CPU_16B) or 32
+    /// (RISC-V, CPU_RV32).
     pub fn isa(&self) -> u32 {
+        if self.rv.is_some() {
+            return 32;
+        }
         match self.isa_of() {
             Isa::Cpu8 => 8,
             Isa::Cpu16 => 16,
@@ -252,6 +267,9 @@ impl Sim {
 
     /// Width of the PC in bits (0 if not runnable).
     pub fn pc_width(&self) -> u32 {
+        if self.rv.is_some() {
+            return 32;
+        }
         self.machine.as_ref().map_or(0, |m| m.pc_width() as u32)
     }
 
@@ -271,6 +289,18 @@ impl Sim {
     /// Assembles source for the instruction set of the built circuit. JSON: {"ok":true,"words":[..],"lines":[..],"listing":[..]}
     /// or {"ok":false,"line":n,"message":".."}.
     pub fn assemble(&self, src: &str) -> String {
+        if self.rv.is_some() {
+            return match riscv::asm::assemble(src) {
+                Ok(p) => json!({
+                    "ok": true,
+                    "listing": p.words.iter().enumerate().map(|(i, &w)| riscv::isa::disassemble(4 * i as u32, w)).collect::<Vec<_>>(),
+                    "words": p.words,
+                    "lines": p.lines,
+                }),
+                Err(e) => json!({ "ok": false, "line": e.line, "message": e.message }),
+            }
+            .to_string();
+        }
         let isa = self.isa_of();
         match isa.assemble(src) {
             Ok(p) => json!({
@@ -301,6 +331,23 @@ impl Sim {
             list.sort_by(|a, b| a["name"].as_str().cmp(&b["name"].as_str()));
             list
         };
+        let rv_group = |dir: Option<&Dir>, prefix: &str| -> Vec<Value> {
+            let mut list: Vec<Value> = dir
+                .into_iter()
+                .flat_map(|d| d.files())
+                .filter(|f| f.path().extension().is_some_and(|e| e == "s"))
+                .map(|f| {
+                    let stem = f.path().file_stem().and_then(|s| s.to_str()).unwrap_or("");
+                    json!({ "name": format!("{prefix}{stem}"), "source": f.contents_utf8().unwrap_or("") })
+                })
+                .collect();
+            list.sort_by(|a, b| a["name"].as_str().cmp(&b["name"].as_str()));
+            list
+        };
+        if self.rv.is_some() {
+            let list = [rv_group(PROGRAMS.get_dir("riscv"), ""), rv_group(PROGRAMS.get_dir("riscv/bench"), "bench/")].concat();
+            return Value::Array(list).to_string();
+        }
         let list = match self.isa_of() {
             Isa::Cpu8 => group(Some(&PROGRAMS), ""),
             Isa::Cpu16 if self.has_uart() => {
@@ -318,31 +365,48 @@ impl Sim {
 
     /// Text received on the UART line since the circuit was built.
     pub fn uart_text(&self) -> String {
+        if let Some(m) = &self.rv {
+            return String::from_utf8_lossy(&m.uart).into_owned();
+        }
         self.machine.as_ref().map_or(String::new(), |m| String::from_utf8_lossy(&m.uart).into_owned())
     }
 
     /// Queues `text` for the circuit's UART receive line (`Rx`); it is sent
     /// while the program runs, at the bit time the circuit's UART is set to.
     pub fn send_uart(&mut self, text: &str) {
+        if let Some(m) = &mut self.rv {
+            m.uart_in.extend(text.bytes());
+        }
         if let Some(m) = &mut self.machine {
             m.uart_in.extend(text.bytes());
         }
     }
 
-    /// Replaces the instruction memory and presents the word at the current PC.
-    pub fn set_rom(&mut self, words: Vec<u16>) {
+    /// Replaces the instruction memory (RISC-V: the RAM from address 0) and
+    /// presents the word at the current PC.
+    pub fn set_rom(&mut self, words: Vec<u32>) {
         if let Some(m) = &mut self.machine {
-            m.rom = words;
+            m.rom = words.iter().map(|&w| w as u16).collect();
+        }
+        if let Some(m) = &mut self.rv {
+            m.ram.fill(0);
+            for (i, w) in words.iter().enumerate() {
+                m.ram[4 * i..4 * i + 4].copy_from_slice(&w.to_le_bytes());
+            }
+            self.rv_rom = words;
         }
         self.fetch();
     }
 
     /// True if the built circuit has PC/Instruction/CLK ports.
     pub fn is_runnable(&self) -> bool {
-        self.machine.is_some()
+        self.machine.is_some() || self.rv.is_some()
     }
 
     pub fn fetch(&self) {
+        if let (Some(c), Some(m)) = (&self.circuit, &self.rv) {
+            m.serve(c);
+        }
         if let (Some(c), Some(m)) = (&self.circuit, &self.machine) {
             m.fetch(c);
         }
@@ -350,13 +414,24 @@ impl Sim {
 
     /// Executes one instruction; false if halted (or not runnable).
     pub fn step(&mut self) -> bool {
+        if let (Some(c), Some(m)) = (&self.circuit, &mut self.rv) {
+            return m.step(c);
+        }
         match (&self.circuit, &mut self.machine) {
             (Some(c), Some(m)) => m.step(c),
             _ => false,
         }
     }
 
+    /// Address units per instruction word: 4 for RISC-V (byte addresses), else 1.
+    pub fn pc_step(&self) -> u32 {
+        if self.rv.is_some() { 4 } else { 1 }
+    }
+
     pub fn pc(&self) -> u32 {
+        if let (Some(c), Some(m)) = (&self.circuit, &self.rv) {
+            return m.pc(c);
+        }
         match (&self.circuit, &self.machine) {
             (Some(c), Some(m)) => m.pc(c) as u32,
             _ => 0,

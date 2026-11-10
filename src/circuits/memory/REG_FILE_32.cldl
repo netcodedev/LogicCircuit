@@ -1,0 +1,41 @@
+CIRCUIT REG_FILE_32<W> {
+    // 32 registers of W bits (RISC-V x0..x31), structure as REG_FILE_16.
+    // x0 is hardwired to 0. Two read ports (A, B) and one write port.
+    INPUT DataIn[W];
+    INPUT WriteAddr[5];
+    INPUT WriteEnable;
+    INPUT ReadAddrA[5];
+    INPUT ReadAddrB[5];
+    INPUT CLK;
+
+    OUTPUT DataOutA[W];
+    OUTPUT DataOutB[W];
+
+    // x0 omitted (hardwired 0)
+    FOR r IN 1..32 {
+        PART R[r]: REGISTER<W>;
+    }
+    PART WriteDecoder: DECODER_5_32;
+    PART ReadMuxA: MUX_32_1_BUS<W>;
+    PART ReadMuxB: MUX_32_1_BUS<W>;
+
+    CONNECT WriteAddr -> WriteDecoder.A;
+    CONNECT WriteEnable -> WriteDecoder.Enable;
+    FOR r IN 1..32 {
+        CONNECT WriteDecoder.O[r] -> R[r].Load;
+        CONNECT DataIn -> R[r].Data;
+        CONNECT CLK -> R[r].CLK;
+    }
+
+    // Read ports (input 0 unconnected => x0 reads 0)
+    FOR r IN 1..32 {
+        FOR i IN 0..W {
+            CONNECT R[r].Q[i] -> ReadMuxA.In[r*W+i];
+            CONNECT R[r].Q[i] -> ReadMuxB.In[r*W+i];
+        }
+    }
+    CONNECT ReadAddrA -> ReadMuxA.S;
+    CONNECT ReadAddrB -> ReadMuxB.S;
+    CONNECT ReadMuxA.Out -> DataOutA;
+    CONNECT ReadMuxB.Out -> DataOutB;
+}

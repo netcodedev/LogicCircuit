@@ -1,0 +1,31 @@
+CIRCUIT DECODER_5_32 {
+    // 5-to-32 decoder: O[k] = 1 if A = k and Enable = 1. A DECODER_2_4 on
+    // the low bits (with Enable) and a DECODER_3_8 on the high bits, one AND
+    // per output.
+    INPUT A[5];
+    INPUT Enable;
+
+    OUTPUT O[32];
+
+    PART C_TRUE: NOR;    // Constant 1 (VCC), NOR(0,0) = 1
+    PART Low: DECODER_2_4;
+    PART High: DECODER_3_8;
+    FOR k IN 0..32 {
+        PART And[k]: AND;
+    }
+
+    CONNECT A[0] -> Low.A[0];
+    CONNECT A[1] -> Low.A[1];
+    CONNECT Enable -> Low.Enable;
+    CONNECT A[2] -> High.A[0];
+    CONNECT A[3] -> High.A[1];
+    CONNECT A[4] -> High.A[2];
+    CONNECT C_TRUE.out -> High.Enable;
+    FOR h IN 0..8 {
+        FOR l IN 0..4 {
+            CONNECT Low.O[l] -> And[4*h+l].in1;
+            CONNECT High.O[h] -> And[4*h+l].in2;
+            CONNECT And[4*h+l].out -> O[4*h+l];
+        }
+    }
+}

@@ -1,0 +1,138 @@
+CIRCUIT IMM_RV32 {
+    // Immediate of an RV32 instruction, sign-extended to 32 bits. Exactly
+    // one format input is 1 (none: 0); R-type instructions have none.
+    //
+    //   bit   I        S        B        U        J
+    //   0     ir20     ir7      0        0        0
+    //   4..1  ir24..21 ir11..8  ir11..8  0        ir24..21
+    //   10..5 ir30..25 (all but U)                         -> ir[20+k]
+    //   11    ir31     ir31     ir7      0        ir20
+    //   19..12 ir31 (sign)               ir19..12 ir19..12
+    //   30..20 ir31                      ir30..20 ir31
+    //   31    ir31
+    INPUT Ir[32];
+    INPUT FmtI, FmtS, FmtB, FmtU, FmtJ;
+
+    OUTPUT Imm[32];
+
+    PART IJ: OR;      // I or J: low bits from ir[24..20]
+    PART SB: OR;      // S or B: low bits from ir[11..7]
+    PART UJ: OR;      // U or J: bits 19..12 from ir[19..12]
+    PART ISB: NOR;    // not U and not J: sign in bits 19..12 (with NotUJ)
+    PART AnyLow: OR;  // I, S, B or J
+
+    // bit 0
+    PART B0I: AND;
+    PART B0S: AND;
+    PART B0: OR;
+    // bits 1..4
+    FOR k IN 1..5 {
+        PART LoIJ[k]: AND;
+        PART LoSB[k]: AND;
+        PART Lo[k]: OR;
+    }
+    // bits 5..10
+    FOR k IN 5..11 {
+        PART Mid[k]: AND;
+    }
+    // bit 11
+    PART B11Is: OR;    // I or S: ir31
+    PART B11A: AND;
+    PART B11B: AND;    // B: ir7
+    PART B11J: AND;    // J: ir20
+    PART B11Or: OR;
+    PART B11: OR;
+    // bits 12..19: sign for I/S/B, ir[k] for U/J
+    PART SignISB: AND; // ir31 AND (I or S or B)
+    FOR k IN 12..20 {
+        PART HiUJ[k]: AND;
+        PART Hi[k]: OR;
+    }
+    // bits 20..30: sign for I/S/B/J, ir[k] for U
+    PART SignIJSB: AND; // ir31 AND not U AND some format
+    FOR k IN 20..31 {
+        PART TopU[k]: AND;
+        PART Top[k]: OR;
+    }
+    // bit 31: ir31 for every format
+    PART AnyFmt: OR;
+    PART B31: AND;
+
+    CONNECT FmtI -> IJ.in1;
+    CONNECT FmtJ -> IJ.in2;
+    CONNECT FmtS -> SB.in1;
+    CONNECT FmtB -> SB.in2;
+    CONNECT FmtU -> UJ.in1;
+    CONNECT FmtJ -> UJ.in2;
+    CONNECT IJ.out -> AnyLow.in1;
+    CONNECT SB.out -> AnyLow.in2;
+
+    CONNECT FmtI -> B0I.in1;
+    CONNECT Ir[20] -> B0I.in2;
+    CONNECT FmtS -> B0S.in1;
+    CONNECT Ir[7] -> B0S.in2;
+    CONNECT B0I.out -> B0.in1;
+    CONNECT B0S.out -> B0.in2;
+    CONNECT B0.out -> Imm[0];
+
+    FOR k IN 1..5 {
+        CONNECT IJ.out -> LoIJ[k].in1;
+        CONNECT Ir[20+k] -> LoIJ[k].in2;
+        CONNECT SB.out -> LoSB[k].in1;
+        CONNECT Ir[7+k] -> LoSB[k].in2;
+        CONNECT LoIJ[k].out -> Lo[k].in1;
+        CONNECT LoSB[k].out -> Lo[k].in2;
+        CONNECT Lo[k].out -> Imm[k];
+    }
+    FOR k IN 5..11 {
+        CONNECT AnyLow.out -> Mid[k].in1;
+        CONNECT Ir[20+k] -> Mid[k].in2;
+        CONNECT Mid[k].out -> Imm[k];
+    }
+
+    CONNECT FmtI -> B11Is.in1;
+    CONNECT FmtS -> B11Is.in2;
+    CONNECT B11Is.out -> B11A.in1;
+    CONNECT Ir[31] -> B11A.in2;
+    CONNECT FmtB -> B11B.in1;
+    CONNECT Ir[7] -> B11B.in2;
+    CONNECT FmtJ -> B11J.in1;
+    CONNECT Ir[20] -> B11J.in2;
+    CONNECT B11A.out -> B11Or.in1;
+    CONNECT B11B.out -> B11Or.in2;
+    CONNECT B11Or.out -> B11.in1;
+    CONNECT B11J.out -> B11.in2;
+    CONNECT B11.out -> Imm[11];
+
+    // I, S or B: AnyLow AND NOT J
+    CONNECT FmtU -> ISB.in1;
+    CONNECT FmtJ -> ISB.in2;
+    PART ISBAnd: AND;
+    CONNECT ISB.out -> ISBAnd.in1;
+    CONNECT AnyLow.out -> ISBAnd.in2;
+    CONNECT ISBAnd.out -> SignISB.in1;
+    CONNECT Ir[31] -> SignISB.in2;
+    FOR k IN 12..20 {
+        CONNECT UJ.out -> HiUJ[k].in1;
+        CONNECT Ir[k] -> HiUJ[k].in2;
+        CONNECT HiUJ[k].out -> Hi[k].in1;
+        CONNECT SignISB.out -> Hi[k].in2;
+        CONNECT Hi[k].out -> Imm[k];
+    }
+
+    CONNECT AnyLow.out -> SignIJSB.in1;
+    CONNECT Ir[31] -> SignIJSB.in2;
+    FOR k IN 20..31 {
+        CONNECT FmtU -> TopU[k].in1;
+        CONNECT Ir[k] -> TopU[k].in2;
+        CONNECT TopU[k].out -> Top[k].in1;
+        CONNECT SignIJSB.out -> Top[k].in2;
+        CONNECT Top[k].out -> Imm[k];
+    }
+
+    CONNECT AnyLow.out -> AnyFmt.in1;
+    CONNECT FmtU -> AnyFmt.in2;
+    CONNECT AnyFmt.out -> B31.in1;
+    CONNECT Ir[31] -> B31.in2;
+    CONNECT B31.out -> Imm[31];
+}

@@ -1,0 +1,54 @@
+CIRCUIT ADDER_KS5<W> {
+    // W-bit carry-lookahead adder (Kogge-Stone parallel prefix) with five
+    // prefix levels (distance 1, 2, 4, 8, 16), for 17 <= W <= 32; same
+    // structure and ports as ADDER_CLA_16B (which has four levels). Per bit
+    // g = a AND b, p = a XOR b; Cin is folded into bit 0. The carry path is
+    // five prefix levels deep.
+    INPUT A[W];
+    INPUT B[W];
+    INPUT Cin;
+
+    OUTPUT S[W];
+    OUTPUT Cout;
+
+    PART Gen: AND_BUS<W>;
+    PART Prop: XOR_BUS<W>;
+    PART CinCell: PREFIX_CELL;
+    PART Level1: PREFIX_LEVEL<W, 1>;
+    PART Level2: PREFIX_LEVEL<W, 2>;
+    PART Level4: PREFIX_LEVEL<W, 4>;
+    PART Level8: PREFIX_LEVEL<W, 8>;
+    PART Level16: PREFIX_LEVEL<W, 16>;
+    PART Sum: XOR_BUS<W>;
+
+    CONNECT A -> Gen.A;
+    CONNECT B -> Gen.B;
+    CONNECT A -> Prop.A;
+    CONNECT B -> Prop.B;
+
+    CONNECT Gen.Out[0] -> CinCell.Gh;
+    CONNECT Prop.Out[0] -> CinCell.Ph;
+    CONNECT Cin -> CinCell.Gl;
+    CONNECT CinCell.G -> Level1.G[0];
+    FOR i IN 1..W {
+        CONNECT Gen.Out[i] -> Level1.G[i];
+    }
+    CONNECT Prop.Out -> Level1.P;
+
+    CONNECT Level1.GO -> Level2.G;
+    CONNECT Level1.PO -> Level2.P;
+    CONNECT Level2.GO -> Level4.G;
+    CONNECT Level2.PO -> Level4.P;
+    CONNECT Level4.GO -> Level8.G;
+    CONNECT Level4.PO -> Level8.P;
+    CONNECT Level8.GO -> Level16.G;
+    CONNECT Level8.PO -> Level16.P;
+
+    CONNECT Prop.Out -> Sum.A;
+    CONNECT Cin -> Sum.B[0];
+    FOR i IN 1..W {
+        CONNECT Level16.GO[i-1] -> Sum.B[i];
+    }
+    CONNECT Sum.Out -> S;
+    CONNECT Level16.GO[W-1] -> Cout;
+}

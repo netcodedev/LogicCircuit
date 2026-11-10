@@ -1,0 +1,277 @@
+CIRCUIT MULDIV_RV32 {
+    // Multi-cycle multiply/divide unit of CPU_RV32 (the M extension).
+    // F = funct3: 0 mul, 1 mulh, 2 mulhsu, 3 mulhu, 4 div, 5 divu, 6 rem,
+    // 7 remu.
+    //
+    // The core is MULDIV_16B at 32 bits: one bit per clock, 32 steps, one
+    // adder and the 64-bit shift register Hi:Lo, unsigned. Signed
+    // operations work on magnitudes: on Start, A and B are negated when they
+    // are signed and negative (AbsA, AbsB), and the result is negated at the
+    // output when its sign says so (Neg, saved on Start):
+    //   mulh, mulhsu: sign A XOR sign B (mulhsu: B unsigned), 64-bit negate
+    //   div: sign A XOR sign B, but not for B = 0 (the quotient stays -1)
+    //   rem: sign A (the remainder takes the dividend's sign)
+    // Division by zero gives quotient 0xFFFFFFFF and remainder A, and
+    // -2^31 / -1 gives -2^31 remainder 0, as the specification asks.
+    //
+    // Start = 1 on a rising edge loads the operands; Busy is 1 for the 32
+    // steps after it, then Done = 1 until Consume = 1 on an edge. F must
+    // stay the same until Consume (the CPU holds the instruction).
+    INPUT A[32];
+    INPUT B[32];
+    INPUT F[3];
+    INPUT Start;
+    INPUT Consume;
+    INPUT CLK;
+    INPUT Reset;
+
+    OUTPUT Result[32];
+    OUTPUT Busy;
+    OUTPUT Done;
+
+    // Registers first: their INITs run before the gates driving them exist.
+    PART HiReg: REGISTER_R<32>;
+    PART LoReg: REGISTER_R<32>;
+    PART MReg: REGISTER_R<32>;
+    PART Count: REGISTER_R<6>;     // steps left
+    PART DoneReg: REGISTER_R<1>;
+    PART NegReg: REGISTER_R<1>;    // negate the result
+
+    PART C_TRUE: NOR;              // Constant 1 (VCC), NOR(0,0) = 1
+    PART Running: OR_WIDE<2>;      // Count != 0
+    PART LoadOr: OR;               // Start OR Running: Hi, Lo, Count load
+    PART NotStart: NOT;
+
+    // --- Signs and magnitudes ---
+    PART NotF0: NOT;
+    PART NotF1: NOT;
+    PART NotF2: NOT;
+    PART MulHx: XOR;               // F[0] XOR F[1]: mulh or mulhsu
+    PART SgnAMul: AND;             // NOT F[2] AND (mulh or mulhsu)
+    PART SgnDiv: AND;              // F[2] AND NOT F[0]: div, rem
+    PART SgnA: OR;                 // A is signed
+    PART SgnBMul: AND3;            // mulh: NOT F[2], F[0], NOT F[1]
+    PART SgnB: OR;                 // B is signed
+    PART NegA: AND;                // A signed and negative
+    PART NegB: AND;
+    PART XorA: XOR_BUS<32>;
+    PART XorB: XOR_BUS<32>;
+    PART AbsA: ADDER_KS5<32>;      // (A XOR s) + s = |A|
+    PART AbsB: ADDER_KS5<32>;
+    PART BAny: OR_WIDE<8>;         // B != 0
+    PART SignX: XOR;               // sign A XOR sign B
+    PART QNeg: AND;                // ... AND B != 0
+    PART IsRem: AND;               // F[2] AND F[1]
+    PART NegMux: MUX_2_1;          // QNeg, sign A (rem)
+
+    // Operands on Start
+    PART LoSrc: MUX_2_1_BUS<32>;   // |B| (multiply), |A| (divide)
+    PART MSrc: MUX_2_1_BUS<32>;    // |A| (multiply), |B| (divide)
+
+    // One step
+    PART MulAdd: AND_BUS<32>;      // M AND Lo[0]
+    PART NotM: NOT_BUS<32>;
+    PART XMux: MUX_2_1_BUS<32>;    // Hi (multiply), Hi:Lo << 1 (divide)
+    PART YMux: MUX_2_1_BUS<32>;    // M AND Lo[0], NOT M
+    PART Adder: ADDER_KS5<32>;
+    PART TakeOr: OR;               // divide: shifted value >= M
+    PART HiDiv: MUX_2_1_BUS<32>;   // shifted, difference
+    PART HiStep: MUX_2_1_BUS<32>;  // multiply, divide
+    PART LoStep: MUX_2_1_BUS<32>;  // multiply, divide
+    PART HiData: AND_BUS<32>;      // 0 on Start
+    PART LoData: MUX_2_1_BUS<32>;  // step, operand
+
+    // Count and Done
+    PART CountDec: ADDER<6>;       // Count - 1
+    PART CountMux: MUX_2_1_BUS<6>; // Count - 1, 32
+    PART UpperAny: OR_WIDE<2>;     // Count[5..1] != 0
+    PART UpperZero: NOT;
+    PART LastAnd: AND3;            // Running AND Count = 1: last step
+    PART DoneLoad: OR;             // last step OR Consume
+
+    // Result: Lo or Hi, negated or not
+    PART SelHiAny: OR;             // F[1] OR F[0]
+    PART SelHiMul: AND;            // NOT F[2] AND F != 0: mulh*
+    PART SelHi: OR;                // ... OR rem*
+    PART NotLo: NOT_BUS<32>;
+    PART NotHi: NOT_BUS<32>;
+    PART NegLo: ADDER_KS5<32>;     // -Lo, and the carry into -Hi:Lo
+    PART NegHi: ADDER_KS5<32>;     // NOT Hi + (divide ? 1 : carry)
+    PART HiCin: OR;
+    PART OutMux: MUX_4_1_BUS<32>;  // Lo, Hi, -Lo, -Hi (S = Neg, SelHi)
+
+    // Busy, Done
+    FOR i IN 0..6 {
+        CONNECT Count.Q[i] -> Running.In[i];
+    }
+    CONNECT Running.Out -> Busy;
+    CONNECT DoneReg.Q[0] -> Done;
+    CONNECT Start -> LoadOr.in1;
+    CONNECT Running.Out -> LoadOr.in2;
+    CONNECT Start -> NotStart.in;
+
+    // Signs
+    CONNECT F[0] -> NotF0.in;
+    CONNECT F[1] -> NotF1.in;
+    CONNECT F[2] -> NotF2.in;
+    CONNECT F[0] -> MulHx.in1;
+    CONNECT F[1] -> MulHx.in2;
+    CONNECT NotF2.out -> SgnAMul.in1;
+    CONNECT MulHx.out -> SgnAMul.in2;
+    CONNECT F[2] -> SgnDiv.in1;
+    CONNECT NotF0.out -> SgnDiv.in2;
+    CONNECT SgnAMul.out -> SgnA.in1;
+    CONNECT SgnDiv.out -> SgnA.in2;
+    CONNECT NotF2.out -> SgnBMul.A;
+    CONNECT F[0] -> SgnBMul.B;
+    CONNECT NotF1.out -> SgnBMul.C;
+    CONNECT SgnBMul.Out -> SgnB.in1;
+    CONNECT SgnDiv.out -> SgnB.in2;
+    CONNECT SgnA.out -> NegA.in1;
+    CONNECT A[31] -> NegA.in2;
+    CONNECT SgnB.out -> NegB.in1;
+    CONNECT B[31] -> NegB.in2;
+    CONNECT A -> XorA.A;
+    CONNECT NegA.out -> XorA.B;       // tee
+    CONNECT XorA.Out -> AbsA.A;
+    CONNECT NegA.out -> AbsA.Cin;
+    CONNECT B -> XorB.A;
+    CONNECT NegB.out -> XorB.B;       // tee
+    CONNECT XorB.Out -> AbsB.A;
+    CONNECT NegB.out -> AbsB.Cin;
+
+    FOR i IN 0..32 {
+        CONNECT B[i] -> BAny.In[i];
+    }
+    CONNECT NegA.out -> SignX.in1;
+    CONNECT NegB.out -> SignX.in2;
+    CONNECT SignX.out -> QNeg.in1;
+    CONNECT BAny.Out -> QNeg.in2;
+    CONNECT F[2] -> IsRem.in1;
+    CONNECT F[1] -> IsRem.in2;
+    CONNECT QNeg.out -> NegMux.A;
+    CONNECT NegA.out -> NegMux.B;
+    CONNECT IsRem.out -> NegMux.S;
+    CONNECT NegMux.Out -> NegReg.Data[0];
+    CONNECT Start -> NegReg.Load;
+    CONNECT Reset -> NegReg.Reset;
+    CONNECT CLK -> NegReg.CLK;
+
+    // Operands
+    CONNECT AbsB.S -> LoSrc.A;
+    CONNECT AbsA.S -> LoSrc.B;
+    CONNECT F[2] -> LoSrc.S;
+    CONNECT AbsA.S -> MSrc.A;
+    CONNECT AbsB.S -> MSrc.B;
+    CONNECT F[2] -> MSrc.S;
+    CONNECT MSrc.Out -> MReg.Data;
+    CONNECT Start -> MReg.Load;
+    CONNECT Reset -> MReg.Reset;
+    CONNECT CLK -> MReg.CLK;
+
+    // Adder inputs: multiply Hi + (M AND Lo[0]); divide (Hi:Lo << 1) + NOT M + 1
+    CONNECT MReg.Q -> MulAdd.A;
+    CONNECT LoReg.Q[0] -> MulAdd.B;   // tee
+    CONNECT MReg.Q -> NotM.A;
+    CONNECT HiReg.Q -> XMux.A;
+    CONNECT LoReg.Q[31] -> XMux.B[0];
+    FOR i IN 0..31 {
+        CONNECT HiReg.Q[i] -> XMux.B[1+i];
+    }
+    CONNECT F[2] -> XMux.S;
+    CONNECT MulAdd.Out -> YMux.A;
+    CONNECT NotM.Out -> YMux.B;
+    CONNECT F[2] -> YMux.S;
+    CONNECT XMux.Out -> Adder.A;
+    CONNECT YMux.Out -> Adder.B;
+    CONNECT F[2] -> Adder.Cin;
+
+    // Divide: take = Hi[31] (33rd bit of the shifted value) OR no borrow
+    CONNECT HiReg.Q[31] -> TakeOr.in1;
+    CONNECT Adder.Cout -> TakeOr.in2;
+    CONNECT XMux.Out -> HiDiv.A;
+    CONNECT Adder.S -> HiDiv.B;
+    CONNECT TakeOr.out -> HiDiv.S;
+
+    // Next Hi: multiply {carry, sum[31..1]}, divide HiDiv
+    FOR i IN 0..31 {
+        CONNECT Adder.S[1+i] -> HiStep.A[i];
+    }
+    CONNECT Adder.Cout -> HiStep.A[31];
+    CONNECT HiDiv.Out -> HiStep.B;
+    CONNECT F[2] -> HiStep.S;
+    // Next Lo: multiply {sum[0], Lo[31..1]}, divide {Lo[30..0], take}
+    FOR i IN 0..31 {
+        CONNECT LoReg.Q[1+i] -> LoStep.A[i];
+        CONNECT LoReg.Q[i] -> LoStep.B[1+i];
+    }
+    CONNECT Adder.S[0] -> LoStep.A[31];
+    CONNECT TakeOr.out -> LoStep.B[0];
+    CONNECT F[2] -> LoStep.S;
+
+    CONNECT HiStep.Out -> HiData.A;
+    CONNECT NotStart.out -> HiData.B;   // tee
+    CONNECT HiData.Out -> HiReg.Data;
+    CONNECT LoadOr.out -> HiReg.Load;
+    CONNECT Reset -> HiReg.Reset;
+    CONNECT CLK -> HiReg.CLK;
+
+    CONNECT LoStep.Out -> LoData.A;
+    CONNECT LoSrc.Out -> LoData.B;
+    CONNECT Start -> LoData.S;
+    CONNECT LoData.Out -> LoReg.Data;
+    CONNECT LoadOr.out -> LoReg.Load;
+    CONNECT Reset -> LoReg.Reset;
+    CONNECT CLK -> LoReg.CLK;
+
+    // Count: 32 on Start, then down to 0
+    CONNECT Count.Q -> CountDec.A;
+    CONNECT C_TRUE.out -> CountDec.B;   // tee: all ones = -1
+    CONNECT CountDec.S -> CountMux.A;
+    CONNECT C_TRUE.out -> CountMux.B[5];
+    CONNECT Start -> CountMux.S;
+    CONNECT CountMux.Out -> Count.Data;
+    CONNECT LoadOr.out -> Count.Load;
+    CONNECT Reset -> Count.Reset;
+    CONNECT CLK -> Count.CLK;
+
+    // Done: set by the last step, cleared by Consume
+    FOR i IN 1..6 {
+        CONNECT Count.Q[i] -> UpperAny.In[i-1];
+    }
+    CONNECT UpperAny.Out -> UpperZero.in;
+    CONNECT Running.Out -> LastAnd.A;
+    CONNECT Count.Q[0] -> LastAnd.B;
+    CONNECT UpperZero.out -> LastAnd.C;
+    CONNECT LastAnd.Out -> DoneReg.Data[0];
+    CONNECT LastAnd.Out -> DoneLoad.in1;
+    CONNECT Consume -> DoneLoad.in2;
+    CONNECT DoneLoad.out -> DoneReg.Load;
+    CONNECT Reset -> DoneReg.Reset;
+    CONNECT CLK -> DoneReg.CLK;
+
+    // Result
+    CONNECT F[1] -> SelHiAny.in1;
+    CONNECT F[0] -> SelHiAny.in2;
+    CONNECT NotF2.out -> SelHiMul.in1;
+    CONNECT SelHiAny.out -> SelHiMul.in2;
+    CONNECT SelHiMul.out -> SelHi.in1;
+    CONNECT IsRem.out -> SelHi.in2;
+    CONNECT LoReg.Q -> NotLo.A;
+    CONNECT HiReg.Q -> NotHi.A;
+    CONNECT NotLo.Out -> NegLo.A;
+    CONNECT C_TRUE.out -> NegLo.Cin;
+    CONNECT F[2] -> HiCin.in1;
+    CONNECT NegLo.Cout -> HiCin.in2;
+    CONNECT NotHi.Out -> NegHi.A;
+    CONNECT HiCin.out -> NegHi.Cin;
+    FOR i IN 0..32 {
+        CONNECT LoReg.Q[i] -> OutMux.In[i];
+        CONNECT HiReg.Q[i] -> OutMux.In[32+i];
+        CONNECT NegLo.S[i] -> OutMux.In[64+i];
+        CONNECT NegHi.S[i] -> OutMux.In[96+i];
+    }
+    CONNECT SelHi.out -> OutMux.S[0];
+    CONNECT NegReg.Q[0] -> OutMux.S[1];
+    CONNECT OutMux.Out -> Result;
+}

@@ -1,0 +1,406 @@
+CIRCUIT CSR_RV32 {
+    // Machine-mode CSRs of CPU_RV32 and the trap state.
+    //
+    //   0x300 mstatus  MIE (bit 3), MPIE (bit 7); MPP (12:11) reads 11
+    //   0x301 misa     RV32IM, read-only (writes ignored)
+    //   0x304 mie      MTIE (7), MEIE (11)
+    //   0x305 mtvec    bits 31:2 (direct mode)
+    //   0x340 mscratch
+    //   0x341 mepc     bits 31:2
+    //   0x342 mcause   bit 31 and bits 3:0
+    //   0x343 mtval
+    //   0x344 mip      MTIP (7), MEIP (11) from the inputs, writes ignored
+    //   0xB00/0xB80 mcycle(h), 0xB02/0xB82 minstret(h): 64-bit counters;
+    //   0xC00/0xC80/0xC02/0xC82 the read-only cycle/instret aliases
+    //   0xF14 mhartid  0, read-only
+    //
+    // The CPU decodes the address (CsrHi/Mid/Lo one-hot, from
+    // CONTROL_RV32); Exists = 1 for these addresses, ReadOnly for 0xCxx and
+    // 0xFxx (writing them is illegal). ReadValue is the CSR's value.
+    // On the clock edge, with CsrWrite = 1 the selected CSR takes WData:
+    //   Op = funct3[1:0]: 01 Src, 10 old OR Src, 11 old AND NOT Src.
+    // Trap = 1 saves TrapPc, the cause and TrapVal and clears MIE (MPIE gets
+    // MIE); Mret = 1 sets MIE to MPIE and MPIE to 1. mcycle counts every
+    // clock, minstret when Retire = 1. Reset clears everything.
+    INPUT CsrHi[16], CsrMid[16], CsrLo[16];
+    INPUT Op[2];
+    INPUT Src[32];
+    INPUT CsrWrite;
+    INPUT Trap;
+    INPUT CauseInt;
+    INPUT CauseCode[4];
+    INPUT TrapPc[32];
+    INPUT TrapVal[32];
+    INPUT Mret;
+    INPUT Retire;
+    INPUT MTIP, MEIP;
+    INPUT CLK;
+    INPUT Reset;
+
+    OUTPUT ReadValue[32];
+    OUTPUT WData[32];
+    OUTPUT Exists;
+    OUTPUT ReadOnly;
+    OUTPUT Mtvec[32];
+    OUTPUT Mepc[32];
+    OUTPUT IrqPending;
+    OUTPUT IrqExternal;
+
+    // Registers first: their INITs run before the gates driving them exist.
+    PART MieReg: REGISTER_R<1>;      // mstatus.MIE
+    PART MpieReg: REGISTER_R<1>;     // mstatus.MPIE
+    PART MtieReg: REGISTER_R<1>;     // mie.MTIE
+    PART MeieReg: REGISTER_R<1>;     // mie.MEIE
+    PART MtvecReg: REGISTER_R<30>;
+    PART ScratchReg: REGISTER_R<32>;
+    PART MepcReg: REGISTER_R<30>;
+    PART CauseReg: REGISTER_R<5>;    // bit 31, bits 3:0
+    PART MtvalReg: REGISTER_R<32>;
+    PART CycleLo: REGISTER_R<32>;
+    PART CycleHi: REGISTER_R<32>;
+    PART InstretLo: REGISTER_R<32>;
+    PART InstretHi: REGISTER_R<32>;
+
+    PART C_TRUE: NOR;                // Constant 1 (VCC), NOR(0,0) = 1
+
+    // --- Address decode ---
+    PART SelMstatus: AND3;
+    PART SelMisa: AND3;
+    PART SelMie: AND3;
+    PART SelMtvec: AND3;
+    PART SelScratch: AND3;
+    PART SelMepc: AND3;
+    PART SelMcause: AND3;
+    PART SelMtval: AND3;
+    PART SelMip: AND3;
+    PART SelHartid: AND3;
+    PART HiBC: OR;                   // 0xBxx or 0xCxx
+    PART SelCycle: AND3;
+    PART SelInstret: AND3;
+    PART SelCycleH: AND3;
+    PART SelInstretH: AND3;
+    PART HiB0: AND;                  // writable counter: 0xB..
+    PART WrCycle: AND;
+    PART WrInstret: AND;
+    PART WrCycleH: AND;
+    PART WrInstretH: AND;
+    CONNECT CsrHi[3] -> SelMstatus.A; CONNECT CsrMid[0] -> SelMstatus.B; CONNECT CsrLo[0] -> SelMstatus.C;
+    CONNECT CsrHi[3] -> SelMisa.A;    CONNECT CsrMid[0] -> SelMisa.B;    CONNECT CsrLo[1] -> SelMisa.C;
+    CONNECT CsrHi[3] -> SelMie.A;     CONNECT CsrMid[0] -> SelMie.B;     CONNECT CsrLo[4] -> SelMie.C;
+    CONNECT CsrHi[3] -> SelMtvec.A;   CONNECT CsrMid[0] -> SelMtvec.B;   CONNECT CsrLo[5] -> SelMtvec.C;
+    CONNECT CsrHi[3] -> SelScratch.A; CONNECT CsrMid[4] -> SelScratch.B; CONNECT CsrLo[0] -> SelScratch.C;
+    CONNECT CsrHi[3] -> SelMepc.A;    CONNECT CsrMid[4] -> SelMepc.B;    CONNECT CsrLo[1] -> SelMepc.C;
+    CONNECT CsrHi[3] -> SelMcause.A;  CONNECT CsrMid[4] -> SelMcause.B;  CONNECT CsrLo[2] -> SelMcause.C;
+    CONNECT CsrHi[3] -> SelMtval.A;   CONNECT CsrMid[4] -> SelMtval.B;   CONNECT CsrLo[3] -> SelMtval.C;
+    CONNECT CsrHi[3] -> SelMip.A;     CONNECT CsrMid[4] -> SelMip.B;     CONNECT CsrLo[4] -> SelMip.C;
+    CONNECT CsrHi[15] -> SelHartid.A; CONNECT CsrMid[1] -> SelHartid.B;  CONNECT CsrLo[4] -> SelHartid.C;
+    CONNECT CsrHi[11] -> HiBC.in1;
+    CONNECT CsrHi[12] -> HiBC.in2;
+    CONNECT HiBC.out -> SelCycle.A;    CONNECT CsrMid[0] -> SelCycle.B;   CONNECT CsrLo[0] -> SelCycle.C;
+    CONNECT HiBC.out -> SelInstret.A;  CONNECT CsrMid[0] -> SelInstret.B; CONNECT CsrLo[2] -> SelInstret.C;
+    CONNECT HiBC.out -> SelCycleH.A;   CONNECT CsrMid[8] -> SelCycleH.B;  CONNECT CsrLo[0] -> SelCycleH.C;
+    CONNECT HiBC.out -> SelInstretH.A; CONNECT CsrMid[8] -> SelInstretH.B; CONNECT CsrLo[2] -> SelInstretH.C;
+
+    PART ExistsOr: OR_WIDE<4>;
+    CONNECT SelMstatus.Out -> ExistsOr.In[0];
+    CONNECT SelMisa.Out -> ExistsOr.In[1];
+    CONNECT SelMie.Out -> ExistsOr.In[2];
+    CONNECT SelMtvec.Out -> ExistsOr.In[3];
+    CONNECT SelScratch.Out -> ExistsOr.In[4];
+    CONNECT SelMepc.Out -> ExistsOr.In[5];
+    CONNECT SelMcause.Out -> ExistsOr.In[6];
+    CONNECT SelMtval.Out -> ExistsOr.In[7];
+    CONNECT SelMip.Out -> ExistsOr.In[8];
+    CONNECT SelHartid.Out -> ExistsOr.In[9];
+    CONNECT SelCycle.Out -> ExistsOr.In[10];
+    CONNECT SelInstret.Out -> ExistsOr.In[11];
+    CONNECT SelCycleH.Out -> ExistsOr.In[12];
+    CONNECT SelInstretH.Out -> ExistsOr.In[13];
+    CONNECT ExistsOr.Out -> Exists;
+    PART RoOr: OR_WIDE<1>;
+    CONNECT CsrHi[12] -> RoOr.In[0];
+    CONNECT CsrHi[13] -> RoOr.In[1];
+    CONNECT CsrHi[14] -> RoOr.In[2];
+    CONNECT CsrHi[15] -> RoOr.In[3];
+    CONNECT RoOr.Out -> ReadOnly;
+
+    // --- Read value: OR of the selected sources, bit by bit ---
+    FOR i IN 0..32 {
+        PART Rd[i]: OR_WIDE<3>;
+        CONNECT Rd[i].Out -> ReadValue[i];
+    }
+    PART RScratch: AND_BUS<32>;
+    PART RMtval: AND_BUS<32>;
+    PART RCycle: AND_BUS<32>;
+    PART RInstret: AND_BUS<32>;
+    PART RCycleH: AND_BUS<32>;
+    PART RInstretH: AND_BUS<32>;
+    PART RMtvec: AND_BUS<30>;
+    PART RMepc: AND_BUS<30>;
+    PART RCause: AND_BUS<5>;
+    PART RMie: AND;                  // mstatus bit 3
+    PART RMpie: AND;                 // mstatus bit 7
+    PART RMtie: AND;                 // mie bit 7
+    PART RMeie: AND;                 // mie bit 11
+    PART RMtip: AND;                 // mip bit 7
+    PART RMeip: AND;                 // mip bit 11
+    CONNECT SelScratch.Out -> RScratch.A;
+    CONNECT ScratchReg.Q -> RScratch.B;
+    CONNECT SelMtval.Out -> RMtval.A;
+    CONNECT MtvalReg.Q -> RMtval.B;
+    CONNECT SelCycle.Out -> RCycle.A;
+    CONNECT CycleLo.Q -> RCycle.B;
+    CONNECT SelInstret.Out -> RInstret.A;
+    CONNECT InstretLo.Q -> RInstret.B;
+    CONNECT SelCycleH.Out -> RCycleH.A;
+    CONNECT CycleHi.Q -> RCycleH.B;
+    CONNECT SelInstretH.Out -> RInstretH.A;
+    CONNECT InstretHi.Q -> RInstretH.B;
+    CONNECT SelMtvec.Out -> RMtvec.A;
+    CONNECT MtvecReg.Q -> RMtvec.B;
+    CONNECT SelMepc.Out -> RMepc.A;
+    CONNECT MepcReg.Q -> RMepc.B;
+    CONNECT SelMcause.Out -> RCause.A;
+    CONNECT CauseReg.Q -> RCause.B;
+    CONNECT SelMstatus.Out -> RMie.in1;
+    CONNECT MieReg.Q[0] -> RMie.in2;
+    CONNECT SelMstatus.Out -> RMpie.in1;
+    CONNECT MpieReg.Q[0] -> RMpie.in2;
+    CONNECT SelMie.Out -> RMtie.in1;
+    CONNECT MtieReg.Q[0] -> RMtie.in2;
+    CONNECT SelMie.Out -> RMeie.in1;
+    CONNECT MeieReg.Q[0] -> RMeie.in2;
+    CONNECT SelMip.Out -> RMtip.in1;
+    CONNECT MTIP -> RMtip.in2;
+    CONNECT SelMip.Out -> RMeip.in1;
+    CONNECT MEIP -> RMeip.in2;
+    FOR i IN 0..32 {
+        CONNECT RScratch.Out[i] -> Rd[i].In[0];
+        CONNECT RMtval.Out[i] -> Rd[i].In[1];
+        CONNECT RCycle.Out[i] -> Rd[i].In[2];
+        CONNECT RInstret.Out[i] -> Rd[i].In[3];
+        CONNECT RCycleH.Out[i] -> Rd[i].In[4];
+        CONNECT RInstretH.Out[i] -> Rd[i].In[5];
+    }
+    FOR i IN 2..32 {
+        CONNECT RMtvec.Out[i-2] -> Rd[i].In[6];
+        CONNECT RMepc.Out[i-2] -> Rd[i].In[7];
+    }
+    FOR i IN 0..4 {
+        CONNECT RCause.Out[i+1] -> Rd[i].In[8];
+    }
+    CONNECT RCause.Out[0] -> Rd[31].In[8];
+    CONNECT RMie.out -> Rd[3].In[9];
+    CONNECT RMpie.out -> Rd[7].In[9];
+    CONNECT RMtie.out -> Rd[7].In[10];
+    CONNECT RMeie.out -> Rd[11].In[10];
+    CONNECT RMtip.out -> Rd[7].In[11];
+    CONNECT RMeip.out -> Rd[11].In[11];
+    // Constants: mstatus.MPP = 11, misa = RV32 (bit 30), I (8), M (12)
+    CONNECT SelMstatus.Out -> Rd[11].In[9];
+    CONNECT SelMstatus.Out -> Rd[12].In[9];
+    CONNECT SelMisa.Out -> Rd[30].In[9];
+    CONNECT SelMisa.Out -> Rd[8].In[9];
+    CONNECT SelMisa.Out -> Rd[12].In[10];
+
+    // --- Write data ---
+    PART NotSrc: NOT_BUS<32>;
+    PART SetBits: OR_BUS<32>;        // old OR Src
+    PART ClrBits: AND_BUS<32>;       // old AND NOT Src
+    PART SCMux: MUX_2_1_BUS<32>;     // Op[0]: set, clear
+    PART WMux: MUX_2_1_BUS<32>;      // Op[1]: Src, set/clear
+    CONNECT Src -> NotSrc.A;
+    FOR i IN 0..32 {
+        CONNECT Rd[i].Out -> SetBits.A[i];
+        CONNECT Rd[i].Out -> ClrBits.A[i];
+    }
+    CONNECT Src -> SetBits.B;
+    CONNECT NotSrc.Out -> ClrBits.B;
+    CONNECT SetBits.Out -> SCMux.A;
+    CONNECT ClrBits.Out -> SCMux.B;
+    CONNECT Op[0] -> SCMux.S;
+    CONNECT Src -> WMux.A;
+    CONNECT SCMux.Out -> WMux.B;
+    CONNECT Op[1] -> WMux.S;
+    CONNECT WMux.Out -> WData;
+
+    // Write enables
+    PART WStatus: AND;
+    PART WMieE: AND;
+    PART WMtvec: AND;
+    PART WScratch: AND;
+    PART WMepc: AND;
+    PART WMcause: AND;
+    PART WMtval: AND;
+    CONNECT CsrWrite -> WStatus.in1;  CONNECT SelMstatus.Out -> WStatus.in2;
+    CONNECT CsrWrite -> WMieE.in1;    CONNECT SelMie.Out -> WMieE.in2;
+    CONNECT CsrWrite -> WMtvec.in1;   CONNECT SelMtvec.Out -> WMtvec.in2;
+    CONNECT CsrWrite -> WScratch.in1; CONNECT SelScratch.Out -> WScratch.in2;
+    CONNECT CsrWrite -> WMepc.in1;    CONNECT SelMepc.Out -> WMepc.in2;
+    CONNECT CsrWrite -> WMcause.in1;  CONNECT SelMcause.Out -> WMcause.in2;
+    CONNECT CsrWrite -> WMtval.in1;   CONNECT SelMtval.Out -> WMtval.in2;
+    CONNECT CsrHi[11] -> HiB0.in1;
+    CONNECT CsrWrite -> HiB0.in2;
+    CONNECT HiB0.out -> WrCycle.in1;    CONNECT SelCycle.Out -> WrCycle.in2;
+    CONNECT HiB0.out -> WrInstret.in1;  CONNECT SelInstret.Out -> WrInstret.in2;
+    CONNECT HiB0.out -> WrCycleH.in1;   CONNECT SelCycleH.Out -> WrCycleH.in2;
+    CONNECT HiB0.out -> WrInstretH.in1; CONNECT SelInstretH.Out -> WrInstretH.in2;
+
+    // --- mstatus: MIE, MPIE ---
+    // MIE: trap -> 0, mret -> MPIE, write -> WData[3]
+    PART MieMret: MUX_2_1;           // WData[3], MPIE
+    PART NotTrap: NOT;
+    PART MieData: AND;               // 0 on a trap
+    PART MieLoad: OR_WIDE<1>;
+    CONNECT WData[3] -> MieMret.A;
+    CONNECT MpieReg.Q[0] -> MieMret.B;
+    CONNECT Mret -> MieMret.S;
+    CONNECT Trap -> NotTrap.in;
+    CONNECT MieMret.Out -> MieData.in1;
+    CONNECT NotTrap.out -> MieData.in2;
+    CONNECT MieData.out -> MieReg.Data[0];
+    CONNECT Trap -> MieLoad.In[0];
+    CONNECT Mret -> MieLoad.In[1];
+    CONNECT WStatus.out -> MieLoad.In[2];
+    CONNECT MieLoad.Out -> MieReg.Load;
+    // MPIE: trap -> MIE, mret -> 1, write -> WData[7]
+    PART MpieMret: OR;               // WData[7] OR Mret
+    PART MpieTrap: MUX_2_1;          // that, MIE
+    CONNECT WData[7] -> MpieMret.in1;
+    CONNECT Mret -> MpieMret.in2;
+    CONNECT MpieMret.out -> MpieTrap.A;
+    CONNECT MieReg.Q[0] -> MpieTrap.B;
+    CONNECT Trap -> MpieTrap.S;
+    CONNECT MpieTrap.Out -> MpieReg.Data[0];
+    CONNECT MieLoad.Out -> MpieReg.Load;
+    // mie
+    CONNECT WData[7] -> MtieReg.Data[0];
+    CONNECT WData[11] -> MeieReg.Data[0];
+    CONNECT WMieE.out -> MtieReg.Load;
+    CONNECT WMieE.out -> MeieReg.Load;
+    // mtvec, mscratch
+    FOR i IN 2..32 {
+        CONNECT WData[i] -> MtvecReg.Data[i-2];
+        CONNECT MtvecReg.Q[i-2] -> Mtvec[i];
+    }
+    CONNECT WMtvec.out -> MtvecReg.Load;
+    CONNECT WData -> ScratchReg.Data;
+    CONNECT WScratch.out -> ScratchReg.Load;
+    // mepc, mcause, mtval: trap or write
+    PART EpcMux: MUX_2_1_BUS<30>;    // WData, TrapPc
+    PART EpcLoad: OR;
+    FOR i IN 2..32 {
+        CONNECT WData[i] -> EpcMux.A[i-2];
+        CONNECT TrapPc[i] -> EpcMux.B[i-2];
+        CONNECT MepcReg.Q[i-2] -> Mepc[i];
+    }
+    CONNECT Trap -> EpcMux.S;
+    CONNECT EpcMux.Out -> MepcReg.Data;
+    CONNECT Trap -> EpcLoad.in1;
+    CONNECT WMepc.out -> EpcLoad.in2;
+    CONNECT EpcLoad.out -> MepcReg.Load;
+    PART CauseMux: MUX_2_1_BUS<5>;   // {WData[3:0], WData[31]}, cause
+    PART CauseLoad: OR;
+    CONNECT WData[31] -> CauseMux.A[0];
+    CONNECT CauseInt -> CauseMux.B[0];
+    FOR i IN 0..4 {
+        CONNECT WData[i] -> CauseMux.A[i+1];
+        CONNECT CauseCode[i] -> CauseMux.B[i+1];
+    }
+    CONNECT Trap -> CauseMux.S;
+    CONNECT CauseMux.Out -> CauseReg.Data;
+    CONNECT Trap -> CauseLoad.in1;
+    CONNECT WMcause.out -> CauseLoad.in2;
+    CONNECT CauseLoad.out -> CauseReg.Load;
+    PART TvalMux: MUX_2_1_BUS<32>;
+    PART TvalLoad: OR;
+    CONNECT WData -> TvalMux.A;
+    CONNECT TrapVal -> TvalMux.B;
+    CONNECT Trap -> TvalMux.S;
+    CONNECT TvalMux.Out -> MtvalReg.Data;
+    CONNECT Trap -> TvalLoad.in1;
+    CONNECT WMtval.out -> TvalLoad.in2;
+    CONNECT TvalLoad.out -> MtvalReg.Load;
+
+    // --- Counters: count, or take WData ---
+    PART CycleInc: ADDER_KS5<32>;
+    PART CycleIncH: ADDER_KS5<32>;
+    PART InstretInc: ADDER_KS5<32>;
+    PART InstretIncH: ADDER_KS5<32>;
+    PART CycleMux: MUX_2_1_BUS<32>;
+    PART CycleMuxH: MUX_2_1_BUS<32>;
+    PART InstretMux: MUX_2_1_BUS<32>;
+    PART InstretMuxH: MUX_2_1_BUS<32>;
+    CONNECT CycleLo.Q -> CycleInc.A;
+    CONNECT C_TRUE.out -> CycleInc.Cin;
+    CONNECT CycleHi.Q -> CycleIncH.A;
+    CONNECT CycleInc.Cout -> CycleIncH.Cin;
+    CONNECT InstretLo.Q -> InstretInc.A;
+    CONNECT Retire -> InstretInc.Cin;
+    CONNECT InstretHi.Q -> InstretIncH.A;
+    CONNECT InstretInc.Cout -> InstretIncH.Cin;
+    CONNECT CycleInc.S -> CycleMux.A;
+    CONNECT WData -> CycleMux.B;
+    CONNECT WrCycle.out -> CycleMux.S;
+    CONNECT CycleIncH.S -> CycleMuxH.A;
+    CONNECT WData -> CycleMuxH.B;
+    CONNECT WrCycleH.out -> CycleMuxH.S;
+    CONNECT InstretInc.S -> InstretMux.A;
+    CONNECT WData -> InstretMux.B;
+    CONNECT WrInstret.out -> InstretMux.S;
+    CONNECT InstretIncH.S -> InstretMuxH.A;
+    CONNECT WData -> InstretMuxH.B;
+    CONNECT WrInstretH.out -> InstretMuxH.S;
+    CONNECT CycleMux.Out -> CycleLo.Data;
+    CONNECT CycleMuxH.Out -> CycleHi.Data;
+    CONNECT InstretMux.Out -> InstretLo.Data;
+    CONNECT InstretMuxH.Out -> InstretHi.Data;
+    CONNECT C_TRUE.out -> CycleLo.Load;
+    CONNECT C_TRUE.out -> CycleHi.Load;
+    CONNECT C_TRUE.out -> InstretLo.Load;
+    CONNECT C_TRUE.out -> InstretHi.Load;
+
+    // --- Interrupts ---
+    PART TimerOn: AND;
+    PART ExtOn: AND;
+    PART AnyIrq: OR;
+    PART IrqAnd: AND;
+    CONNECT MTIP -> TimerOn.in1;
+    CONNECT MtieReg.Q[0] -> TimerOn.in2;
+    CONNECT MEIP -> ExtOn.in1;
+    CONNECT MeieReg.Q[0] -> ExtOn.in2;
+    CONNECT TimerOn.out -> AnyIrq.in1;
+    CONNECT ExtOn.out -> AnyIrq.in2;
+    CONNECT AnyIrq.out -> IrqAnd.in1;
+    CONNECT MieReg.Q[0] -> IrqAnd.in2;
+    CONNECT IrqAnd.out -> IrqPending;
+    CONNECT ExtOn.out -> IrqExternal;
+
+    // Reset for all registers
+    CONNECT Reset -> MieReg.Reset;
+    CONNECT Reset -> MpieReg.Reset;
+    CONNECT Reset -> MtieReg.Reset;
+    CONNECT Reset -> MeieReg.Reset;
+    CONNECT Reset -> MtvecReg.Reset;
+    CONNECT Reset -> ScratchReg.Reset;
+    CONNECT Reset -> MepcReg.Reset;
+    CONNECT Reset -> CauseReg.Reset;
+    CONNECT Reset -> MtvalReg.Reset;
+    CONNECT Reset -> CycleLo.Reset;
+    CONNECT Reset -> CycleHi.Reset;
+    CONNECT Reset -> InstretLo.Reset;
+    CONNECT Reset -> InstretHi.Reset;
+    CONNECT CLK -> MieReg.CLK;
+    CONNECT CLK -> MpieReg.CLK;
+    CONNECT CLK -> MtieReg.CLK;
+    CONNECT CLK -> MeieReg.CLK;
+    CONNECT CLK -> MtvecReg.CLK;
+    CONNECT CLK -> ScratchReg.CLK;
+    CONNECT CLK -> MepcReg.CLK;
+    CONNECT CLK -> CauseReg.CLK;
+    CONNECT CLK -> MtvalReg.CLK;
+    CONNECT CLK -> CycleLo.CLK;
+    CONNECT CLK -> CycleHi.CLK;
+    CONNECT CLK -> InstretLo.CLK;
+    CONNECT CLK -> InstretHi.CLK;
+}

@@ -1,0 +1,39 @@
+CIRCUIT DECODER_3_8 {
+    // 3-to-8 decoder: O[k] = 1 if A = k and Enable = 1. Inverted and plain
+    // address bits feed one AND3 per output; Enable gates the low bit's
+    // pair, so every output is two gates deep.
+    INPUT A[3];
+    INPUT Enable;
+
+    OUTPUT O[8];
+
+    PART Not[0]: NOT;
+    PART Not[1]: NOT;
+    PART Not[2]: NOT;
+    PART Lo0: AND;   // NOT A0 AND Enable
+    PART Lo1: AND;   // A0 AND Enable
+    FOR k IN 0..8 {
+        PART And[k]: AND3;
+    }
+
+    CONNECT A[0] -> Not[0].in;
+    CONNECT A[1] -> Not[1].in;
+    CONNECT A[2] -> Not[2].in;
+    CONNECT Not[0].out -> Lo0.in1;
+    CONNECT Enable -> Lo0.in2;
+    CONNECT A[0] -> Lo1.in1;
+    CONNECT Enable -> Lo1.in2;
+
+    // k = 4*a2 + 2*a1 + a0
+    CONNECT Lo0.out -> And[0].A; CONNECT Not[1].out -> And[0].B; CONNECT Not[2].out -> And[0].C;
+    CONNECT Lo1.out -> And[1].A; CONNECT Not[1].out -> And[1].B; CONNECT Not[2].out -> And[1].C;
+    CONNECT Lo0.out -> And[2].A; CONNECT A[1] -> And[2].B;      CONNECT Not[2].out -> And[2].C;
+    CONNECT Lo1.out -> And[3].A; CONNECT A[1] -> And[3].B;      CONNECT Not[2].out -> And[3].C;
+    CONNECT Lo0.out -> And[4].A; CONNECT Not[1].out -> And[4].B; CONNECT A[2] -> And[4].C;
+    CONNECT Lo1.out -> And[5].A; CONNECT Not[1].out -> And[5].B; CONNECT A[2] -> And[5].C;
+    CONNECT Lo0.out -> And[6].A; CONNECT A[1] -> And[6].B;      CONNECT A[2] -> And[6].C;
+    CONNECT Lo1.out -> And[7].A; CONNECT A[1] -> And[7].B;      CONNECT A[2] -> And[7].C;
+    FOR k IN 0..8 {
+        CONNECT And[k].Out -> O[k];
+    }
+}
