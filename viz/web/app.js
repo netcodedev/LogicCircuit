@@ -1,5 +1,6 @@
 import init, { Sim } from './pkg/logic_circuit_viz.js';
 import { layoutFlat, symbolInputX, SYMBOL_W, CMOS } from './flat.js';
+import { computeRegions, drawMap, groupAt } from './regions.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const HEADER = 34;   // part title area
@@ -982,25 +983,24 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !$('build-win').hidden && $('build-win').contains(document.activeElement)) $('build-win').hidden = true;
 });
 
-// Drag the window by its title bar, kept inside the viewport.
-{
+// Drag a window by its title bar, kept inside the viewport.
+function makeDraggable(handle, win) {
   let drag = null;
-  $('build-drag').addEventListener('pointerdown', (e) => {
+  handle.addEventListener('pointerdown', (e) => {
     if (e.target.closest('button')) return;
-    const win = $('build-win');
     drag = { x: e.clientX - win.offsetLeft, y: e.clientY - win.offsetTop };
-    $('build-drag').setPointerCapture(e.pointerId);
+    handle.setPointerCapture(e.pointerId);
   });
-  $('build-drag').addEventListener('pointermove', (e) => {
+  handle.addEventListener('pointermove', (e) => {
     if (!drag) return;
-    const win = $('build-win');
     const x = Math.min(Math.max(0, e.clientX - drag.x), window.innerWidth - 80);
     const y = Math.min(Math.max(0, e.clientY - drag.y), window.innerHeight - 40);
     win.style.left = `${x}px`;
     win.style.top = `${y}px`;
   });
-  $('build-drag').addEventListener('pointerup', () => { drag = null; });
+  handle.addEventListener('pointerup', () => { drag = null; });
 }
+makeDraggable($('build-drag'), $('build-win'));
 
 // The design's finished layouts, each with its key numbers and a button
 // that shows it in Chip 3D.
@@ -1146,6 +1146,8 @@ function loadChipBuffer(buffer) {
   chipView.keyed = null;
   chipMessage('');
   buildChipPanel(header);
+  regionFocus = null;
+  updateRegions();
   const shapes = header.sections.reduce((a, s) => a + (s.stride ? s.length / s.stride : 0), 0);
   chipStatus = `${header.design} · ${fmtCount(header.instance_names.length)} Zellen · ${fmtCount(shapes)} Formen · Aufbau ${(performance.now() - t0).toFixed(0)} ms`;
   statusEl.textContent = chipStatus;
@@ -1172,7 +1174,8 @@ function chipHover(hit) {
   const val = (v) => (v === 1 ? '1' : v === 0 ? '0' : '–');
   statusEl.textContent = hit.kind === 'net'
     ? `Netz ${hit.info.name}${hit.info.key ? ` → ${hit.info.key}` : ''} · ${hit.layer} · Wert ${val(hit.value)}`
-    : `${hit.master.replace('sky130_fd_sc_hd__', '')} · ${hit.path ?? hit.name} · ${hit.layer}`;
+    : `${hit.master.replace(/^sky130_fd_sc_h[ds]__/, '')} · ${hit.path ?? hit.name} · ${hit.layer}`
+      + (regions && regions.groupOf[hit.instance] >= 0 ? ` · Bereich ${regions.groups[regions.groupOf[hit.instance]].name}` : '');
 }
 
 function chipPick(hit) {
@@ -1233,6 +1236,105 @@ for (const [id, fn] of [['chip-explode', (v) => chipView?.setExplode(v)], ['chip
 }
 
 $('chip-power').addEventListener('change', (e) => chipView?.setShowPower(e.target.checked));
+
+// ------------------------------------------------------------- chip map
+// Regions of the loaded layout (regions.js): as a layer over the chip and
+// in the map window, with a legend; a clicked region is emphasised in both.
+
+let regions = null;
+let regionFocus = null;
+const overlayCanvas = document.createElement('canvas');
+
+function updateRegions() {
+  regions = chipView?.header ? computeRegions(chipView.header, chipView.instances, { target: Number($('chip-regions-n').value) }) : null;
+  if (regionFocus != null && !(regions && regionFocus < regions.groups.length)) regionFocus = null;
+  buildMapLegend();
+  drawRegions();
+}
+
+function drawRegions() {
+  if (!chipView) return;
+  const alpha = Number($('chip-regions-alpha').value);
+  if (regions && $('chip-regions').checked) {
+    drawMap(overlayCanvas, regions, { scale: 8, focus: regionFocus });
+    if (chipView.overlay) chipView.refreshOverlay(alpha);
+    else chipView.setOverlay(overlayCanvas, alpha);
+  } else {
+    chipView.setOverlay(null);
+  }
+  if (!$('map-win').hidden) {
+    if (regions) drawMap($('map-canvas'), regions, { scale: 4, focus: regionFocus, background: '#07090b' });
+    $('map-title').textContent = `Chip-Karte – ${chipLoaded ?? ''}`;
+  }
+}
+
+function setRegionFocus(g) {
+  regionFocus = g == null || g < 0 || g === regionFocus ? null : g;
+  for (const el of $('map-legend').children) el.classList.toggle('cur', Number(el.dataset.group) === regionFocus);
+  drawRegions();
+}
+
+function buildMapLegend() {
+  const box = $('map-legend');
+  box.replaceChildren();
+  if (!regions) {
+    box.textContent = 'Keine Hierarchiepfade in diesem Layout.';
+    return;
+  }
+  regions.groups.forEach((g, i) => {
+    const item = document.createElement('div');
+    item.className = 'map-item';
+    item.dataset.group = i;
+    item.title = `${g.path} · ${fmtCount(g.cells)} Zellen`;
+    const sw = document.createElement('span');
+    sw.className = 'swatch';
+    sw.style.background = g.color;
+    const name = document.createElement('span');
+    name.textContent = g.name;
+    const share = document.createElement('span');
+    share.className = 'share';
+    share.textContent = `${(g.share * 100).toFixed(1)} %`;
+    item.append(sw, name, share);
+    item.addEventListener('click', () => setRegionFocus(i));
+    if (i === regionFocus) item.classList.add('cur');
+    box.appendChild(item);
+  });
+}
+
+// Die position (microns) under the mouse on the map canvas.
+function mapPoint(e) {
+  const c = $('map-canvas').getBoundingClientRect();
+  return [
+    regions.die[0] + ((e.clientX - c.left) / c.width) * regions.gw * regions.bin,
+    regions.die[1] + (1 - (e.clientY - c.top) / c.height) * regions.gh * regions.bin,
+  ];
+}
+$('map-canvas').addEventListener('pointermove', (e) => {
+  if (!regions) return;
+  const g = groupAt(regions, ...mapPoint(e));
+  const r = regions.groups[g];
+  $('map-hover').textContent = r ? `${r.path} · ${(r.share * 100).toFixed(1)} % der Zellfläche · ${fmtCount(r.cells)} Zellen` : 'Bereich anklicken: hervorheben';
+});
+$('map-canvas').addEventListener('click', (e) => {
+  if (regions) setRegionFocus(groupAt(regions, ...mapPoint(e)));
+});
+
+function openMapWindow() {
+  const win = $('map-win');
+  win.hidden = false;
+  if (!win.style.left) {
+    win.style.left = `${Math.max(12, window.innerWidth - win.offsetWidth - 330)}px`;
+    win.style.top = '56px';
+  }
+  if (!regions) updateRegions();
+  else drawRegions();
+}
+$('chip-map-open').addEventListener('click', openMapWindow);
+$('map-close').addEventListener('click', () => { $('map-win').hidden = true; });
+makeDraggable($('map-drag'), $('map-win'));
+$('chip-regions-n').addEventListener('change', updateRegions);
+$('chip-regions').addEventListener('change', drawRegions);
+$('chip-regions-alpha').addEventListener('input', () => chipView?.refreshOverlay(Number($('chip-regions-alpha').value)));
 
 // "alle" / "keine" in the layer section's header (without toggling it).
 for (const [id, on] of [['layers-all', true], ['layers-none', false]]) {

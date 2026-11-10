@@ -104,7 +104,11 @@ generic cells) and *Chip bauen*: a window that runs OpenROAD through
 `viz-serve` (metal layers, utilisation, clock target, memory delay,
 optimisation), shows the log while it builds and lists the design's layouts. In Chip 3D you can toggle layers, explode the stack, cut from the
 top, click a net to highlight it through all layers, and see wires turn green
-as signals go high while the program runs. The 3D view needs WebGL.
+as signals go high while the program runs. *Bereiche* groups the cells by
+their place in the design hierarchy (adaptively: the largest parts are split
+until there are as many regions as asked for) and shows where each part sits,
+as a map window with a legend and as a layer over the chip; hovering a cell
+names its region. The 3D view needs WebGL.
 
 `viz/build.sh` also copies extracted chip layouts into `viz/web/layouts/`;
 `chip view <NAME>` does the same for a single run and opens the browser.

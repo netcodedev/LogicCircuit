@@ -220,6 +220,7 @@ export class ChipView {
   }
 
   clear() {
+    this.setOverlay(null);
     for (const m of [...(this.cellMeshes || []), ...(this.routeMeshes || [])]) {
       this.scene.remove(m);
       if (m.userData.kind === 'cell') m.geometry.dispose();
@@ -284,10 +285,53 @@ export class ChipView {
       }
       mesh.instanceMatrix.needsUpdate = true;
     }
+    this.placeOverlay();
     this.invalidate();
   }
 
   setShowPower(on) { this.showPower = on; this.applyLayout(); }
+
+  /**
+   * A map (canvas, die-sized, y up = canvas top) lying over the chip, just
+   * above the top layer or the cut; null removes it. Picking ignores it.
+   */
+  setOverlay(canvas, opacity = 0.6) {
+    if (this.overlay) {
+      this.scene.remove(this.overlay);
+      this.overlay.material.map.dispose();
+      this.overlay.material.dispose();
+      this.overlay.geometry.dispose();
+      this.overlay = null;
+    }
+    if (canvas && this.header) {
+      const [x0, y0, x1, y1] = this.header.die.map((v) => v / this.header.dbu_per_micron);
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = 8;
+      const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity, depthWrite: false, side: THREE.DoubleSide });
+      this.overlay = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, y1 - y0), mat);
+      this.overlay.position.set((x0 + x1) / 2, (y0 + y1) / 2, 0);
+      this.overlay.renderOrder = 10;
+      this.scene.add(this.overlay);
+      this.placeOverlay();
+    }
+    this.invalidate();
+  }
+
+  /** Redraws the overlay texture after its canvas changed. */
+  refreshOverlay(opacity) {
+    if (!this.overlay) return;
+    this.overlay.material.map.needsUpdate = true;
+    if (opacity != null) this.overlay.material.opacity = opacity;
+    this.invalidate();
+  }
+
+  placeOverlay() {
+    if (!this.overlay) return;
+    const top = this.topZ();
+    const z = this.cutFraction != null && this.cutFraction < 1 ? this.cutFraction * top : top;
+    this.overlay.position.z = z + Math.max(0.05, top * 0.01);
+  }
 
   setExplode(v) { this.explode = v; this.applyLayout(); this.setCut(this.cutFraction ?? 1); }
   // (fit() after changing explode/zscale is left to the user: F / Einpassen)
@@ -297,6 +341,7 @@ export class ChipView {
   setCut(fraction) {
     this.cutFraction = fraction;
     this.clip.constant = fraction >= 1 ? 1e9 : fraction * this.topZ();
+    this.placeOverlay();
     this.invalidate();
   }
 

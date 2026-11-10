@@ -211,6 +211,17 @@
   .run-row .rinfo { grid-column: 1; color: var(--muted); font-size: 11px; }
   .run-row button { grid-row: 1 / 3; grid-column: 2; }
   .run-row.cur { border-color: var(--accent); }
+  /* Chip map window */
+  #map-win { width: 460px; }
+  #map-canvas { display: block; width: 100%; height: auto; border-radius: 6px; background: #07090b; cursor: pointer; image-rendering: auto; }
+  #map-hover { margin: 6px 0 8px; min-height: 1.4em; font-size: 12px; }
+  #map-legend { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 10px; }
+  .map-item { display: grid; grid-template-columns: 12px 1fr auto; align-items: center; gap: 6px; padding: 2px 4px; border-radius: 4px; cursor: pointer;
+              font-size: 11.5px; min-width: 0; }
+  .map-item span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .map-item .share { color: var(--muted); font: 11px ui-monospace, monospace; }
+  .map-item:hover { background: var(--panel-2); }
+  .map-item.cur { background: var(--panel-2); outline: 1px solid var(--accent); }
   .muted { color: var(--muted); }
   /* Chip panel sections */
   .panel-sec { border-bottom: 1px solid var(--line); padding: 8px 0; }
@@ -407,6 +418,14 @@
         <label class="toggle"><input type="checkbox" id="chip-power"> Power-Grid (VDD/VSS)</label>
       </details>
       <details class="panel-sec" open>
+        <summary>Bereiche</summary>
+        <p class="sec-text">Welche Teile des Designs wo liegen, aus den Hierarchiepfaden der Zellen.</p>
+        <label class="slider">Anzahl <input type="range" id="chip-regions-n" min="4" max="30" step="1" value="14"></label>
+        <label class="toggle"><input type="checkbox" id="chip-regions"> über dem Chip zeigen</label>
+        <label class="slider">Deckkraft <input type="range" id="chip-regions-alpha" min="0.1" max="1" step="0.05" value="0.7"></label>
+        <div class="row"><button id="chip-map-open">Karte öffnen</button></div>
+      </details>
+      <details class="panel-sec" open>
         <summary>Lagen <span class="sec-actions"><button id="layers-all" class="mini" title="Alle Lagen zeigen">alle</button><button id="layers-none" class="mini" title="Alle Lagen ausblenden">keine</button></span></summary>
         <div id="chip-layers"></div>
       </details>
@@ -493,6 +512,18 @@
       <h3>Gebaute Layouts</h3>
       <div id="build-runs"></div>
     </div>
+  </div>
+</div>
+<!-- Floorplan map of the loaded layout: which parts sit where. -->
+<div id="map-win" class="window" hidden role="dialog" aria-labelledby="map-title">
+  <div class="win-title" id="map-drag">
+    <span id="map-title">Chip-Karte</span>
+    <button id="map-close" class="win-close" title="Schließen">✕</button>
+  </div>
+  <div class="win-body">
+    <canvas id="map-canvas"></canvas>
+    <div id="map-hover" class="muted">Bereich anklicken: hervorheben</div>
+    <div id="map-legend"></div>
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/elkjs@0.12.1/lib/elk.bundled.js"></script>
