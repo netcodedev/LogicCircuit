@@ -33,8 +33,12 @@ const sim = new Sim();
 const elk = new ELK();
 const names = JSON.parse(sim.circuit_names());
 const nandCounts = JSON.parse(sim.nand_counts());
+const blockCounts = JSON.parse(sim.block_counts());
 const fmtCount = (n) => n.toLocaleString('de-DE');
 const nandLabel = (n) => `${fmtCount(n)} NAND`;
+// Basic blocks: the built-in gates (NOT, AND, ...) and multi-bit blocks the
+// simulator runs on, as in the "Basis-Blöcke" view.
+const blockLabel = (n) => `${fmtCount(n)} ${n === 1 ? 'Block' : 'Blöcke'}`;
 const views = new Map();    // type -> CircuitView JSON
 const layouts = new Map();  // "type|mode" -> { graph, meta }
 
@@ -89,9 +93,10 @@ function pinKeys(base, width) {
 
 function textWidth(s, px) { return s.length * px * 0.62; }
 
-// Second line of a part node: its type and how many NANDs one instance uses.
+// Second line of a part node: its type and how many basic blocks one instance
+// is made of (a basic block itself shows just its type).
 function partSubtitle(part) {
-  return part.type === 'NAND' ? 'NAND' : `${part.type} · ${nandLabel(part.nands)}`;
+  return part.blocks <= 1 ? part.type : `${part.type} · ${blockLabel(part.blocks)}`;
 }
 
 function pinLabel(p) { return p.width != null ? `${p.name}[${p.width}]` : p.name; }
@@ -439,7 +444,7 @@ async function render() {
   probesChanged();
   refresh();
   const nodes = graph.children.length, edges = graph.edges.length;
-  statusEl.textContent = `${top.type} · ${nandLabel(view(top.type).nands)} · ${nodes} Knoten · ${edges} Verbindungen · Layout ${ms.toFixed(0)} ms`;
+  statusEl.textContent = `${top.type} · ${blockLabel(view(top.type).blocks)} · ${nodes} Knoten · ${edges} Verbindungen · Layout ${ms.toFixed(0)} ms`;
 }
 
 // ---------------------------------------------------------------- flat views
@@ -557,8 +562,7 @@ async function renderFlat(top) {
   fit();
   probesChanged();
   refresh();
-  const nands = viewMode === 'basic' ? ` · ${nandLabel(view(top.type).nands)}` : '';
-  flatStatus = `${top.type} · ${fmtCount(flat.blocks.length)} ${unit}${nands} · ${fmtCount(netPaths.size)} Netze · Layout ${lay.router} ${ms.toFixed(0)} ms`;
+  flatStatus = `${top.type} · ${fmtCount(flat.blocks.length)} ${unit} · ${fmtCount(netPaths.size)} Netze · Layout ${lay.router} ${ms.toFixed(0)} ms`;
   statusEl.textContent = flatStatus;
 }
 
@@ -1553,11 +1557,11 @@ function renderList() {
         d.className = 'item';
         d.dataset.name = n;
         d.textContent = n;
-        if (n in nandCounts) {
+        if (n in blockCounts) {
           const c = document.createElement('span');
           c.className = 'count';
-          c.textContent = fmtCount(nandCounts[n]);
-          c.title = `${nandLabel(nandCounts[n])}`;
+          c.textContent = fmtCount(blockCounts[n]);
+          c.title = `${fmtCount(blockCounts[n])} Basis-Blöcke` + (n in nandCounts ? ` · ${nandLabel(nandCounts[n])}` : '');
           d.appendChild(c);
         }
         if (stack[0] && stack[0].type === n) d.classList.add('sel');

@@ -54,6 +54,7 @@ fn view_json(view: &CircuitView) -> Value {
     json!({
         "name": view.name,
         "nands": view.nand_count,
+        "blocks": view.block_count,
         "inputs": pins_json(&view.inputs),
         "outputs": pins_json(&view.outputs),
         "parts": view.parts.iter().map(|p| json!({
@@ -63,6 +64,7 @@ fn view_json(view: &CircuitView) -> Value {
             "outputs": pins_json(&p.outputs),
             "expandable": p.expandable,
             "nands": p.nand_count,
+            "blocks": p.block_count,
         })).collect::<Value>(),
         "connections": view.connections.iter().map(|c| json!({
             "source": endpoint_json(&c.source),
@@ -177,6 +179,18 @@ impl Sim {
             .circuit_names()
             .into_iter()
             .filter_map(|name| self.builder.nand_count(&name).map(|n| (name, json!(n))))
+            .collect();
+        Value::Object(counts).to_string()
+    }
+
+    /// JSON object mapping every circuit name to its number of basic blocks
+    /// (built-in gates and multi-bit blocks, as in the basic-block view).
+    pub fn block_counts(&self) -> String {
+        let counts: serde_json::Map<String, Value> = self
+            .builder
+            .circuit_names()
+            .into_iter()
+            .filter_map(|name| self.builder.block_count(&name).map(|n| (name, json!(n))))
             .collect();
         Value::Object(counts).to_string()
     }

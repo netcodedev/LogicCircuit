@@ -23,6 +23,9 @@ pub struct PartView {
     /// NAND gates in one instance of this part (built-in gates count as
     /// their NAND definition; 0 if its type is unknown).
     pub nand_count: usize,
+    /// Basic blocks in one instance of this part: 1 for a built-in gate or
+    /// another basic block (AND_4B, ...), else the blocks it is made of.
+    pub block_count: usize,
 }
 
 /// One side of a `CONNECT`. `part` is `None` when the pin belongs to the
@@ -61,9 +64,10 @@ pub struct ConnectionView {
 /// How far `CircuitBuilder::flatten` expands the hierarchy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FlatLevel {
-    /// Down to the NAND gates the simulation runs on.
+    /// Down to NAND gates (built-in gates replaced by their NAND definitions).
     Nand,
-    /// Down to basic blocks (definitions from the `primitive` directory).
+    /// Down to basic blocks: the built-in gates the simulation runs on and the
+    /// multi-bit blocks of the `primitive` directory.
     Basic,
 }
 
@@ -112,6 +116,8 @@ pub struct CircuitView {
     pub connections: Vec<ConnectionView>,
     /// NAND gates in the whole circuit.
     pub nand_count: usize,
+    /// Basic blocks in the whole circuit (see `CircuitBuilder::block_count`).
+    pub block_count: usize,
 }
 
 fn pin_views(pins: &[IoPinDef]) -> Vec<PinView> {
@@ -149,6 +155,36 @@ impl CircuitBuilder {
     /// type below it is unknown.
     pub fn nand_count(&self, name: &str) -> Option<usize> {
         self.count_nands(name, &mut HashMap::new())
+    }
+
+    /// Number of basic blocks (built-in gates and the multi-bit blocks of the
+    /// `primitive` directory) the parts of `name` are made of: the blocks of
+    /// `flatten(name, FlatLevel::Basic)`. `None` if `name` or any part type
+    /// below it is unknown.
+    pub fn block_count(&self, name: &str) -> Option<usize> {
+        self.count_blocks(name, &mut HashMap::new())
+    }
+
+    fn count_blocks(&self, name: &str, memo: &mut HashMap<String, usize>) -> Option<usize> {
+        if let Some(&n) = memo.get(name) {
+            return Some(n);
+        }
+        let def = self.def(name)?;
+        let mut total = 0;
+        for part in &def.parts {
+            total += self.block_units(&part.part_type, memo)?;
+        }
+        memo.insert(name.to_string(), total);
+        Some(total)
+    }
+
+    /// Basic blocks one part of type `part_type` stands for.
+    fn block_units(&self, part_type: &str, memo: &mut HashMap<String, usize>) -> Option<usize> {
+        if self.is_basic(part_type) {
+            Some(1)
+        } else {
+            self.count_blocks(part_type, memo)
+        }
     }
 
     fn count_nands(&self, name: &str, memo: &mut HashMap<String, usize>) -> Option<usize> {
@@ -211,6 +247,7 @@ impl CircuitBuilder {
     pub fn describe(&self, name: &str) -> Option<CircuitView> {
         let def = self.def(name)?;
         let mut memo = HashMap::new();
+        let mut block_memo = HashMap::new();
 
         let parts = def
             .parts
@@ -228,6 +265,7 @@ impl CircuitBuilder {
                         outputs: vec![bit("out")],
                         expandable: false,
                         nand_count: 1,
+                        block_count: 1,
                     }
                 } else {
                     let sub_def = self.def(&part.part_type);
@@ -242,6 +280,7 @@ impl CircuitBuilder {
                         expandable: GateKind::from_name(&part.part_type).is_none()
                             && sub_def.is_some_and(|d| !d.parts.is_empty()),
                         nand_count: self.count_nands(&part.part_type, &mut memo).unwrap_or(0),
+                        block_count: self.block_units(&part.part_type, &mut block_memo).unwrap_or(0),
                     }
                 }
             })
@@ -272,6 +311,7 @@ impl CircuitBuilder {
             parts,
             connections,
             nand_count: self.count_nands(name, &mut memo).unwrap_or(0),
+            block_count: self.count_blocks(name, &mut block_memo).unwrap_or(0),
         })
     }
 }
@@ -316,6 +356,7 @@ mod tests {
             let basic = builder.flatten(&name, FlatLevel::Basic).unwrap().blocks;
             let via_basic: usize = basic.iter().map(|b| builder.nand_count(&b.kind).unwrap()).sum();
             assert_eq!(counted, via_basic, "{name}");
+            assert_eq!(builder.block_count(&name).unwrap(), basic.len(), "{name}");
         }
     }
 
