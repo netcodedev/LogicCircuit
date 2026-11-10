@@ -13,6 +13,13 @@ CIRCUIT CPU_16B_SOC {
     // Addr/DataOut/Write unchanged, and stores happen on the edge after
     // Wait went to 0.
     //
+    // Instruction cache (ICACHE_16, 16 words, direct mapped): a fetch whose
+    // word is in the cache needs no bus, so it goes on while the memory
+    // stage uses the bus or the memory has wait states. Every word the bus
+    // delivers to the fetch is put into the cache; a store invalidates the
+    // entry of its address, and a word that is being stored right now is
+    // not taken from the cache.
+    //
     // Two-word instructions (LI, JMP, CALL): there is no InstructionNext any
     // more. When such an instruction reaches execute, it waits one clock
     // (NeedNext: its effects are blocked) while the fetch reads its
@@ -101,6 +108,7 @@ CIRCUIT CPU_16B_SOC {
                                     // Byte, byte select (address bit 0)
     PART RegFile: REG_FILE_16<16>;
     PART MulDiv: MULDIV_16B;         // MULL/MULH/DIVU/MODU, 16 clocks
+    PART ICache: ICACHE_16;          // 16 instruction words: fetch without the bus
 
     PART Hazard: HAZARD_16B;
     PART Control: CONTROL_UNIT_16B;
@@ -111,7 +119,12 @@ CIRCUIT CPU_16B_SOC {
     PART NotAccess: NOT;             // ... else the fetch does
     PART BusMux: MUX_2_1_BUS<16>;    // Addr: PC, AddrM
     PART NoWordOr: OR;               // no word fetched: bus busy or Wait
-    PART FetchOk: NOT;
+    PART FetchOk: NOT;               // the bus delivered the word at PC (fills the cache)
+    PART FetchOkOr: OR;              // word at PC available: bus or cache hit
+    PART NoWord: NOT;
+    PART WordMux: MUX_2_1_BUS<16>;   // fetched word: DataIn, cache
+    PART NotWait: NOT;
+    PART WriteDoneAnd: AND;          // Write AND NOT Wait: the store happens now
     PART FreezeAnd: AND;             // Wait AND access: everything holds
     PART NotFreeze: NOT;
     PART HoldOr: OR;                 // Stall OR Freeze
@@ -300,7 +313,24 @@ CIRCUIT CPU_16B_SOC {
     CONNECT FreezeAnd.out -> NotFreeze.in;
 
     // 1. Fetch: instruction register, second word of LONG instructions
-    CONNECT DataIn -> Ir.Data;
+    CONNECT DataIn -> WordMux.A;
+    CONNECT ICache.Word -> WordMux.B;
+    CONNECT ICache.Hit -> WordMux.S;
+    CONNECT FetchOk.out -> FetchOkOr.in1;
+    CONNECT ICache.Hit -> FetchOkOr.in2;
+    CONNECT FetchOkOr.out -> NoWord.in;
+    CONNECT PcUnit.Addr -> ICache.FetchAddr;
+    CONNECT BusMux.Out -> ICache.BusAddr;
+    CONNECT DataIn -> ICache.BusData;
+    CONNECT FetchOk.out -> ICache.Fill;
+    CONNECT MemAnd.out -> ICache.Write;
+    CONNECT Wait -> NotWait.in;
+    CONNECT MemAnd.out -> WriteDoneAnd.in1;
+    CONNECT NotWait.out -> WriteDoneAnd.in2;
+    CONNECT WriteDoneAnd.out -> ICache.WriteDone;
+    CONNECT Reset -> ICache.Reset;
+    CONNECT CLK -> ICache.CLK;
+    CONNECT WordMux.Out -> Ir.Data;
     CONNECT AdvanceAnd.Out -> Ir.Load;
     CONNECT Reset -> Ir.Reset;
     CONNECT CLK -> Ir.CLK;
@@ -315,12 +345,12 @@ CIRCUIT CPU_16B_SOC {
     CONNECT NextValid.nQ[0] -> NeedAnd.in2;
     CONNECT NeedAnd.out -> NotNeed.in;
     CONNECT NeedAnd.out -> GotNext.in1;
-    CONNECT FetchOk.out -> GotNext.in2;
+    CONNECT FetchOkOr.out -> GotNext.in2;
     CONNECT GotNext.out -> NextValid.Data[0];
     CONNECT BaseAnd.out -> NextValid.Load;
     CONNECT Reset -> NextValid.Reset;
     CONNECT CLK -> NextValid.CLK;
-    CONNECT DataIn -> IrNext.Data;
+    CONNECT WordMux.Out -> IrNext.Data;
     CONNECT BaseAnd.out -> NextLoad.in1;
     CONNECT GotNext.out -> NextLoad.in2;
     CONNECT NextLoad.out -> IrNext.Load;
@@ -678,7 +708,7 @@ CIRCUIT CPU_16B_SOC {
     CONNECT FlushOr1.out -> FlushOr2.in1;
     CONNECT RetAnd.Out -> FlushOr2.in2;
     CONNECT FlushOr2.out -> FlushOr3.in1;
-    CONNECT NoWordOr.out -> FlushOr3.in2;
+    CONNECT NoWord.out -> FlushOr3.in2;
     CONNECT FlushOr3.out -> Flush.in1;
     CONNECT AdvanceAnd.Out -> Flush.in2;
     // Branch offset: sign-extended imm8
@@ -711,34 +741,34 @@ CIRCUIT CPU_16B_SOC {
 
     // Prediction: fetched Bcc with a negative offset (or BRA, not BNV), when
     // the fetched word goes into Ir and execute does not redirect the PC
-    CONNECT DataIn[14] -> Pre14Not.in;
-    CONNECT DataIn[12] -> Pre12Not.in;
-    CONNECT DataIn[15] -> PreBcc.A;
+    CONNECT WordMux.Out[14] -> Pre14Not.in;
+    CONNECT WordMux.Out[12] -> Pre12Not.in;
+    CONNECT WordMux.Out[15] -> PreBcc.A;
     CONNECT Pre14Not.out -> PreBcc.B;
-    CONNECT DataIn[13] -> PreBcc.C;
+    CONNECT WordMux.Out[13] -> PreBcc.C;
     CONNECT Pre12Not.out -> PreBcc.D;
-    CONNECT DataIn[11] -> PreHi3.A;
-    CONNECT DataIn[10] -> PreHi3.B;
-    CONNECT DataIn[9] -> PreHi3.C;
-    CONNECT DataIn[8] -> Pre8Not.in;
+    CONNECT WordMux.Out[11] -> PreHi3.A;
+    CONNECT WordMux.Out[10] -> PreHi3.B;
+    CONNECT WordMux.Out[9] -> PreHi3.C;
+    CONNECT WordMux.Out[8] -> Pre8Not.in;
     CONNECT PreHi3.Out -> PreAl.in1;
     CONNECT Pre8Not.out -> PreAl.in2;
     CONNECT PreHi3.Out -> PreNv.in1;
-    CONNECT DataIn[8] -> PreNv.in2;
+    CONNECT WordMux.Out[8] -> PreNv.in2;
     CONNECT PreNv.out -> PreNotNv.in;
-    CONNECT DataIn[7] -> PreBack.in1;
+    CONNECT WordMux.Out[7] -> PreBack.in1;
     CONNECT PreAl.out -> PreBack.in2;
     CONNECT PreBcc.Out -> PreTake.A;
     CONNECT PreNotNv.out -> PreTake.B;
     CONNECT PreBack.out -> PreTake.C;
     CONNECT PcUnit.Addr -> PredAdder.A;
     FOR i IN 0..8 {
-        CONNECT DataIn[i] -> PredAdder.B[i];
-        CONNECT DataIn[7] -> PredAdder.B[8+i];
+        CONNECT WordMux.Out[i] -> PredAdder.B[i];
+        CONNECT WordMux.Out[7] -> PredAdder.B[8+i];
     }
     CONNECT C_TRUE.out -> PredAdder.Cin;
     CONNECT PreTake.Out -> PredOk.A;
-    CONNECT FetchOk.out -> PredOk.B;
+    CONNECT FetchOkOr.out -> PredOk.B;
     CONNECT AdvanceAnd.Out -> PredOk.C;
     CONNECT FlushOr2.out -> NoRedirect.in;
     CONNECT PredOk.Out -> PredJump.in1;
@@ -756,7 +786,7 @@ CIRCUIT CPU_16B_SOC {
     CONNECT BaseAnd.out -> AdvanceAnd.A;
     CONNECT NotNeed.out -> AdvanceAnd.B;
     CONNECT MdNotWait.out -> AdvanceAnd.C;
-    CONNECT FetchOk.out -> PcGo.in1;
+    CONNECT FetchOkOr.out -> PcGo.in1;
     CONNECT FlushOr1.out -> PcGo.in2;
     CONNECT BaseAnd.out -> PcEnable.A;
     CONNECT PcGo.out -> PcEnable.B;

@@ -297,12 +297,75 @@ Flags (jetzt über den Flag-Mux für RETI). Für TinyTapeout wären es bei 70 %
 Auslastung etwa 4×2 Tiles (≈ 560 € plus Devkit), noch ohne
 QSPI-Wrapper für die Pins.
 
+### Ausbau B – Befehls-Cache (2026-11-10)
+
+Messung vorab (`isa::sim16`, alle Benchmarks): 5.453 Befehle brauchen auf
+SOC_16B 7.699 Takte. Fast alle verlorenen Takte kommen vom gemeinsamen Bus,
+der jeden Takt belegt ist: 744 Speicherzugriffe und 150 zweite Befehlswörter
+brauchen je einen eigenen Buszyklus. Ein reiner Vorauslese-Puffer (FIFO)
+hätte kaum freie Buszyklen zum Füllen (nur während MUL/DIV und Stalls), also
+~1–3 %. Ein kleiner Cache liefert Befehle dagegen ohne Bus. Trefferquote
+direkt abgebildet, ein Wort pro Eintrag:
+
+| Größe | mul | div | branch | memory | calls |
+|---|---|---|---|---|---|
+| 8 Wörter | 40 % | 41 % | 83 % | 96 % | 42 % |
+| 16 Wörter | 62 % | 87 % | 99 % | 96 % | 87 % |
+| 32 Wörter | 88 % | 98 % | 99 % | 96 % | 98 % |
+
+- [x] `ICACHE_16` (22.784 NANDs): 16 Wörter, direkt abgebildet (Index =
+      Adresse[3..0], Tag = Adresse[15..4]), in Flipflops. Lesen
+      kombinatorisch an der PC-Adresse (`Hit`, `Word`). Jedes Wort, das der
+      Bus dem Fetch ohne Warten liefert, kommt in den Cache (`Fill`). Ein
+      Speicherzugriff, der schreibt, macht den Eintrag seiner Adresse
+      ungültig (zweiter Tag-Leseport an der Busadresse, damit Stack-Zugriffe
+      keine Befehle verdrängen). Ein Wort, das die Speicherstufe gerade
+      schreibt (`Write` und Busadresse = PC), kommt nicht aus dem Cache, die
+      Speicherung geht in Programmreihenfolge vor. Reset macht alles ungültig
+- [x] `CPU_16B_SOC`: Der Fetch nimmt das Wort aus dem Cache, wenn er trifft,
+      sonst vom Bus (`WordMux`); ein Treffer zählt als geholtes Wort, auch
+      wenn die Speicherstufe den Bus hat. Das gilt auch für das zweite Wort
+      von LI/JMP/CALL und für die Sprungvorhersage. Hält die Speicherstufe
+      wegen Wartetakten die Pipeline an, wartet auch ein Treffer
+- [x] Tests: `ICACHE_16.clt` (Füllen, andere Tags, Speichern an dieselbe und
+      eine andere Adresse mit gleichem Index, Ersetzen, alle 16 Einträge,
+      Reset); SoC-Suiten neu erzeugt (Endzustand weiter gleich
+      COMPUTER_16B bzw. `isa::sim16`); Rust-Tests inkl.
+      `isa_simulator_matches_circuit` und der SoC-Tests mit Wartetakten
+- [x] Ergebnis SOC_16B (Takte, alle Benchmarks):
+
+  | Benchmark | ohne Cache | mit Cache | ohne Cache, 2 Wartetakte | mit Cache, 2 Wartetakte |
+  |---|---|---|---|---|
+  | branch | 1.231 | 1.231 | 3.523 | 1.259 |
+  | calls | 1.744 | 1.478 | 4.896 | 2.608 |
+  | div | 2.396 | 2.396 | 6.478 | 2.956 |
+  | div_hw | 579 | 579 | 793 | 643 |
+  | memory | 980 | 886 | 3.120 | 1.334 |
+  | mul | 455 | 434 | 1.323 | 828 |
+  | mul_hw | 314 | 293 | 676 | 417 |
+  | **gesamt** | 7.699 | 7.297 (−5 %) | 20.809 | 10.045 (−52 %) |
+
+  Ohne Wartetakte hilft der Cache nur dort, wo Speicherzugriffe in
+  Schleifen liegen (calls, memory). Mit langsamem Speicher (später QSPI)
+  spart jeder Treffer die ganze Latenz: halb so viele Takte. SOC_16B:
+  67.151 NANDs (+22.919)
+- [x] Chip (basic, met5, 70 %, `--optimize`, `--mem-delay 3`, Ziel 7 ns):
+      weiter **138 MHz** (Slack −0,23 ns statt −0,27 ns), der kritische Pfad
+      liegt nicht im Cache. Die 429 × 429 µm statt 356 × 356 µm, 119.587
+      Transistoren statt 80.901. `verify-verilog` 100 Suiten grün; mit
+      `--x-init` scheitern wie bisher nur die Grundbaustein-Suiten, die ohne
+      Reset „startet bei 0“ prüfen
+- [ ] Später: SRAM-Makro statt Flipflops (ein Eintrag kostet heute ~1.400
+      NANDs), größere Einträge (2–4 Wörter pro Tag) bei QSPI mit Burst
+
 ### Phase 4 – Speicher-Controller
 - [ ] QSPI-Controller (Flash lesen, PSRAM lesen/schreiben), Modell im Runner
 - [ ] später ggf. SDRAM-Controller (Init, Refresh, Bänke, CAS-Latenz)
 
 ### Phase 5 – Caches
-- [ ] L1-I (direkt abgebildet), dann L1-D (write-through)
+- [x] L1-I (direkt abgebildet, 16 Wörter in Flipflops): `ICACHE_16`, siehe
+      Ausbau B
+- [ ] L1-D (write-through)
 - [ ] SRAM-Makros im Chip-Flow (OpenRAM) statt Flipflops
 
 ### Phase 6 – System

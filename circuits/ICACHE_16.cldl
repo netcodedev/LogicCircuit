@@ -1,0 +1,129 @@
+CIRCUIT ICACHE_16 {
+    // Instruction cache for CPU_16B_SOC: 16 words, direct mapped, one word
+    // per entry (index = address[3..0], tag = address[15..4]). It lets the
+    // fetch go on while the memory stage uses the bus.
+    //
+    // Fetch port (combinational): Hit = 1 and Word = the cached word when
+    // the entry for FetchAddr is valid and its tag matches, and the memory
+    // stage is not writing FetchAddr right now (Write with BusAddr =
+    // FetchAddr; the store comes first in program order).
+    //
+    // Updates on the rising CLK edge, both at the bus address:
+    // - Fill = 1: the bus delivered BusData for BusAddr (a fetch that did
+    //   not wait); the entry takes tag and word and becomes valid.
+    // - WriteDone = 1: the memory stage writes BusAddr (word or byte); if
+    //   the entry holds that address, it becomes invalid.
+    // Fill and WriteDone never come together (the bus does one or the
+    // other). Reset invalidates all entries.
+    INPUT FetchAddr[16];
+    INPUT BusAddr[16];
+    INPUT BusData[16];
+    INPUT Fill;
+    INPUT Write;          // the memory stage writes (also while it waits)
+    INPUT WriteDone;      // ... and the write happens on this edge
+    INPUT CLK;
+    INPUT Reset;
+
+    OUTPUT Hit;
+    OUTPUT Word[16];
+
+    // Registers first: their INITs run before the gates driving them exist.
+    FOR e IN 0..16 {
+        PART Line[e]: REGISTER_R<28>;   // word [15..0], tag [27..16]
+        PART Valid[e]: REGISTER_R<1>;
+    }
+
+    PART FillDec: DECODER_4_16;      // entry to fill
+    PART ValidDec: DECODER_4_16;     // entry whose valid bit changes
+    PART ValidOr: OR;                // Fill OR Inval
+    PART ReadA: MUX_16_1_BUS<29>;    // fetch port: word, tag, valid
+    PART ReadB: MUX_16_1_BUS<13>;    // bus port: tag, valid
+    PART TagXorA: XOR_BUS<12>;
+    PART TagDiffA: OR_WIDE<3>;
+    PART TagXorB: XOR_BUS<12>;
+    PART TagDiffB: OR_WIDE<3>;
+    PART AddrXor: XOR_BUS<16>;       // FetchAddr = BusAddr?
+    PART AddrDiff: OR_WIDE<4>;
+    PART SameNot: NOT;
+    PART Conflict: AND;              // Write AND same address
+    PART NoConflict: NOT;
+    PART MatchA: NOT;
+    PART HitAnd: AND3;               // valid AND tag matches AND no conflict
+    PART MatchB: NOT;
+    PART InvalAnd: AND3;             // WriteDone AND valid AND tag matches
+
+    // Storage: entries are written at the bus address
+    FOR i IN 0..4 {
+        CONNECT BusAddr[i] -> FillDec.A[i];
+        CONNECT BusAddr[i] -> ValidDec.A[i];
+    }
+    CONNECT Fill -> FillDec.Enable;
+    CONNECT Fill -> ValidOr.in1;
+    CONNECT InvalAnd.Out -> ValidOr.in2;
+    CONNECT ValidOr.out -> ValidDec.Enable;
+    FOR e IN 0..16 {
+        FOR i IN 0..16 {
+            CONNECT BusData[i] -> Line[e].Data[i];
+        }
+        FOR i IN 0..12 {
+            CONNECT BusAddr[4+i] -> Line[e].Data[16+i];
+        }
+        CONNECT FillDec.O[e] -> Line[e].Load;
+        CONNECT CLK -> Line[e].CLK;
+        CONNECT Fill -> Valid[e].Data[0];
+        CONNECT ValidDec.O[e] -> Valid[e].Load;
+        CONNECT Reset -> Valid[e].Reset;
+        CONNECT CLK -> Valid[e].CLK;
+    }
+
+    // Fetch port
+    FOR e IN 0..16 {
+        FOR i IN 0..28 {
+            CONNECT Line[e].Q[i] -> ReadA.In[29*e+i];
+        }
+        CONNECT Valid[e].Q[0] -> ReadA.In[29*e+28];
+    }
+    FOR i IN 0..4 {
+        CONNECT FetchAddr[i] -> ReadA.S[i];
+    }
+    FOR i IN 0..12 {
+        CONNECT ReadA.Out[16+i] -> TagXorA.A[i];
+        CONNECT FetchAddr[4+i] -> TagXorA.B[i];
+        CONNECT TagXorA.Out[i] -> TagDiffA.In[i];
+    }
+    CONNECT TagDiffA.Out -> MatchA.in;
+    FOR i IN 0..16 {
+        CONNECT FetchAddr[i] -> AddrXor.A[i];
+        CONNECT BusAddr[i] -> AddrXor.B[i];
+        CONNECT AddrXor.Out[i] -> AddrDiff.In[i];
+        CONNECT ReadA.Out[i] -> Word[i];
+    }
+    CONNECT AddrDiff.Out -> SameNot.in;
+    CONNECT Write -> Conflict.in1;
+    CONNECT SameNot.out -> Conflict.in2;
+    CONNECT Conflict.out -> NoConflict.in;
+    CONNECT ReadA.Out[28] -> HitAnd.A;
+    CONNECT MatchA.out -> HitAnd.B;
+    CONNECT NoConflict.out -> HitAnd.C;
+    CONNECT HitAnd.Out -> Hit;
+
+    // Bus port: does the written address sit in the cache?
+    FOR e IN 0..16 {
+        FOR i IN 0..12 {
+            CONNECT Line[e].Q[16+i] -> ReadB.In[13*e+i];
+        }
+        CONNECT Valid[e].Q[0] -> ReadB.In[13*e+12];
+    }
+    FOR i IN 0..4 {
+        CONNECT BusAddr[i] -> ReadB.S[i];
+    }
+    FOR i IN 0..12 {
+        CONNECT ReadB.Out[i] -> TagXorB.A[i];
+        CONNECT BusAddr[4+i] -> TagXorB.B[i];
+        CONNECT TagXorB.Out[i] -> TagDiffB.In[i];
+    }
+    CONNECT TagDiffB.Out -> MatchB.in;
+    CONNECT WriteDone -> InvalAnd.A;
+    CONNECT ReadB.Out[12] -> InvalAnd.B;
+    CONNECT MatchB.out -> InvalAnd.C;
+}

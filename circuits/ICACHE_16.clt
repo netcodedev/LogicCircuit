@@ -1,0 +1,291 @@
+// Tests for the instruction cache ICACHE_16 (generated, one build: the
+// tests run in order and share the cache contents).
+
+TESTS FOR ICACHE_16 {
+    TEST "Reset: everything misses" {
+        SET Reset 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Reset 0;
+        SET FetchAddr[0] 0, FetchAddr[1] 0, FetchAddr[2] 0, FetchAddr[3] 0, FetchAddr[4] 0, FetchAddr[5] 0, FetchAddr[6] 0, FetchAddr[7] 0, FetchAddr[8] 0, FetchAddr[9] 0, FetchAddr[10] 0, FetchAddr[11] 0, FetchAddr[12] 0, FetchAddr[13] 0, FetchAddr[14] 0, FetchAddr[15] 0;
+        EVAL;
+        ASSERT Hit 0;
+        SET FetchAddr[0] 1, FetchAddr[1] 1, FetchAddr[2] 0, FetchAddr[3] 0, FetchAddr[4] 0, FetchAddr[5] 1, FetchAddr[6] 0, FetchAddr[7] 0, FetchAddr[8] 1, FetchAddr[9] 0, FetchAddr[10] 0, FetchAddr[11] 0, FetchAddr[12] 0, FetchAddr[13] 0, FetchAddr[14] 0, FetchAddr[15] 0;
+        EVAL;
+        ASSERT Hit 0;
+    }
+
+    TEST "Fill 0x0123 = 0xBEEF, then it hits" {
+        SET BusAddr[0] 1, BusAddr[1] 1, BusAddr[2] 0, BusAddr[3] 0, BusAddr[4] 0, BusAddr[5] 1, BusAddr[6] 0, BusAddr[7] 0, BusAddr[8] 1, BusAddr[9] 0, BusAddr[10] 0, BusAddr[11] 0, BusAddr[12] 0, BusAddr[13] 0, BusAddr[14] 0, BusAddr[15] 0;
+        SET BusData[0] 1, BusData[1] 1, BusData[2] 1, BusData[3] 1, BusData[4] 0, BusData[5] 1, BusData[6] 1, BusData[7] 1, BusData[8] 0, BusData[9] 1, BusData[10] 1, BusData[11] 1, BusData[12] 1, BusData[13] 1, BusData[14] 0, BusData[15] 1;
+        SET Fill 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Fill 0;
+        SET FetchAddr[0] 1, FetchAddr[1] 1, FetchAddr[2] 0, FetchAddr[3] 0, FetchAddr[4] 0, FetchAddr[5] 1, FetchAddr[6] 0, FetchAddr[7] 0, FetchAddr[8] 1, FetchAddr[9] 0, FetchAddr[10] 0, FetchAddr[11] 0, FetchAddr[12] 0, FetchAddr[13] 0, FetchAddr[14] 0, FetchAddr[15] 0;
+        EVAL;
+        ASSERT Hit 1;
+        ASSERT Word[0] 1; ASSERT Word[1] 1; ASSERT Word[2] 1; ASSERT Word[3] 1; ASSERT Word[4] 0; ASSERT Word[5] 1; ASSERT Word[6] 1; ASSERT Word[7] 1; ASSERT Word[8] 0; ASSERT Word[9] 1; ASSERT Word[10] 1; ASSERT Word[11] 1; ASSERT Word[12] 1; ASSERT Word[13] 1; ASSERT Word[14] 0; ASSERT Word[15] 1; 
+    }
+
+    TEST "Same index, other tag misses" {
+        SET FetchAddr[0] 1, FetchAddr[1] 1, FetchAddr[2] 0, FetchAddr[3] 0, FetchAddr[4] 1, FetchAddr[5] 1, FetchAddr[6] 0, FetchAddr[7] 0, FetchAddr[8] 1, FetchAddr[9] 0, FetchAddr[10] 0, FetchAddr[11] 0, FetchAddr[12] 0, FetchAddr[13] 0, FetchAddr[14] 0, FetchAddr[15] 0;
+        EVAL;
+        ASSERT Hit 0;
+        SET FetchAddr[0] 1, FetchAddr[1] 1, FetchAddr[2] 0, FetchAddr[3] 0, FetchAddr[4] 0, FetchAddr[5] 0, FetchAddr[6] 0, FetchAddr[7] 0, FetchAddr[8] 0, FetchAddr[9] 0, FetchAddr[10] 0, FetchAddr[11] 0, FetchAddr[12] 1, FetchAddr[13] 1, FetchAddr[14] 1, FetchAddr[15] 1;
+        EVAL;
+        ASSERT Hit 0;
+    }
+
+    TEST "Second entry 0x0005 = 0x1234" {
+        SET BusAddr[0] 1, BusAddr[1] 0, BusAddr[2] 1, BusAddr[3] 0, BusAddr[4] 0, BusAddr[5] 0, BusAddr[6] 0, BusAddr[7] 0, BusAddr[8] 0, BusAddr[9] 0, BusAddr[10] 0, BusAddr[11] 0, BusAddr[12] 0, BusAddr[13] 0, BusAddr[14] 0, BusAddr[15] 0;
+        SET BusData[0] 0, BusData[1] 0, BusData[2] 1, BusData[3] 0, BusData[4] 1, BusData[5] 1, BusData[6] 0, BusData[7] 0, BusData[8] 0, BusData[9] 1, BusData[10] 0, BusData[11] 0, BusData[12] 1, BusData[13] 0, BusData[14] 0, BusData[15] 0;
+        SET Fill 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Fill 0;
+        SET FetchAddr[0] 1, FetchAddr[1] 0, FetchAddr[2] 1, FetchAddr[3] 0, FetchAddr[4] 0, FetchAddr[5] 0, FetchAddr[6] 0, FetchAddr[7] 0, FetchAddr[8] 0, FetchAddr[9] 0, FetchAddr[10] 0, FetchAddr[11] 0, FetchAddr[12] 0, FetchAddr[13] 0, FetchAddr[14] 0, FetchAddr[15] 0;
+        EVAL;
+        ASSERT Hit 1;
+        ASSERT Word[0] 0; ASSERT Word[1] 0; ASSERT Word[2] 1; ASSERT Word[3] 0; ASSERT Word[4] 1; ASSERT Word[5] 1; ASSERT Word[6] 0; ASSERT Word[7] 0; ASSERT Word[8] 0; ASSERT Word[9] 1; ASSERT Word[10] 0; ASSERT Word[11] 0; ASSERT Word[12] 1; ASSERT Word[13] 0; ASSERT Word[14] 0; ASSERT Word[15] 0; 
+        SET FetchAddr[0] 1, FetchAddr[1] 1, FetchAddr[2] 0, FetchAddr[3] 0, FetchAddr[4] 0, FetchAddr[5] 1, FetchAddr[6] 0, FetchAddr[7] 0, FetchAddr[8] 1, FetchAddr[9] 0, FetchAddr[10] 0, FetchAddr[11] 0, FetchAddr[12] 0, FetchAddr[13] 0, FetchAddr[14] 0, FetchAddr[15] 0;
+        EVAL;
+        ASSERT Hit 1;
+        ASSERT Word[0] 1; ASSERT Word[1] 1; ASSERT Word[2] 1; ASSERT Word[3] 1; ASSERT Word[4] 0; ASSERT Word[5] 1; ASSERT Word[6] 1; ASSERT Word[7] 1; ASSERT Word[8] 0; ASSERT Word[9] 1; ASSERT Word[10] 1; ASSERT Word[11] 1; ASSERT Word[12] 1; ASSERT Word[13] 1; ASSERT Word[14] 0; ASSERT Word[15] 1; 
+    }
+
+    TEST "Fill only on Fill" {
+        SET BusAddr[0] 1, BusAddr[1] 1, BusAddr[2] 1, BusAddr[3] 0, BusAddr[4] 0, BusAddr[5] 0, BusAddr[6] 0, BusAddr[7] 0, BusAddr[8] 0, BusAddr[9] 0, BusAddr[10] 0, BusAddr[11] 0, BusAddr[12] 0, BusAddr[13] 0, BusAddr[14] 0, BusAddr[15] 0;
+        SET BusData[0] 1, BusData[1] 1, BusData[2] 1, BusData[3] 0, BusData[4] 1, BusData[5] 1, BusData[6] 1, BusData[7] 0, BusData[8] 1, BusData[9] 1, BusData[10] 1, BusData[11] 0, BusData[12] 1, BusData[13] 1, BusData[14] 1, BusData[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET FetchAddr[0] 1, FetchAddr[1] 1, FetchAddr[2] 1, FetchAddr[3] 0, FetchAddr[4] 0, FetchAddr[5] 0, FetchAddr[6] 0, FetchAddr[7] 0, FetchAddr[8] 0, FetchAddr[9] 0, FetchAddr[10] 0, FetchAddr[11] 0, FetchAddr[12] 0, FetchAddr[13] 0, FetchAddr[14] 0, FetchAddr[15] 0;
+        EVAL;
+        ASSERT Hit 0;
+    }
+
+    TEST "Store to the fetched address: no hit while Write" {
+        SET BusAddr[0] 1, BusAddr[1] 1, BusAddr[2] 0, BusAddr[3] 0, BusAddr[4] 0, BusAddr[5] 1, BusAddr[6] 0, BusAddr[7] 0, BusAddr[8] 1, BusAddr[9] 0, BusAddr[10] 0, BusAddr[11] 0, BusAddr[12] 0, BusAddr[13] 0, BusAddr[14] 0, BusAddr[15] 0;
+        SET Write 1;
+        SET FetchAddr[0] 1, FetchAddr[1] 1, FetchAddr[2] 0, FetchAddr[3] 0, FetchAddr[4] 0, FetchAddr[5] 1, FetchAddr[6] 0, FetchAddr[7] 0, FetchAddr[8] 1, FetchAddr[9] 0, FetchAddr[10] 0, FetchAddr[11] 0, FetchAddr[12] 0, FetchAddr[13] 0, FetchAddr[14] 0, FetchAddr[15] 0;
+        EVAL;
+        ASSERT Hit 0;
+        SET FetchAddr[0] 1, FetchAddr[1] 0, FetchAddr[2] 1, FetchAddr[3] 0, FetchAddr[4] 0, FetchAddr[5] 0, FetchAddr[6] 0, FetchAddr[7] 0, FetchAddr[8] 0, FetchAddr[9] 0, FetchAddr[10] 0, FetchAddr[11] 0, FetchAddr[12] 0, FetchAddr[13] 0, FetchAddr[14] 0, FetchAddr[15] 0;
+        EVAL;
+        ASSERT Hit 1;
+        ASSERT Word[0] 0; ASSERT Word[1] 0; ASSERT Word[2] 1; ASSERT Word[3] 0; ASSERT Word[4] 1; ASSERT Word[5] 1; ASSERT Word[6] 0; ASSERT Word[7] 0; ASSERT Word[8] 0; ASSERT Word[9] 1; ASSERT Word[10] 0; ASSERT Word[11] 0; ASSERT Word[12] 1; ASSERT Word[13] 0; ASSERT Word[14] 0; ASSERT Word[15] 0; 
+        SET Write 0;
+        SET FetchAddr[0] 1, FetchAddr[1] 1, FetchAddr[2] 0, FetchAddr[3] 0, FetchAddr[4] 0, FetchAddr[5] 1, FetchAddr[6] 0, FetchAddr[7] 0, FetchAddr[8] 1, FetchAddr[9] 0, FetchAddr[10] 0, FetchAddr[11] 0, FetchAddr[12] 0, FetchAddr[13] 0, FetchAddr[14] 0, FetchAddr[15] 0;
+        EVAL;
+        ASSERT Hit 1;
+        ASSERT Word[0] 1; ASSERT Word[1] 1; ASSERT Word[2] 1; ASSERT Word[3] 1; ASSERT Word[4] 0; ASSERT Word[5] 1; ASSERT Word[6] 1; ASSERT Word[7] 1; ASSERT Word[8] 0; ASSERT Word[9] 1; ASSERT Word[10] 1; ASSERT Word[11] 1; ASSERT Word[12] 1; ASSERT Word[13] 1; ASSERT Word[14] 0; ASSERT Word[15] 1; 
+    }
+
+    TEST "Store elsewhere at the same index keeps the entry" {
+        SET BusAddr[0] 1, BusAddr[1] 1, BusAddr[2] 0, BusAddr[3] 0, BusAddr[4] 0, BusAddr[5] 0, BusAddr[6] 0, BusAddr[7] 0, BusAddr[8] 1, BusAddr[9] 1, BusAddr[10] 1, BusAddr[11] 1, BusAddr[12] 0, BusAddr[13] 0, BusAddr[14] 0, BusAddr[15] 0;
+        SET Write 1, WriteDone 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Write 0, WriteDone 0;
+        SET FetchAddr[0] 1, FetchAddr[1] 1, FetchAddr[2] 0, FetchAddr[3] 0, FetchAddr[4] 0, FetchAddr[5] 1, FetchAddr[6] 0, FetchAddr[7] 0, FetchAddr[8] 1, FetchAddr[9] 0, FetchAddr[10] 0, FetchAddr[11] 0, FetchAddr[12] 0, FetchAddr[13] 0, FetchAddr[14] 0, FetchAddr[15] 0;
+        EVAL;
+        ASSERT Hit 1;
+        ASSERT Word[0] 1; ASSERT Word[1] 1; ASSERT Word[2] 1; ASSERT Word[3] 1; ASSERT Word[4] 0; ASSERT Word[5] 1; ASSERT Word[6] 1; ASSERT Word[7] 1; ASSERT Word[8] 0; ASSERT Word[9] 1; ASSERT Word[10] 1; ASSERT Word[11] 1; ASSERT Word[12] 1; ASSERT Word[13] 1; ASSERT Word[14] 0; ASSERT Word[15] 1; 
+    }
+
+    TEST "Store to a cached address invalidates it" {
+        SET BusAddr[0] 1, BusAddr[1] 1, BusAddr[2] 0, BusAddr[3] 0, BusAddr[4] 0, BusAddr[5] 1, BusAddr[6] 0, BusAddr[7] 0, BusAddr[8] 1, BusAddr[9] 0, BusAddr[10] 0, BusAddr[11] 0, BusAddr[12] 0, BusAddr[13] 0, BusAddr[14] 0, BusAddr[15] 0;
+        SET Write 1, WriteDone 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Write 0, WriteDone 0;
+        SET FetchAddr[0] 1, FetchAddr[1] 1, FetchAddr[2] 0, FetchAddr[3] 0, FetchAddr[4] 0, FetchAddr[5] 1, FetchAddr[6] 0, FetchAddr[7] 0, FetchAddr[8] 1, FetchAddr[9] 0, FetchAddr[10] 0, FetchAddr[11] 0, FetchAddr[12] 0, FetchAddr[13] 0, FetchAddr[14] 0, FetchAddr[15] 0;
+        EVAL;
+        ASSERT Hit 0;
+        SET FetchAddr[0] 1, FetchAddr[1] 0, FetchAddr[2] 1, FetchAddr[3] 0, FetchAddr[4] 0, FetchAddr[5] 0, FetchAddr[6] 0, FetchAddr[7] 0, FetchAddr[8] 0, FetchAddr[9] 0, FetchAddr[10] 0, FetchAddr[11] 0, FetchAddr[12] 0, FetchAddr[13] 0, FetchAddr[14] 0, FetchAddr[15] 0;
+        EVAL;
+        ASSERT Hit 1;
+        ASSERT Word[0] 0; ASSERT Word[1] 0; ASSERT Word[2] 1; ASSERT Word[3] 0; ASSERT Word[4] 1; ASSERT Word[5] 1; ASSERT Word[6] 0; ASSERT Word[7] 0; ASSERT Word[8] 0; ASSERT Word[9] 1; ASSERT Word[10] 0; ASSERT Word[11] 0; ASSERT Word[12] 1; ASSERT Word[13] 0; ASSERT Word[14] 0; ASSERT Word[15] 0; 
+    }
+
+    TEST "Refill replaces the entry" {
+        SET BusAddr[0] 1, BusAddr[1] 1, BusAddr[2] 0, BusAddr[3] 0, BusAddr[4] 0, BusAddr[5] 1, BusAddr[6] 0, BusAddr[7] 0, BusAddr[8] 1, BusAddr[9] 0, BusAddr[10] 0, BusAddr[11] 0, BusAddr[12] 0, BusAddr[13] 0, BusAddr[14] 0, BusAddr[15] 0;
+        SET BusData[0] 0, BusData[1] 1, BusData[2] 1, BusData[3] 1, BusData[4] 1, BusData[5] 1, BusData[6] 1, BusData[7] 1, BusData[8] 0, BusData[9] 1, BusData[10] 0, BusData[11] 1, BusData[12] 0, BusData[13] 0, BusData[14] 1, BusData[15] 1;
+        SET Fill 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Fill 0;
+        SET FetchAddr[0] 1, FetchAddr[1] 1, FetchAddr[2] 0, FetchAddr[3] 0, FetchAddr[4] 0, FetchAddr[5] 1, FetchAddr[6] 0, FetchAddr[7] 0, FetchAddr[8] 1, FetchAddr[9] 0, FetchAddr[10] 0, FetchAddr[11] 0, FetchAddr[12] 0, FetchAddr[13] 0, FetchAddr[14] 0, FetchAddr[15] 0;
+        EVAL;
+        ASSERT Hit 1;
+        ASSERT Word[0] 0; ASSERT Word[1] 1; ASSERT Word[2] 1; ASSERT Word[3] 1; ASSERT Word[4] 1; ASSERT Word[5] 1; ASSERT Word[6] 1; ASSERT Word[7] 1; ASSERT Word[8] 0; ASSERT Word[9] 1; ASSERT Word[10] 0; ASSERT Word[11] 1; ASSERT Word[12] 0; ASSERT Word[13] 0; ASSERT Word[14] 1; ASSERT Word[15] 1; 
+        SET BusAddr[0] 1, BusAddr[1] 1, BusAddr[2] 0, BusAddr[3] 0, BusAddr[4] 1, BusAddr[5] 1, BusAddr[6] 0, BusAddr[7] 0, BusAddr[8] 1, BusAddr[9] 0, BusAddr[10] 0, BusAddr[11] 0, BusAddr[12] 0, BusAddr[13] 0, BusAddr[14] 0, BusAddr[15] 0;
+        SET BusData[0] 1, BusData[1] 0, BusData[2] 1, BusData[3] 0, BusData[4] 1, BusData[5] 0, BusData[6] 1, BusData[7] 0, BusData[8] 1, BusData[9] 0, BusData[10] 1, BusData[11] 0, BusData[12] 1, BusData[13] 0, BusData[14] 1, BusData[15] 0;
+        SET Fill 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Fill 0;
+        SET FetchAddr[0] 1, FetchAddr[1] 1, FetchAddr[2] 0, FetchAddr[3] 0, FetchAddr[4] 1, FetchAddr[5] 1, FetchAddr[6] 0, FetchAddr[7] 0, FetchAddr[8] 1, FetchAddr[9] 0, FetchAddr[10] 0, FetchAddr[11] 0, FetchAddr[12] 0, FetchAddr[13] 0, FetchAddr[14] 0, FetchAddr[15] 0;
+        EVAL;
+        ASSERT Hit 1;
+        ASSERT Word[0] 1; ASSERT Word[1] 0; ASSERT Word[2] 1; ASSERT Word[3] 0; ASSERT Word[4] 1; ASSERT Word[5] 0; ASSERT Word[6] 1; ASSERT Word[7] 0; ASSERT Word[8] 1; ASSERT Word[9] 0; ASSERT Word[10] 1; ASSERT Word[11] 0; ASSERT Word[12] 1; ASSERT Word[13] 0; ASSERT Word[14] 1; ASSERT Word[15] 0; 
+        SET FetchAddr[0] 1, FetchAddr[1] 1, FetchAddr[2] 0, FetchAddr[3] 0, FetchAddr[4] 0, FetchAddr[5] 1, FetchAddr[6] 0, FetchAddr[7] 0, FetchAddr[8] 1, FetchAddr[9] 0, FetchAddr[10] 0, FetchAddr[11] 0, FetchAddr[12] 0, FetchAddr[13] 0, FetchAddr[14] 0, FetchAddr[15] 0;
+        EVAL;
+        ASSERT Hit 0;
+    }
+
+    TEST "All sixteen entries" {
+        SET BusAddr[0] 0, BusAddr[1] 0, BusAddr[2] 0, BusAddr[3] 0, BusAddr[4] 0, BusAddr[5] 1, BusAddr[6] 0, BusAddr[7] 1, BusAddr[8] 0, BusAddr[9] 1, BusAddr[10] 0, BusAddr[11] 0, BusAddr[12] 0, BusAddr[13] 0, BusAddr[14] 0, BusAddr[15] 0;
+        SET BusData[0] 0, BusData[1] 0, BusData[2] 0, BusData[3] 0, BusData[4] 0, BusData[5] 0, BusData[6] 0, BusData[7] 0, BusData[8] 0, BusData[9] 0, BusData[10] 0, BusData[11] 0, BusData[12] 0, BusData[13] 0, BusData[14] 0, BusData[15] 0;
+        SET Fill 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Fill 0;
+        SET BusAddr[0] 1, BusAddr[1] 0, BusAddr[2] 0, BusAddr[3] 0, BusAddr[4] 0, BusAddr[5] 1, BusAddr[6] 0, BusAddr[7] 1, BusAddr[8] 0, BusAddr[9] 1, BusAddr[10] 0, BusAddr[11] 0, BusAddr[12] 0, BusAddr[13] 0, BusAddr[14] 0, BusAddr[15] 0;
+        SET BusData[0] 1, BusData[1] 0, BusData[2] 0, BusData[3] 0, BusData[4] 0, BusData[5] 0, BusData[6] 0, BusData[7] 0, BusData[8] 0, BusData[9] 0, BusData[10] 0, BusData[11] 0, BusData[12] 1, BusData[13] 0, BusData[14] 0, BusData[15] 0;
+        SET Fill 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Fill 0;
+        SET BusAddr[0] 0, BusAddr[1] 1, BusAddr[2] 0, BusAddr[3] 0, BusAddr[4] 0, BusAddr[5] 1, BusAddr[6] 0, BusAddr[7] 1, BusAddr[8] 0, BusAddr[9] 1, BusAddr[10] 0, BusAddr[11] 0, BusAddr[12] 0, BusAddr[13] 0, BusAddr[14] 0, BusAddr[15] 0;
+        SET BusData[0] 0, BusData[1] 1, BusData[2] 0, BusData[3] 0, BusData[4] 0, BusData[5] 0, BusData[6] 0, BusData[7] 0, BusData[8] 0, BusData[9] 0, BusData[10] 0, BusData[11] 0, BusData[12] 0, BusData[13] 1, BusData[14] 0, BusData[15] 0;
+        SET Fill 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Fill 0;
+        SET BusAddr[0] 1, BusAddr[1] 1, BusAddr[2] 0, BusAddr[3] 0, BusAddr[4] 0, BusAddr[5] 1, BusAddr[6] 0, BusAddr[7] 1, BusAddr[8] 0, BusAddr[9] 1, BusAddr[10] 0, BusAddr[11] 0, BusAddr[12] 0, BusAddr[13] 0, BusAddr[14] 0, BusAddr[15] 0;
+        SET BusData[0] 1, BusData[1] 1, BusData[2] 0, BusData[3] 0, BusData[4] 0, BusData[5] 0, BusData[6] 0, BusData[7] 0, BusData[8] 0, BusData[9] 0, BusData[10] 0, BusData[11] 0, BusData[12] 1, BusData[13] 1, BusData[14] 0, BusData[15] 0;
+        SET Fill 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Fill 0;
+        SET BusAddr[0] 0, BusAddr[1] 0, BusAddr[2] 1, BusAddr[3] 0, BusAddr[4] 0, BusAddr[5] 1, BusAddr[6] 0, BusAddr[7] 1, BusAddr[8] 0, BusAddr[9] 1, BusAddr[10] 0, BusAddr[11] 0, BusAddr[12] 0, BusAddr[13] 0, BusAddr[14] 0, BusAddr[15] 0;
+        SET BusData[0] 0, BusData[1] 0, BusData[2] 1, BusData[3] 0, BusData[4] 0, BusData[5] 0, BusData[6] 0, BusData[7] 0, BusData[8] 0, BusData[9] 0, BusData[10] 0, BusData[11] 0, BusData[12] 0, BusData[13] 0, BusData[14] 1, BusData[15] 0;
+        SET Fill 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Fill 0;
+        SET BusAddr[0] 1, BusAddr[1] 0, BusAddr[2] 1, BusAddr[3] 0, BusAddr[4] 0, BusAddr[5] 1, BusAddr[6] 0, BusAddr[7] 1, BusAddr[8] 0, BusAddr[9] 1, BusAddr[10] 0, BusAddr[11] 0, BusAddr[12] 0, BusAddr[13] 0, BusAddr[14] 0, BusAddr[15] 0;
+        SET BusData[0] 1, BusData[1] 0, BusData[2] 1, BusData[3] 0, BusData[4] 0, BusData[5] 0, BusData[6] 0, BusData[7] 0, BusData[8] 0, BusData[9] 0, BusData[10] 0, BusData[11] 0, BusData[12] 1, BusData[13] 0, BusData[14] 1, BusData[15] 0;
+        SET Fill 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Fill 0;
+        SET BusAddr[0] 0, BusAddr[1] 1, BusAddr[2] 1, BusAddr[3] 0, BusAddr[4] 0, BusAddr[5] 1, BusAddr[6] 0, BusAddr[7] 1, BusAddr[8] 0, BusAddr[9] 1, BusAddr[10] 0, BusAddr[11] 0, BusAddr[12] 0, BusAddr[13] 0, BusAddr[14] 0, BusAddr[15] 0;
+        SET BusData[0] 0, BusData[1] 1, BusData[2] 1, BusData[3] 0, BusData[4] 0, BusData[5] 0, BusData[6] 0, BusData[7] 0, BusData[8] 0, BusData[9] 0, BusData[10] 0, BusData[11] 0, BusData[12] 0, BusData[13] 1, BusData[14] 1, BusData[15] 0;
+        SET Fill 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Fill 0;
+        SET BusAddr[0] 1, BusAddr[1] 1, BusAddr[2] 1, BusAddr[3] 0, BusAddr[4] 0, BusAddr[5] 1, BusAddr[6] 0, BusAddr[7] 1, BusAddr[8] 0, BusAddr[9] 1, BusAddr[10] 0, BusAddr[11] 0, BusAddr[12] 0, BusAddr[13] 0, BusAddr[14] 0, BusAddr[15] 0;
+        SET BusData[0] 1, BusData[1] 1, BusData[2] 1, BusData[3] 0, BusData[4] 0, BusData[5] 0, BusData[6] 0, BusData[7] 0, BusData[8] 0, BusData[9] 0, BusData[10] 0, BusData[11] 0, BusData[12] 1, BusData[13] 1, BusData[14] 1, BusData[15] 0;
+        SET Fill 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Fill 0;
+        SET BusAddr[0] 0, BusAddr[1] 0, BusAddr[2] 0, BusAddr[3] 1, BusAddr[4] 0, BusAddr[5] 1, BusAddr[6] 0, BusAddr[7] 1, BusAddr[8] 0, BusAddr[9] 1, BusAddr[10] 0, BusAddr[11] 0, BusAddr[12] 0, BusAddr[13] 0, BusAddr[14] 0, BusAddr[15] 0;
+        SET BusData[0] 0, BusData[1] 0, BusData[2] 0, BusData[3] 1, BusData[4] 0, BusData[5] 0, BusData[6] 0, BusData[7] 0, BusData[8] 0, BusData[9] 0, BusData[10] 0, BusData[11] 0, BusData[12] 0, BusData[13] 0, BusData[14] 0, BusData[15] 1;
+        SET Fill 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Fill 0;
+        SET BusAddr[0] 1, BusAddr[1] 0, BusAddr[2] 0, BusAddr[3] 1, BusAddr[4] 0, BusAddr[5] 1, BusAddr[6] 0, BusAddr[7] 1, BusAddr[8] 0, BusAddr[9] 1, BusAddr[10] 0, BusAddr[11] 0, BusAddr[12] 0, BusAddr[13] 0, BusAddr[14] 0, BusAddr[15] 0;
+        SET BusData[0] 1, BusData[1] 0, BusData[2] 0, BusData[3] 1, BusData[4] 0, BusData[5] 0, BusData[6] 0, BusData[7] 0, BusData[8] 0, BusData[9] 0, BusData[10] 0, BusData[11] 0, BusData[12] 1, BusData[13] 0, BusData[14] 0, BusData[15] 1;
+        SET Fill 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Fill 0;
+        SET BusAddr[0] 0, BusAddr[1] 1, BusAddr[2] 0, BusAddr[3] 1, BusAddr[4] 0, BusAddr[5] 1, BusAddr[6] 0, BusAddr[7] 1, BusAddr[8] 0, BusAddr[9] 1, BusAddr[10] 0, BusAddr[11] 0, BusAddr[12] 0, BusAddr[13] 0, BusAddr[14] 0, BusAddr[15] 0;
+        SET BusData[0] 0, BusData[1] 1, BusData[2] 0, BusData[3] 1, BusData[4] 0, BusData[5] 0, BusData[6] 0, BusData[7] 0, BusData[8] 0, BusData[9] 0, BusData[10] 0, BusData[11] 0, BusData[12] 0, BusData[13] 1, BusData[14] 0, BusData[15] 1;
+        SET Fill 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Fill 0;
+        SET BusAddr[0] 1, BusAddr[1] 1, BusAddr[2] 0, BusAddr[3] 1, BusAddr[4] 0, BusAddr[5] 1, BusAddr[6] 0, BusAddr[7] 1, BusAddr[8] 0, BusAddr[9] 1, BusAddr[10] 0, BusAddr[11] 0, BusAddr[12] 0, BusAddr[13] 0, BusAddr[14] 0, BusAddr[15] 0;
+        SET BusData[0] 1, BusData[1] 1, BusData[2] 0, BusData[3] 1, BusData[4] 0, BusData[5] 0, BusData[6] 0, BusData[7] 0, BusData[8] 0, BusData[9] 0, BusData[10] 0, BusData[11] 0, BusData[12] 1, BusData[13] 1, BusData[14] 0, BusData[15] 1;
+        SET Fill 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Fill 0;
+        SET BusAddr[0] 0, BusAddr[1] 0, BusAddr[2] 1, BusAddr[3] 1, BusAddr[4] 0, BusAddr[5] 1, BusAddr[6] 0, BusAddr[7] 1, BusAddr[8] 0, BusAddr[9] 1, BusAddr[10] 0, BusAddr[11] 0, BusAddr[12] 0, BusAddr[13] 0, BusAddr[14] 0, BusAddr[15] 0;
+        SET BusData[0] 0, BusData[1] 0, BusData[2] 1, BusData[3] 1, BusData[4] 0, BusData[5] 0, BusData[6] 0, BusData[7] 0, BusData[8] 0, BusData[9] 0, BusData[10] 0, BusData[11] 0, BusData[12] 0, BusData[13] 0, BusData[14] 1, BusData[15] 1;
+        SET Fill 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Fill 0;
+        SET BusAddr[0] 1, BusAddr[1] 0, BusAddr[2] 1, BusAddr[3] 1, BusAddr[4] 0, BusAddr[5] 1, BusAddr[6] 0, BusAddr[7] 1, BusAddr[8] 0, BusAddr[9] 1, BusAddr[10] 0, BusAddr[11] 0, BusAddr[12] 0, BusAddr[13] 0, BusAddr[14] 0, BusAddr[15] 0;
+        SET BusData[0] 1, BusData[1] 0, BusData[2] 1, BusData[3] 1, BusData[4] 0, BusData[5] 0, BusData[6] 0, BusData[7] 0, BusData[8] 0, BusData[9] 0, BusData[10] 0, BusData[11] 0, BusData[12] 1, BusData[13] 0, BusData[14] 1, BusData[15] 1;
+        SET Fill 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Fill 0;
+        SET BusAddr[0] 0, BusAddr[1] 1, BusAddr[2] 1, BusAddr[3] 1, BusAddr[4] 0, BusAddr[5] 1, BusAddr[6] 0, BusAddr[7] 1, BusAddr[8] 0, BusAddr[9] 1, BusAddr[10] 0, BusAddr[11] 0, BusAddr[12] 0, BusAddr[13] 0, BusAddr[14] 0, BusAddr[15] 0;
+        SET BusData[0] 0, BusData[1] 1, BusData[2] 1, BusData[3] 1, BusData[4] 0, BusData[5] 0, BusData[6] 0, BusData[7] 0, BusData[8] 0, BusData[9] 0, BusData[10] 0, BusData[11] 0, BusData[12] 0, BusData[13] 1, BusData[14] 1, BusData[15] 1;
+        SET Fill 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Fill 0;
+        SET BusAddr[0] 1, BusAddr[1] 1, BusAddr[2] 1, BusAddr[3] 1, BusAddr[4] 0, BusAddr[5] 1, BusAddr[6] 0, BusAddr[7] 1, BusAddr[8] 0, BusAddr[9] 1, BusAddr[10] 0, BusAddr[11] 0, BusAddr[12] 0, BusAddr[13] 0, BusAddr[14] 0, BusAddr[15] 0;
+        SET BusData[0] 1, BusData[1] 1, BusData[2] 1, BusData[3] 1, BusData[4] 0, BusData[5] 0, BusData[6] 0, BusData[7] 0, BusData[8] 0, BusData[9] 0, BusData[10] 0, BusData[11] 0, BusData[12] 1, BusData[13] 1, BusData[14] 1, BusData[15] 1;
+        SET Fill 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Fill 0;
+        SET FetchAddr[0] 0, FetchAddr[1] 0, FetchAddr[2] 0, FetchAddr[3] 0, FetchAddr[4] 0, FetchAddr[5] 1, FetchAddr[6] 0, FetchAddr[7] 1, FetchAddr[8] 0, FetchAddr[9] 1, FetchAddr[10] 0, FetchAddr[11] 0, FetchAddr[12] 0, FetchAddr[13] 0, FetchAddr[14] 0, FetchAddr[15] 0;
+        EVAL;
+        ASSERT Hit 1;
+        ASSERT Word[0] 0; ASSERT Word[1] 0; ASSERT Word[2] 0; ASSERT Word[3] 0; ASSERT Word[4] 0; ASSERT Word[5] 0; ASSERT Word[6] 0; ASSERT Word[7] 0; ASSERT Word[8] 0; ASSERT Word[9] 0; ASSERT Word[10] 0; ASSERT Word[11] 0; ASSERT Word[12] 0; ASSERT Word[13] 0; ASSERT Word[14] 0; ASSERT Word[15] 0; 
+        SET FetchAddr[0] 1, FetchAddr[1] 0, FetchAddr[2] 0, FetchAddr[3] 0, FetchAddr[4] 0, FetchAddr[5] 1, FetchAddr[6] 0, FetchAddr[7] 1, FetchAddr[8] 0, FetchAddr[9] 1, FetchAddr[10] 0, FetchAddr[11] 0, FetchAddr[12] 0, FetchAddr[13] 0, FetchAddr[14] 0, FetchAddr[15] 0;
+        EVAL;
+        ASSERT Hit 1;
+        ASSERT Word[0] 1; ASSERT Word[1] 0; ASSERT Word[2] 0; ASSERT Word[3] 0; ASSERT Word[4] 0; ASSERT Word[5] 0; ASSERT Word[6] 0; ASSERT Word[7] 0; ASSERT Word[8] 0; ASSERT Word[9] 0; ASSERT Word[10] 0; ASSERT Word[11] 0; ASSERT Word[12] 1; ASSERT Word[13] 0; ASSERT Word[14] 0; ASSERT Word[15] 0; 
+        SET FetchAddr[0] 0, FetchAddr[1] 1, FetchAddr[2] 0, FetchAddr[3] 0, FetchAddr[4] 0, FetchAddr[5] 1, FetchAddr[6] 0, FetchAddr[7] 1, FetchAddr[8] 0, FetchAddr[9] 1, FetchAddr[10] 0, FetchAddr[11] 0, FetchAddr[12] 0, FetchAddr[13] 0, FetchAddr[14] 0, FetchAddr[15] 0;
+        EVAL;
+        ASSERT Hit 1;
+        ASSERT Word[0] 0; ASSERT Word[1] 1; ASSERT Word[2] 0; ASSERT Word[3] 0; ASSERT Word[4] 0; ASSERT Word[5] 0; ASSERT Word[6] 0; ASSERT Word[7] 0; ASSERT Word[8] 0; ASSERT Word[9] 0; ASSERT Word[10] 0; ASSERT Word[11] 0; ASSERT Word[12] 0; ASSERT Word[13] 1; ASSERT Word[14] 0; ASSERT Word[15] 0; 
+        SET FetchAddr[0] 1, FetchAddr[1] 1, FetchAddr[2] 0, FetchAddr[3] 0, FetchAddr[4] 0, FetchAddr[5] 1, FetchAddr[6] 0, FetchAddr[7] 1, FetchAddr[8] 0, FetchAddr[9] 1, FetchAddr[10] 0, FetchAddr[11] 0, FetchAddr[12] 0, FetchAddr[13] 0, FetchAddr[14] 0, FetchAddr[15] 0;
+        EVAL;
+        ASSERT Hit 1;
+        ASSERT Word[0] 1; ASSERT Word[1] 1; ASSERT Word[2] 0; ASSERT Word[3] 0; ASSERT Word[4] 0; ASSERT Word[5] 0; ASSERT Word[6] 0; ASSERT Word[7] 0; ASSERT Word[8] 0; ASSERT Word[9] 0; ASSERT Word[10] 0; ASSERT Word[11] 0; ASSERT Word[12] 1; ASSERT Word[13] 1; ASSERT Word[14] 0; ASSERT Word[15] 0; 
+        SET FetchAddr[0] 0, FetchAddr[1] 0, FetchAddr[2] 1, FetchAddr[3] 0, FetchAddr[4] 0, FetchAddr[5] 1, FetchAddr[6] 0, FetchAddr[7] 1, FetchAddr[8] 0, FetchAddr[9] 1, FetchAddr[10] 0, FetchAddr[11] 0, FetchAddr[12] 0, FetchAddr[13] 0, FetchAddr[14] 0, FetchAddr[15] 0;
+        EVAL;
+        ASSERT Hit 1;
+        ASSERT Word[0] 0; ASSERT Word[1] 0; ASSERT Word[2] 1; ASSERT Word[3] 0; ASSERT Word[4] 0; ASSERT Word[5] 0; ASSERT Word[6] 0; ASSERT Word[7] 0; ASSERT Word[8] 0; ASSERT Word[9] 0; ASSERT Word[10] 0; ASSERT Word[11] 0; ASSERT Word[12] 0; ASSERT Word[13] 0; ASSERT Word[14] 1; ASSERT Word[15] 0; 
+        SET FetchAddr[0] 1, FetchAddr[1] 0, FetchAddr[2] 1, FetchAddr[3] 0, FetchAddr[4] 0, FetchAddr[5] 1, FetchAddr[6] 0, FetchAddr[7] 1, FetchAddr[8] 0, FetchAddr[9] 1, FetchAddr[10] 0, FetchAddr[11] 0, FetchAddr[12] 0, FetchAddr[13] 0, FetchAddr[14] 0, FetchAddr[15] 0;
+        EVAL;
+        ASSERT Hit 1;
+        ASSERT Word[0] 1; ASSERT Word[1] 0; ASSERT Word[2] 1; ASSERT Word[3] 0; ASSERT Word[4] 0; ASSERT Word[5] 0; ASSERT Word[6] 0; ASSERT Word[7] 0; ASSERT Word[8] 0; ASSERT Word[9] 0; ASSERT Word[10] 0; ASSERT Word[11] 0; ASSERT Word[12] 1; ASSERT Word[13] 0; ASSERT Word[14] 1; ASSERT Word[15] 0; 
+        SET FetchAddr[0] 0, FetchAddr[1] 1, FetchAddr[2] 1, FetchAddr[3] 0, FetchAddr[4] 0, FetchAddr[5] 1, FetchAddr[6] 0, FetchAddr[7] 1, FetchAddr[8] 0, FetchAddr[9] 1, FetchAddr[10] 0, FetchAddr[11] 0, FetchAddr[12] 0, FetchAddr[13] 0, FetchAddr[14] 0, FetchAddr[15] 0;
+        EVAL;
+        ASSERT Hit 1;
+        ASSERT Word[0] 0; ASSERT Word[1] 1; ASSERT Word[2] 1; ASSERT Word[3] 0; ASSERT Word[4] 0; ASSERT Word[5] 0; ASSERT Word[6] 0; ASSERT Word[7] 0; ASSERT Word[8] 0; ASSERT Word[9] 0; ASSERT Word[10] 0; ASSERT Word[11] 0; ASSERT Word[12] 0; ASSERT Word[13] 1; ASSERT Word[14] 1; ASSERT Word[15] 0; 
+        SET FetchAddr[0] 1, FetchAddr[1] 1, FetchAddr[2] 1, FetchAddr[3] 0, FetchAddr[4] 0, FetchAddr[5] 1, FetchAddr[6] 0, FetchAddr[7] 1, FetchAddr[8] 0, FetchAddr[9] 1, FetchAddr[10] 0, FetchAddr[11] 0, FetchAddr[12] 0, FetchAddr[13] 0, FetchAddr[14] 0, FetchAddr[15] 0;
+        EVAL;
+        ASSERT Hit 1;
+        ASSERT Word[0] 1; ASSERT Word[1] 1; ASSERT Word[2] 1; ASSERT Word[3] 0; ASSERT Word[4] 0; ASSERT Word[5] 0; ASSERT Word[6] 0; ASSERT Word[7] 0; ASSERT Word[8] 0; ASSERT Word[9] 0; ASSERT Word[10] 0; ASSERT Word[11] 0; ASSERT Word[12] 1; ASSERT Word[13] 1; ASSERT Word[14] 1; ASSERT Word[15] 0; 
+        SET FetchAddr[0] 0, FetchAddr[1] 0, FetchAddr[2] 0, FetchAddr[3] 1, FetchAddr[4] 0, FetchAddr[5] 1, FetchAddr[6] 0, FetchAddr[7] 1, FetchAddr[8] 0, FetchAddr[9] 1, FetchAddr[10] 0, FetchAddr[11] 0, FetchAddr[12] 0, FetchAddr[13] 0, FetchAddr[14] 0, FetchAddr[15] 0;
+        EVAL;
+        ASSERT Hit 1;
+        ASSERT Word[0] 0; ASSERT Word[1] 0; ASSERT Word[2] 0; ASSERT Word[3] 1; ASSERT Word[4] 0; ASSERT Word[5] 0; ASSERT Word[6] 0; ASSERT Word[7] 0; ASSERT Word[8] 0; ASSERT Word[9] 0; ASSERT Word[10] 0; ASSERT Word[11] 0; ASSERT Word[12] 0; ASSERT Word[13] 0; ASSERT Word[14] 0; ASSERT Word[15] 1; 
+        SET FetchAddr[0] 1, FetchAddr[1] 0, FetchAddr[2] 0, FetchAddr[3] 1, FetchAddr[4] 0, FetchAddr[5] 1, FetchAddr[6] 0, FetchAddr[7] 1, FetchAddr[8] 0, FetchAddr[9] 1, FetchAddr[10] 0, FetchAddr[11] 0, FetchAddr[12] 0, FetchAddr[13] 0, FetchAddr[14] 0, FetchAddr[15] 0;
+        EVAL;
+        ASSERT Hit 1;
+        ASSERT Word[0] 1; ASSERT Word[1] 0; ASSERT Word[2] 0; ASSERT Word[3] 1; ASSERT Word[4] 0; ASSERT Word[5] 0; ASSERT Word[6] 0; ASSERT Word[7] 0; ASSERT Word[8] 0; ASSERT Word[9] 0; ASSERT Word[10] 0; ASSERT Word[11] 0; ASSERT Word[12] 1; ASSERT Word[13] 0; ASSERT Word[14] 0; ASSERT Word[15] 1; 
+        SET FetchAddr[0] 0, FetchAddr[1] 1, FetchAddr[2] 0, FetchAddr[3] 1, FetchAddr[4] 0, FetchAddr[5] 1, FetchAddr[6] 0, FetchAddr[7] 1, FetchAddr[8] 0, FetchAddr[9] 1, FetchAddr[10] 0, FetchAddr[11] 0, FetchAddr[12] 0, FetchAddr[13] 0, FetchAddr[14] 0, FetchAddr[15] 0;
+        EVAL;
+        ASSERT Hit 1;
+        ASSERT Word[0] 0; ASSERT Word[1] 1; ASSERT Word[2] 0; ASSERT Word[3] 1; ASSERT Word[4] 0; ASSERT Word[5] 0; ASSERT Word[6] 0; ASSERT Word[7] 0; ASSERT Word[8] 0; ASSERT Word[9] 0; ASSERT Word[10] 0; ASSERT Word[11] 0; ASSERT Word[12] 0; ASSERT Word[13] 1; ASSERT Word[14] 0; ASSERT Word[15] 1; 
+        SET FetchAddr[0] 1, FetchAddr[1] 1, FetchAddr[2] 0, FetchAddr[3] 1, FetchAddr[4] 0, FetchAddr[5] 1, FetchAddr[6] 0, FetchAddr[7] 1, FetchAddr[8] 0, FetchAddr[9] 1, FetchAddr[10] 0, FetchAddr[11] 0, FetchAddr[12] 0, FetchAddr[13] 0, FetchAddr[14] 0, FetchAddr[15] 0;
+        EVAL;
+        ASSERT Hit 1;
+        ASSERT Word[0] 1; ASSERT Word[1] 1; ASSERT Word[2] 0; ASSERT Word[3] 1; ASSERT Word[4] 0; ASSERT Word[5] 0; ASSERT Word[6] 0; ASSERT Word[7] 0; ASSERT Word[8] 0; ASSERT Word[9] 0; ASSERT Word[10] 0; ASSERT Word[11] 0; ASSERT Word[12] 1; ASSERT Word[13] 1; ASSERT Word[14] 0; ASSERT Word[15] 1; 
+        SET FetchAddr[0] 0, FetchAddr[1] 0, FetchAddr[2] 1, FetchAddr[3] 1, FetchAddr[4] 0, FetchAddr[5] 1, FetchAddr[6] 0, FetchAddr[7] 1, FetchAddr[8] 0, FetchAddr[9] 1, FetchAddr[10] 0, FetchAddr[11] 0, FetchAddr[12] 0, FetchAddr[13] 0, FetchAddr[14] 0, FetchAddr[15] 0;
+        EVAL;
+        ASSERT Hit 1;
+        ASSERT Word[0] 0; ASSERT Word[1] 0; ASSERT Word[2] 1; ASSERT Word[3] 1; ASSERT Word[4] 0; ASSERT Word[5] 0; ASSERT Word[6] 0; ASSERT Word[7] 0; ASSERT Word[8] 0; ASSERT Word[9] 0; ASSERT Word[10] 0; ASSERT Word[11] 0; ASSERT Word[12] 0; ASSERT Word[13] 0; ASSERT Word[14] 1; ASSERT Word[15] 1; 
+        SET FetchAddr[0] 1, FetchAddr[1] 0, FetchAddr[2] 1, FetchAddr[3] 1, FetchAddr[4] 0, FetchAddr[5] 1, FetchAddr[6] 0, FetchAddr[7] 1, FetchAddr[8] 0, FetchAddr[9] 1, FetchAddr[10] 0, FetchAddr[11] 0, FetchAddr[12] 0, FetchAddr[13] 0, FetchAddr[14] 0, FetchAddr[15] 0;
+        EVAL;
+        ASSERT Hit 1;
+        ASSERT Word[0] 1; ASSERT Word[1] 0; ASSERT Word[2] 1; ASSERT Word[3] 1; ASSERT Word[4] 0; ASSERT Word[5] 0; ASSERT Word[6] 0; ASSERT Word[7] 0; ASSERT Word[8] 0; ASSERT Word[9] 0; ASSERT Word[10] 0; ASSERT Word[11] 0; ASSERT Word[12] 1; ASSERT Word[13] 0; ASSERT Word[14] 1; ASSERT Word[15] 1; 
+        SET FetchAddr[0] 0, FetchAddr[1] 1, FetchAddr[2] 1, FetchAddr[3] 1, FetchAddr[4] 0, FetchAddr[5] 1, FetchAddr[6] 0, FetchAddr[7] 1, FetchAddr[8] 0, FetchAddr[9] 1, FetchAddr[10] 0, FetchAddr[11] 0, FetchAddr[12] 0, FetchAddr[13] 0, FetchAddr[14] 0, FetchAddr[15] 0;
+        EVAL;
+        ASSERT Hit 1;
+        ASSERT Word[0] 0; ASSERT Word[1] 1; ASSERT Word[2] 1; ASSERT Word[3] 1; ASSERT Word[4] 0; ASSERT Word[5] 0; ASSERT Word[6] 0; ASSERT Word[7] 0; ASSERT Word[8] 0; ASSERT Word[9] 0; ASSERT Word[10] 0; ASSERT Word[11] 0; ASSERT Word[12] 0; ASSERT Word[13] 1; ASSERT Word[14] 1; ASSERT Word[15] 1; 
+        SET FetchAddr[0] 1, FetchAddr[1] 1, FetchAddr[2] 1, FetchAddr[3] 1, FetchAddr[4] 0, FetchAddr[5] 1, FetchAddr[6] 0, FetchAddr[7] 1, FetchAddr[8] 0, FetchAddr[9] 1, FetchAddr[10] 0, FetchAddr[11] 0, FetchAddr[12] 0, FetchAddr[13] 0, FetchAddr[14] 0, FetchAddr[15] 0;
+        EVAL;
+        ASSERT Hit 1;
+        ASSERT Word[0] 1; ASSERT Word[1] 1; ASSERT Word[2] 1; ASSERT Word[3] 1; ASSERT Word[4] 0; ASSERT Word[5] 0; ASSERT Word[6] 0; ASSERT Word[7] 0; ASSERT Word[8] 0; ASSERT Word[9] 0; ASSERT Word[10] 0; ASSERT Word[11] 0; ASSERT Word[12] 1; ASSERT Word[13] 1; ASSERT Word[14] 1; ASSERT Word[15] 1; 
+        SET FetchAddr[0] 1, FetchAddr[1] 0, FetchAddr[2] 1, FetchAddr[3] 0, FetchAddr[4] 0, FetchAddr[5] 0, FetchAddr[6] 0, FetchAddr[7] 0, FetchAddr[8] 0, FetchAddr[9] 0, FetchAddr[10] 0, FetchAddr[11] 0, FetchAddr[12] 0, FetchAddr[13] 0, FetchAddr[14] 0, FetchAddr[15] 0;
+        EVAL;
+        ASSERT Hit 0;
+    }
+
+    TEST "Reset invalidates all" {
+        SET Reset 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Reset 0;
+        SET FetchAddr[0] 0, FetchAddr[1] 0, FetchAddr[2] 0, FetchAddr[3] 0, FetchAddr[4] 0, FetchAddr[5] 1, FetchAddr[6] 0, FetchAddr[7] 1, FetchAddr[8] 0, FetchAddr[9] 1, FetchAddr[10] 0, FetchAddr[11] 0, FetchAddr[12] 0, FetchAddr[13] 0, FetchAddr[14] 0, FetchAddr[15] 0;
+        EVAL;
+        ASSERT Hit 0;
+        SET FetchAddr[0] 1, FetchAddr[1] 1, FetchAddr[2] 1, FetchAddr[3] 1, FetchAddr[4] 0, FetchAddr[5] 1, FetchAddr[6] 0, FetchAddr[7] 1, FetchAddr[8] 0, FetchAddr[9] 1, FetchAddr[10] 0, FetchAddr[11] 0, FetchAddr[12] 0, FetchAddr[13] 0, FetchAddr[14] 0, FetchAddr[15] 0;
+        EVAL;
+        ASSERT Hit 0;
+    }
+
+}
