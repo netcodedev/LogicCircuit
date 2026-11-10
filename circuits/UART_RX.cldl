@@ -31,10 +31,10 @@ CIRCUIT UART_RX {
     PART BusyNot: NOT;
     PART RxNot: NOT;
     PART StartAnd: AND;            // idle AND Rx = 0: a frame begins
-    PART CntDec: ADDER<16>;        // Cnt - 1
+    PART CntDec: ADDER_CLA_16B;    // Cnt - 1
     PART CntZero: ZERO_16B;
     PART SampleAnd: AND;           // busy AND Cnt = 0: sample now
-    PART FirstWait: ADDER<16>;     // Div + Div/2: to the middle of bit 0
+    PART FirstWait: ADDER_CLA_16B; // Div + Div/2: to the middle of bit 0
     PART CntStep: MUX_2_1_BUS<16>; // Cnt - 1, Div (after a sample)
     PART CntData: MUX_2_1_BUS<16>; // step, first wait (on start)
     PART CntLoad: OR;              // start OR busy

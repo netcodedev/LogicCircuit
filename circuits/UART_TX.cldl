@@ -30,7 +30,7 @@ CIRCUIT UART_TX {
     PART Bits: REGISTER_R<4>;
 
     PART C_TRUE: NOR;               // Constant 1 (VCC), NOR(0,0) = 1
-    PART CntDec: ADDER<16>;         // Cnt - 1 (B = all ones)
+    PART CntDec: ADDER_CLA_16B;     // Cnt - 1 (B = all ones)
     PART CntZero: ZERO_16B;
     PART CntMux: MUX_2_1_BUS<16>;   // Cnt - 1, Div
     PART BitsDec: ADDER<4>;         // Bits - 1

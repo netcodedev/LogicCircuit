@@ -364,6 +364,15 @@ direkt abgebildet, ein Wort pro Eintrag:
       **91.674 µm² (−31 %)**, Die 429 → **359 µm**, 119.587 → 91.869
       Transistoren, **143 MHz** (Ziel 7 ns erreicht). `verify-verilog
       --mux-cells` 108 Suiten grün, `--x-init` wie bisher
+- [x] Takt: Der kritische Pfad bei 7 ns lag nicht in der CPU, sondern im
+      Ripple-Addierer `UART_RX.FirstWait` (Div + Div/2, 16 Volladdierer
+      ≈ 5,8 ns). Die vier 16-Bit-Ripple-Addierer der Peripherie
+      (`TIMER_16B.Dec`, `UART_TX/RX.CntDec`, `UART_RX.FirstWait`) sind jetzt
+      `ADDER_CLA_16B` (Kogge-Stone), wie in der CPU. SOC_16B (u70, mem3,
+      Ziel 5 ns): 8.820 → 9.496 exportierte Zellen, **156 MHz** (vorher 143).
+      Neuer kritischer Pfad ist die Fetch-Schleife in einem Takt: PC →
+      Cache-Lesemux → Tag-Vergleich → Treffer → `WordMux` → Sprungvorhersage
+      → PC-Mux
 - [ ] Später: SRAM-Makro statt Flipflops (ein Eintrag kostet heute ~1.400
       NANDs), größere Einträge (2–4 Wörter pro Tag) bei QSPI mit Burst;
       `MUX_4_1` auf `mux4_1` abbilden (≈ 21 µm² statt 3 × 11,3)

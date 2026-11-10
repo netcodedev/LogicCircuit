@@ -25,7 +25,7 @@ CIRCUIT TIMER_16B {
     PART ExpiredReg: REGISTER_R<1>;
 
     PART C_TRUE: NOR;              // Constant 1 (VCC), NOR(0,0) = 1
-    PART Dec: ADDER<16>;           // Count - 1
+    PART Dec: ADDER_CLA_16B;       // Count - 1
     PART Zero: ZERO_16B;
     PART NextMux: MUX_2_1_BUS<16>; // Count - 1, Load (at 0)
     PART WriteMux: MUX_2_1_BUS<16>; // next, WData (WriteLoad)
