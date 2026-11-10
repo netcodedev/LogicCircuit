@@ -162,6 +162,8 @@
   #main.chip-mode #chip3d { right: var(--chip-panel-w); }
   #main.chip-mode #hint { right: calc(var(--chip-panel-w) + 12px); }
   #main.chip-mode #chip-message { left: calc(50% - var(--chip-panel-w) / 2); }
+  /* Only in the 3D view: a late message (async layout lookup) must not cover the schematic. */
+  #main:not(.chip-mode) #chip-message { display: none; }
   #chip-section { position: absolute; top: 0; right: 0; bottom: 0; width: var(--chip-panel-w); overflow: auto;
                   background: var(--panel); border-left: 1px solid var(--line); padding: 10px 12px; }
   #chip-section h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 8px; font-weight: 600; }

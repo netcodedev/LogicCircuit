@@ -734,6 +734,7 @@ function leaveChip() {
   $('canvas').style.display = '';
   $('chip3d').hidden = true;
   $('chip-section').hidden = true;
+  chipMessage('');
 }
 
 function chipMessage(html) {
