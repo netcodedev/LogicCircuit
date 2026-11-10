@@ -1,0 +1,79 @@
+// Tests for forwarding and load-use detection (combinational)
+
+TESTS FOR HAZARD_16B {
+    TEST "RdM=3 RegWriteM=1 LoadM=0 RdE=3 RsE=5" {
+        SET RdM[0] 1, RdE[0] 1, RsE[0] 1, RdM[1] 1, RdE[1] 1, RsE[1] 0, RdM[2] 0, RdE[2] 0, RsE[2] 1, RdM[3] 0, RdE[3] 0, RsE[3] 0, RegWriteM 1, LoadM 0;
+        EVAL;
+        ASSERT FwdA 1; ASSERT FwdB 0; ASSERT Stall 0;
+    }
+    TEST "RdM=3 RegWriteM=1 LoadM=0 RdE=5 RsE=3" {
+        SET RdM[0] 1, RdE[0] 1, RsE[0] 1, RdM[1] 1, RdE[1] 0, RsE[1] 1, RdM[2] 0, RdE[2] 1, RsE[2] 0, RdM[3] 0, RdE[3] 0, RsE[3] 0, RegWriteM 1, LoadM 0;
+        EVAL;
+        ASSERT FwdA 0; ASSERT FwdB 1; ASSERT Stall 0;
+    }
+    TEST "RdM=3 RegWriteM=1 LoadM=0 RdE=3 RsE=3" {
+        SET RdM[0] 1, RdE[0] 1, RsE[0] 1, RdM[1] 1, RdE[1] 1, RsE[1] 1, RdM[2] 0, RdE[2] 0, RsE[2] 0, RdM[3] 0, RdE[3] 0, RsE[3] 0, RegWriteM 1, LoadM 0;
+        EVAL;
+        ASSERT FwdA 1; ASSERT FwdB 1; ASSERT Stall 0;
+    }
+    TEST "RdM=3 RegWriteM=0 LoadM=0 RdE=3 RsE=3" {
+        SET RdM[0] 1, RdE[0] 1, RsE[0] 1, RdM[1] 1, RdE[1] 1, RsE[1] 1, RdM[2] 0, RdE[2] 0, RsE[2] 0, RdM[3] 0, RdE[3] 0, RsE[3] 0, RegWriteM 0, LoadM 0;
+        EVAL;
+        ASSERT FwdA 0; ASSERT FwdB 0; ASSERT Stall 0;
+    }
+    TEST "RdM=0 RegWriteM=1 LoadM=0 RdE=0 RsE=0" {
+        SET RdM[0] 0, RdE[0] 0, RsE[0] 0, RdM[1] 0, RdE[1] 0, RsE[1] 0, RdM[2] 0, RdE[2] 0, RsE[2] 0, RdM[3] 0, RdE[3] 0, RsE[3] 0, RegWriteM 1, LoadM 0;
+        EVAL;
+        ASSERT FwdA 0; ASSERT FwdB 0; ASSERT Stall 0;
+    }
+    TEST "RdM=9 RegWriteM=1 LoadM=0 RdE=8 RsE=1" {
+        SET RdM[0] 1, RdE[0] 0, RsE[0] 1, RdM[1] 0, RdE[1] 0, RsE[1] 0, RdM[2] 0, RdE[2] 0, RsE[2] 0, RdM[3] 1, RdE[3] 1, RsE[3] 0, RegWriteM 1, LoadM 0;
+        EVAL;
+        ASSERT FwdA 0; ASSERT FwdB 0; ASSERT Stall 0;
+    }
+    TEST "RdM=3 RegWriteM=1 LoadM=1 RdE=3 RsE=5" {
+        SET RdM[0] 1, RdE[0] 1, RsE[0] 1, RdM[1] 1, RdE[1] 1, RsE[1] 0, RdM[2] 0, RdE[2] 0, RsE[2] 1, RdM[3] 0, RdE[3] 0, RsE[3] 0, RegWriteM 1, LoadM 1;
+        EVAL;
+        ASSERT FwdA 0; ASSERT FwdB 0; ASSERT Stall 1;
+    }
+    TEST "RdM=3 RegWriteM=1 LoadM=1 RdE=5 RsE=3" {
+        SET RdM[0] 1, RdE[0] 1, RsE[0] 1, RdM[1] 1, RdE[1] 0, RsE[1] 1, RdM[2] 0, RdE[2] 1, RsE[2] 0, RdM[3] 0, RdE[3] 0, RsE[3] 0, RegWriteM 1, LoadM 1;
+        EVAL;
+        ASSERT FwdA 0; ASSERT FwdB 0; ASSERT Stall 1;
+    }
+    TEST "RdM=3 RegWriteM=1 LoadM=1 RdE=5 RsE=6" {
+        SET RdM[0] 1, RdE[0] 1, RsE[0] 0, RdM[1] 1, RdE[1] 0, RsE[1] 1, RdM[2] 0, RdE[2] 1, RsE[2] 1, RdM[3] 0, RdE[3] 0, RsE[3] 0, RegWriteM 1, LoadM 1;
+        EVAL;
+        ASSERT FwdA 0; ASSERT FwdB 0; ASSERT Stall 0;
+    }
+    TEST "RdM=0 RegWriteM=1 LoadM=1 RdE=0 RsE=0" {
+        SET RdM[0] 0, RdE[0] 0, RsE[0] 0, RdM[1] 0, RdE[1] 0, RsE[1] 0, RdM[2] 0, RdE[2] 0, RsE[2] 0, RdM[3] 0, RdE[3] 0, RsE[3] 0, RegWriteM 1, LoadM 1;
+        EVAL;
+        ASSERT FwdA 0; ASSERT FwdB 0; ASSERT Stall 0;
+    }
+    TEST "RdM=15 RegWriteM=1 LoadM=1 RdE=15 RsE=15" {
+        SET RdM[0] 1, RdE[0] 1, RsE[0] 1, RdM[1] 1, RdE[1] 1, RsE[1] 1, RdM[2] 1, RdE[2] 1, RsE[2] 1, RdM[3] 1, RdE[3] 1, RsE[3] 1, RegWriteM 1, LoadM 1;
+        EVAL;
+        ASSERT FwdA 0; ASSERT FwdB 0; ASSERT Stall 1;
+    }
+    TEST "RdM=15 RegWriteM=0 LoadM=1 RdE=15 RsE=15" {
+        SET RdM[0] 1, RdE[0] 1, RsE[0] 1, RdM[1] 1, RdE[1] 1, RsE[1] 1, RdM[2] 1, RdE[2] 1, RsE[2] 1, RdM[3] 1, RdE[3] 1, RsE[3] 1, RegWriteM 0, LoadM 1;
+        EVAL;
+        ASSERT FwdA 0; ASSERT FwdB 0; ASSERT Stall 0;
+    }
+    TEST "RdM=12 RegWriteM=1 LoadM=0 RdE=12 RsE=4" {
+        SET RdM[0] 0, RdE[0] 0, RsE[0] 0, RdM[1] 0, RdE[1] 0, RsE[1] 0, RdM[2] 1, RdE[2] 1, RsE[2] 1, RdM[3] 1, RdE[3] 1, RsE[3] 0, RegWriteM 1, LoadM 0;
+        EVAL;
+        ASSERT FwdA 1; ASSERT FwdB 0; ASSERT Stall 0;
+    }
+    TEST "RdM=7 RegWriteM=1 LoadM=0 RdE=7 RsE=7" {
+        SET RdM[0] 1, RdE[0] 1, RsE[0] 1, RdM[1] 1, RdE[1] 1, RsE[1] 1, RdM[2] 1, RdE[2] 1, RsE[2] 1, RdM[3] 0, RdE[3] 0, RsE[3] 0, RegWriteM 1, LoadM 0;
+        EVAL;
+        ASSERT FwdA 1; ASSERT FwdB 1; ASSERT Stall 0;
+    }
+    TEST "RdM=1 RegWriteM=1 LoadM=1 RdE=2 RsE=1" {
+        SET RdM[0] 1, RdE[0] 0, RsE[0] 1, RdM[1] 0, RdE[1] 1, RsE[1] 0, RdM[2] 0, RdE[2] 0, RsE[2] 0, RdM[3] 0, RdE[3] 0, RsE[3] 0, RegWriteM 1, LoadM 1;
+        EVAL;
+        ASSERT FwdA 0; ASSERT FwdB 0; ASSERT Stall 1;
+    }
+}

@@ -392,8 +392,56 @@ Ohne ISA-Änderung, nur Umbau von `PC_16B` und `SP_16B`.
   kein Gewinn, weil der RAM-Zugriff weiter mitten in Execute liegt: der
   kritische Pfad ist jetzt Befehlsregister → SP/ALU → `MemAddr` (9,6 ns) →
   RAM (3 ns) → `MemDataIn` → `TargetMux` → PC (RET).
-- [ ] Nächster Hebel: Speicherstufe (Fetch | Execute | Memory) mit
+- [x] Nächster Hebel: Speicherstufe (Fetch | Execute | Memory) mit
       registrierter Speicheradresse bzw. synchronem RAM. Kostet einen
       Forwarding-Pfad bzw. einen Wartetakt bei „Laden, dann sofort benutzen“
       und macht RET/POP zweitaktig. Alternativ Sprungvorhersage
-      (z. B. rückwärts = genommen), um den Sprung-Takt zurückzuholen.
+      (z. B. rückwärts = genommen), um den Sprung-Takt zurückzuholen. Speicherstufe: Phase 9
+
+## Phase 9 – Speicherstufe: 3-stufige Pipeline (2026-11-10)
+
+- [x] `CPU_16B_PIPE3` / `COMPUTER_16B_PIPE3`: Fetch | Execute | Memory, gleiche
+      Ports, gleiche ISA.
+  - Execute rechnet wie bisher und legt Ergebnis, Speicheradresse,
+    Speicherdaten und Steuerbits (Rd, RegWrite, MemWrite, Load, Ret) in
+    Pipeline-Register (`ResultM`, `AddrM`, `DataM`, `CtrlM`).
+  - Memory: `MemAddr`, `MemDataOut` und `MemWrite` kommen direkt aus diesen
+    Registern (stabil ab Taktbeginn, wie bei einem synchronen SRAM); das
+    Registerfile wird erst hier geschrieben (Ergebnis oder geladenes Wort).
+  - `HAZARD_16B`: Forwarding von `ResultM` an Rd/Rs der Execute-Stufe; bei
+    „Laden, dann sofort benutzen“ (LW/POP) ein Wartetakt (PC und Befehls-
+    register halten, das Steuerwerk sieht NOP). R0 wird nie weitergereicht.
+  - Flags, SP und `Out` werden in Execute geschrieben, brauchen also nichts.
+  - RET: Ziel kommt aus dem Speicher – in Execute wird das geholte Wort
+    verworfen, in Memory der PC aus `MemDataIn` geladen (zwei Takte).
+  - `Halted` erst, wenn die Speicherstufe nichts mehr schreibt (ein SW direkt
+    vor HALT findet noch statt).
+  - Tests: `HAZARD_16B.clt` (15 Fälle), `CPU_16B_PIPE3.clt` (die sechs
+    Programme aus `CPU_16B.clt` plus ein Hazard-Programm: Laden und sofort
+    benutzen, Weiterreichen in Store-Daten und Sprungziel, RET, Schreiben
+    auf R0, SW vor HALT; Endzustand gleich wie bei `CPU_16B`),
+    `COMPUTER_16B_PIPE3.clt`; Rust-Test `pipeline_hazards` auf allen drei
+    Rechnern. `verify-verilog`: 89 Suiten in 4 Varianten grün.
+  - 25.442 NANDs (+3.937 gegenüber COMPUTER_16B: Pipeline-Register ≈ 2.100,
+    Befehlsregister 1.196, Forwarding-Muxe 256, Hazard 79).
+- [x] Takte (Einzeltakt → 3 Stufen): factorial 488 → 610, fibonacci 168 → 193,
+      multiply 65 → 79, sort 320 → 401 (≈ 1,22 Takte pro Befehl).
+- [x] Ergebnis (basic, met5, 40 %, `--mem-delay 3`):
+
+  | | COMPUTER_16B | _PIPE (2 Stufen) | _PIPE3 (3 Stufen) |
+  |---|---|---|---|
+  | fmax ohne `--optimize` | 59 MHz | 54 MHz | 62 MHz |
+  | fmax mit `--optimize` | 57 MHz | 71 MHz | **102 MHz** |
+  | Takte pro Befehl | 1,0 | ≈ 1,2 | ≈ 1,22 |
+  | Befehle pro µs (bester Lauf) | ≈ 59 | ≈ 59 | **≈ 84** (+42 %) |
+  | Transistoren | 40.710 | 42.368 | 46.748 |
+  | Die | 339 µm | 345 µm | 362 µm |
+
+  Der Speicher liegt jetzt in keinem langen Pfad mehr: Ohne Speicher-
+  verzögerung (`basic-met5`) ergibt sich genau derselbe Takt wie mit 3 ns.
+  Kritischer Pfad (optimiert, 9,6 ns): Befehlsregister → `HAZARD_16B` →
+  Stall-Gatter vor dem Steuerwerk (≈ 1,2 ns) → Steuerwerk → `ImmMux` →
+  `BMux` → ALU → `WbMux` → `WbZero` → Flags.
+- [ ] Mögliche nächste Schritte: Stall nicht vor dem Steuerwerk, sondern nur
+      an den Schreibsignalen ausblenden (spart ≈ 1 ns); Z-Flag nicht aus dem
+      Ergebnis, sondern parallel aus dem Addierer; Sprungvorhersage.

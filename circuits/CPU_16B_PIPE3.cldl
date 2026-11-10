@@ -1,0 +1,373 @@
+CIRCUIT CPU_16B_PIPE3 {
+    // CPU_16B with a three-stage pipeline: fetch | execute | memory. Same
+    // ports, instruction set and datapath parts as CPU_16B and CPU_16B_PIPE.
+    //
+    //   fetch:   PC -> instruction memory -> Ir (as in CPU_16B_PIPE)
+    //   execute: Ir -> control, register file, ALU/shifter, flags, SP, Out,
+    //            jumps and branches; the result, the memory address, the
+    //            store data and the control bits for the next stage go into
+    //            registers (ResultM, AddrM, DataM, CtrlM)
+    //   memory:  MemAddr/MemDataOut/MemWrite come straight from those
+    //            registers; the memory answers on MemDataIn; the register
+    //            file is written with the result or the loaded word
+    //
+    // The data memory access thus no longer adds to the execute path, and
+    // the memory sees address, data and write enable stable from the start
+    // of the clock (like a synchronous SRAM). Stores happen on the clock edge
+    // that ends the memory stage.
+    //
+    // Hazards (HAZARD_16B):
+    //   - The instruction in memory writes its register one clock after it
+    //     executed; the next instruction gets that value forwarded from
+    //     ResultM instead of the register file.
+    //   - A load (LW, POP) only has its value in the memory stage: if the
+    //     next instruction reads that register it waits one clock (Stall:
+    //     PC and Ir hold, the control unit sees a NOP).
+    //   - Flags, SP and Out are written in execute, so they need nothing.
+    //   - A taken jump or branch costs one clock (as in CPU_16B_PIPE).
+    //   - RET reads its target from memory: in execute it drops the fetched
+    //     word, in memory it loads the PC from MemDataIn and drops the next
+    //     one: two lost clocks.
+    // HALT stops PC and Ir; Halted rises once the memory stage has nothing
+    // left to write, so a store right before HALT still happens.
+    //
+    // Memories are external: the CPU drives PC and reads the word at PC on
+    // Instruction and the word at PC+1 on InstructionNext (the second word of
+    // LI/JMP/CALL). Data memory: the CPU drives MemAddr (and MemDataOut,
+    // MemWrite) and reads MemDataIn; the memory answers combinationally and
+    // stores MemDataOut on the rising CLK edge when MemWrite is 1.
+    //
+    // Reset (synchronous, on a CLK edge) clears PC, SP, the flags, Out and
+    // the pipeline and blocks register and memory writes. The register file
+    // is not cleared.
+
+    // --- Inputs ---
+    INPUT Instruction[16];     // word at PC
+    INPUT InstructionNext[16]; // word at PC+1 (latched with the word at PC)
+    INPUT MemDataIn[16];       // data memory at MemAddr
+    INPUT In[16];              // input port (IN)
+    INPUT CLK;
+    INPUT Reset;
+
+    // --- Outputs ---
+    OUTPUT PC[16];
+    OUTPUT MemAddr[16];
+    OUTPUT MemDataOut[16];
+    OUTPUT MemWrite;
+    OUTPUT Out[16];            // output register (OUT)
+    OUTPUT Halted;             // 1 once HALT executes and memory is done
+    OUTPUT FlagZ, FlagN, FlagC, FlagV;
+    OUTPUT SP[16];
+
+    // --- Parts ---
+    // Everything with a register comes first: their INITs pulse CLK, and
+    // their load inputs (driven by gates built later) read 0 meanwhile.
+    // HaltNot must stay the last part (see CPU_8B). All pipeline registers
+    // are REGISTER_R: a plain REGISTER drives its own Load in its INIT
+    // (see IR_16B).
+    PART PcUnit: PC_FETCH_16B;
+    PART Ir: IR_16B;
+    PART SpUnit: SP_16B;
+    PART Flags: FLAGS_16B;
+    PART OutReg: REGISTER_R<16>;
+    PART ResultM: REGISTER_R<16>;   // ALU, shifter or In result
+    PART AddrM: REGISTER_R<16>;     // memory address
+    PART DataM: REGISTER_R<16>;     // store data
+    PART CtrlM: REGISTER_R<8>;      // Rd[0..3], RegWrite, MemWrite, Load, Ret
+    PART RegFile: REG_FILE_16<16>;
+
+    PART Hazard: HAZARD_16B;
+    PART Control: CONTROL_UNIT_16B;
+    PART Cond: COND_16B;
+
+    PART NotStall: NOT;
+    PART OpGate: AND_BUS<4>;         // Op AND NOT Stall
+    PART FnGate: AND_BUS<3>;         // Fn[3..1] AND NOT Stall
+    PART Fn0Or: OR;                  // Fn[0] OR Stall: a stall decodes as NOP
+
+    PART FwdMuxA: MUX_2_1_BUS<16>;   // Rd: register file or ResultM
+    PART FwdMuxB: MUX_2_1_BUS<16>;   // Rs: register file or ResultM
+
+    PART ImmMux: MUX_4_1_BUS<16>;    // imm8, sign-extended imm8, imm8<<8, off4
+    PART AMux: MUX_2_1_BUS<16>;      // Rd, immediate
+    PART BMux: MUX_4_1_BUS<16>;      // Rs, immediate, second word
+    PART Alu: ALU_16B;
+    PART AmtMux: MUX_2_1_BUS<4>;     // shift amount: Rs[3..0], Rs field
+    PART Shifter: SHIFTER_16B;
+    PART WbMux: MUX_4_1_BUS<16>;     // ALU, shifter, (memory: later), In
+    PART WbZero: ZERO_16B;
+    PART AddrMux: MUX_4_1_BUS<16>;   // ALU, SP, SP-1
+    PART DataMux: MUX_2_1_BUS<16>;   // Rd, return address
+    PART TargetMux: MUX_4_1_BUS<16>; // second word, Rd
+    PART RetMux: MUX_2_1_BUS<16>;    // TargetMux, MemDataIn (RET in memory)
+    PART WbMuxM: MUX_2_1_BUS<16>;    // ResultM, MemDataIn (load)
+
+    PART CinAnd: AND;   // CinCarry AND C
+    PART CinOr: OR;     // CinOne OR (CinCarry AND C)
+    PART BranchAnd: AND;
+    PART NotReset: NOT;
+    PART WriteAnd: AND; // RegWriteM AND NOT Reset
+    PART MemAnd: AND;   // MemWriteM AND NOT Reset
+    PART NotWb0: NOT;
+    PART LoadAnd: AND;  // WbSel = 2: load
+    PART NotTs0: NOT;
+    PART RetAnd: AND3;  // Jump AND TargetSel = 2: RET
+    PART NotRet: NOT;
+    PART JumpAnd: AND;  // Jump AND NOT RET
+    PART PcJump: OR;    // JumpE OR RetM
+    PART FlushOr1: OR;
+    PART Flush: OR;     // PcJump OR taken branch OR RetE: drop the fetched word
+    PART BusyOr: OR;    // memory stage still writes
+    PART NotBusy: NOT;
+    PART HaltedAnd: AND;
+    PART EnableAnd: AND; // NOT Halt AND NOT Stall: PC and Ir advance
+    PART C_TRUE: NOR;    // Constant 1 (VCC), NOR(0,0) = 1
+    PART Pre14Not: NOT;  // pre-decode: fetched opcode 6 (LONG) = two words
+    PART Pre13Not: NOT;
+    PART PreLong: NOR4;
+
+    // PC and Ir advance unless HALT executes. Must stay last.
+    PART HaltNot: NOT;
+
+    // --- Connections ---
+
+    // 0. Fetch: instruction register and pre-decode
+    CONNECT Instruction -> Ir.Data;
+    CONNECT InstructionNext -> Ir.DataNext;
+    CONNECT EnableAnd.out -> Ir.Load;
+    CONNECT Reset -> Ir.Reset;
+    CONNECT CLK -> Ir.CLK;
+    CONNECT Flush.out -> Ir.Flush;
+    CONNECT Instruction[14] -> Pre14Not.in;
+    CONNECT Instruction[13] -> Pre13Not.in;
+    CONNECT Instruction[15] -> PreLong.A;
+    CONNECT Pre14Not.out -> PreLong.B;
+    CONNECT Pre13Not.out -> PreLong.C;
+    CONNECT Instruction[12] -> PreLong.D;
+    CONNECT PreLong.Out -> PcUnit.Step2;
+
+    // 1. Hazards and decode: Op = [15..12], Fn = [3..0]; NOP while stalled
+    FOR i IN 0..4 {
+        CONNECT CtrlM.Q[i] -> Hazard.RdM[i];
+        CONNECT Ir.Q[8+i] -> Hazard.RdE[i];
+        CONNECT Ir.Q[4+i] -> Hazard.RsE[i];
+    }
+    CONNECT CtrlM.Q[4] -> Hazard.RegWriteM;
+    CONNECT CtrlM.Q[6] -> Hazard.LoadM;
+    CONNECT Hazard.Stall -> NotStall.in;
+    FOR i IN 0..4 {
+        CONNECT Ir.Q[12+i] -> OpGate.A[i];
+    }
+    CONNECT NotStall.out -> OpGate.B;
+    CONNECT OpGate.Out -> Control.Op;
+    FOR i IN 0..3 {
+        CONNECT Ir.Q[1+i] -> FnGate.A[i];
+        CONNECT FnGate.Out[i] -> Control.Fn[1+i];
+    }
+    CONNECT NotStall.out -> FnGate.B;
+    CONNECT Ir.Q[0] -> Fn0Or.in1;
+    CONNECT Hazard.Stall -> Fn0Or.in2;
+    CONNECT Fn0Or.out -> Control.Fn[0];
+
+    // 2. Register file: read Rd [11..8] and Rs [7..4] in execute (with
+    //    forwarding), write RdM in memory
+    FOR i IN 0..4 {
+        CONNECT Ir.Q[8+i] -> RegFile.ReadAddrA[i];
+        CONNECT Ir.Q[4+i] -> RegFile.ReadAddrB[i];
+        CONNECT CtrlM.Q[i] -> RegFile.WriteAddr[i];
+    }
+    CONNECT RegFile.DataOutA -> FwdMuxA.A;
+    CONNECT ResultM.Q -> FwdMuxA.B;
+    CONNECT Hazard.FwdA -> FwdMuxA.S;
+    CONNECT RegFile.DataOutB -> FwdMuxB.A;
+    CONNECT ResultM.Q -> FwdMuxB.B;
+    CONNECT Hazard.FwdB -> FwdMuxB.S;
+    CONNECT CLK -> RegFile.CLK;
+    CONNECT ResultM.Q -> WbMuxM.A;
+    CONNECT MemDataIn -> WbMuxM.B;
+    CONNECT CtrlM.Q[6] -> WbMuxM.S;
+    CONNECT WbMuxM.Out -> RegFile.DataIn;
+    CONNECT Reset -> NotReset.in;
+    CONNECT CtrlM.Q[4] -> WriteAnd.in1;
+    CONNECT NotReset.out -> WriteAnd.in2;
+    CONNECT WriteAnd.out -> RegFile.WriteEnable;
+
+    // 3. Immediates (unconnected bits read 0)
+    FOR i IN 0..8 {
+        CONNECT Ir.Q[i] -> ImmMux.In[i];       // 0: imm8
+        CONNECT Ir.Q[i] -> ImmMux.In[16+i];    // 1: sign-extended imm8
+        CONNECT Ir.Q[7] -> ImmMux.In[24+i];
+        CONNECT Ir.Q[i] -> ImmMux.In[40+i];    // 2: imm8 << 8
+    }
+    FOR i IN 0..4 {
+        CONNECT Ir.Q[i] -> ImmMux.In[48+i];    // 3: off4
+    }
+    CONNECT Control.ImmSel -> ImmMux.S;
+
+    // 4. ALU operands and control
+    CONNECT FwdMuxA.Out -> AMux.A;
+    CONNECT ImmMux.Out -> AMux.B;
+    CONNECT Control.ASrc -> AMux.S;
+    FOR i IN 0..16 {
+        CONNECT FwdMuxB.Out[i] -> BMux.In[i];
+        CONNECT ImmMux.Out[i] -> BMux.In[16+i];
+        CONNECT Ir.QNext[i] -> BMux.In[32+i];
+    }
+    CONNECT Control.BSrc -> BMux.S;
+    CONNECT AMux.Out -> Alu.A;
+    CONNECT BMux.Out -> Alu.B;
+    CONNECT Control.AluS -> Alu.S;
+    CONNECT Control.InvB -> Alu.InvB;
+    CONNECT Control.ZeroA -> Alu.ZeroA;
+    CONNECT Control.CinCarry -> CinAnd.in1;
+    CONNECT Flags.C -> CinAnd.in2;
+    CONNECT Control.CinOne -> CinOr.in1;
+    CONNECT CinAnd.out -> CinOr.in2;
+    CONNECT CinOr.out -> Alu.Cin;
+
+    // 5. Shifter: Rd shifted by Rs[3..0] or by the Rs field
+    CONNECT FwdMuxA.Out -> Shifter.A;
+    FOR i IN 0..4 {
+        CONNECT FwdMuxB.Out[i] -> AmtMux.A[i];
+        CONNECT Ir.Q[4+i] -> AmtMux.B[i];
+    }
+    CONNECT Control.ShImm -> AmtMux.S;
+    CONNECT AmtMux.Out -> Shifter.Amt;
+    CONNECT Control.ShLeft -> Shifter.Left;
+    CONNECT Control.ShRot -> Shifter.Rot;
+    CONNECT Control.ShArith -> Shifter.Arith;
+
+    // 6. Result of the execute stage (loads are written in memory)
+    FOR i IN 0..16 {
+        CONNECT Alu.Result[i] -> WbMux.In[i];
+        CONNECT Shifter.Out[i] -> WbMux.In[16+i];
+        CONNECT In[i] -> WbMux.In[48+i];
+    }
+    CONNECT Control.WbSel -> WbMux.S;
+
+    // 7. Flags: Z/N of the result, C/V of the ALU (loads leave them alone)
+    CONNECT WbMux.Out -> WbZero.A;
+    CONNECT WbZero.Z -> Flags.ZIn;
+    CONNECT WbMux.Out[15] -> Flags.NIn;
+    CONNECT Alu.Cout -> Flags.CIn;
+    CONNECT Alu.V -> Flags.VIn;
+    CONNECT Control.LoadZN -> Flags.LoadZN;
+    CONNECT Control.LoadCV -> Flags.LoadCV;
+    CONNECT Reset -> Flags.Reset;
+    CONNECT CLK -> Flags.CLK;
+    CONNECT Flags.Z -> FlagZ;
+    CONNECT Flags.N -> FlagN;
+    CONNECT Flags.C -> FlagC;
+    CONNECT Flags.V -> FlagV;
+
+    // 8. Stack and memory address/data, registered for the memory stage
+    CONNECT CLK -> SpUnit.CLK;
+    CONNECT Reset -> SpUnit.Reset;
+    CONNECT Control.SpInc -> SpUnit.Inc;
+    CONNECT Control.SpDec -> SpUnit.Dec;
+    CONNECT SpUnit.SP -> SP;
+    FOR i IN 0..16 {
+        CONNECT Alu.Result[i] -> AddrMux.In[i];
+        CONNECT SpUnit.SP[i] -> AddrMux.In[16+i];
+        CONNECT SpUnit.Next[i] -> AddrMux.In[32+i];
+    }
+    CONNECT Control.MemAddrSel -> AddrMux.S;
+    CONNECT FwdMuxA.Out -> DataMux.A;
+    CONNECT PcUnit.Addr -> DataMux.B;   // return address, see PC_FETCH_16B
+    CONNECT Control.MemDataSel -> DataMux.S;
+
+    // 9. Pipeline registers execute -> memory (loaded every clock)
+    CONNECT WbMux.Out -> ResultM.Data;
+    CONNECT AddrMux.Out -> AddrM.Data;
+    CONNECT DataMux.Out -> DataM.Data;
+    FOR i IN 0..4 {
+        CONNECT Ir.Q[8+i] -> CtrlM.Data[i];
+    }
+    CONNECT Control.RegWrite -> CtrlM.Data[4];
+    CONNECT Control.MemWrite -> CtrlM.Data[5];
+    CONNECT Control.WbSel[0] -> NotWb0.in;
+    CONNECT Control.WbSel[1] -> LoadAnd.in1;
+    CONNECT NotWb0.out -> LoadAnd.in2;
+    CONNECT LoadAnd.out -> CtrlM.Data[6];
+    CONNECT RetAnd.Out -> CtrlM.Data[7];
+    CONNECT C_TRUE.out -> ResultM.Load;
+    CONNECT C_TRUE.out -> AddrM.Load;
+    CONNECT C_TRUE.out -> DataM.Load;
+    CONNECT C_TRUE.out -> CtrlM.Load;
+    CONNECT Reset -> CtrlM.Reset;
+    CONNECT CLK -> ResultM.CLK;
+    CONNECT CLK -> AddrM.CLK;
+    CONNECT CLK -> DataM.CLK;
+    CONNECT CLK -> CtrlM.CLK;
+
+    // 10. Memory stage outputs
+    CONNECT AddrM.Q -> MemAddr;
+    CONNECT DataM.Q -> MemDataOut;
+    CONNECT CtrlM.Q[5] -> MemAnd.in1;
+    CONNECT NotReset.out -> MemAnd.in2;
+    CONNECT MemAnd.out -> MemWrite;
+
+    // 11. Program counter: jumps and branches in execute, RET in memory
+    FOR i IN 0..16 {
+        CONNECT Ir.QNext[i] -> TargetMux.In[i];
+        CONNECT FwdMuxA.Out[i] -> TargetMux.In[16+i];
+    }
+    CONNECT Control.TargetSel -> TargetMux.S;
+    CONNECT TargetMux.Out -> RetMux.A;
+    CONNECT MemDataIn -> RetMux.B;
+    CONNECT CtrlM.Q[7] -> RetMux.S;
+    CONNECT RetMux.Out -> PcUnit.Target;
+    // RET in execute: Jump with TargetSel = 2 (memory); only drops the
+    // fetched word, the jump itself happens one clock later in memory.
+    CONNECT Control.TargetSel[0] -> NotTs0.in;
+    CONNECT Control.Jump -> RetAnd.A;
+    CONNECT Control.TargetSel[1] -> RetAnd.B;
+    CONNECT NotTs0.out -> RetAnd.C;
+    CONNECT RetAnd.Out -> NotRet.in;
+    CONNECT Control.Jump -> JumpAnd.in1;
+    CONNECT NotRet.out -> JumpAnd.in2;
+    CONNECT JumpAnd.out -> PcJump.in1;
+    CONNECT CtrlM.Q[7] -> PcJump.in2;
+    CONNECT PcJump.out -> PcUnit.Jump;
+    CONNECT PcJump.out -> FlushOr1.in1;
+    CONNECT BranchAnd.out -> FlushOr1.in2;
+    CONNECT FlushOr1.out -> Flush.in1;
+    CONNECT RetAnd.Out -> Flush.in2;
+    // Branch offset: sign-extended imm8
+    FOR i IN 0..8 {
+        CONNECT Ir.Q[i] -> PcUnit.Offset[i];
+        CONNECT Ir.Q[7] -> PcUnit.Offset[8+i];
+    }
+    FOR i IN 0..4 {
+        CONNECT Ir.Q[8+i] -> Cond.Cond[i];
+    }
+    CONNECT Flags.Z -> Cond.Z;
+    CONNECT Flags.N -> Cond.N;
+    CONNECT Flags.C -> Cond.C;
+    CONNECT Flags.V -> Cond.V;
+    CONNECT Control.BranchInstr -> BranchAnd.in1;
+    CONNECT Cond.Take -> BranchAnd.in2;
+    CONNECT BranchAnd.out -> PcUnit.Branch;
+    CONNECT Control.Halt -> HaltNot.in;
+    CONNECT HaltNot.out -> EnableAnd.in1;
+    CONNECT NotStall.out -> EnableAnd.in2;
+    CONNECT EnableAnd.out -> PcUnit.Enable;
+    CONNECT Reset -> PcUnit.Reset;
+    CONNECT CLK -> PcUnit.CLK;
+    CONNECT PcUnit.Addr -> PC;
+
+    // 12. Halted once the memory stage is idle
+    CONNECT CtrlM.Q[4] -> BusyOr.in1;
+    CONNECT CtrlM.Q[5] -> BusyOr.in2;
+    CONNECT BusyOr.out -> NotBusy.in;
+    CONNECT Control.Halt -> HaltedAnd.in1;
+    CONNECT NotBusy.out -> HaltedAnd.in2;
+    CONNECT HaltedAnd.out -> Halted;
+
+    // 13. Output register (OUT Rd)
+    CONNECT FwdMuxA.Out -> OutReg.Data;
+    CONNECT Control.OutEnable -> OutReg.Load;
+    CONNECT Reset -> OutReg.Reset;
+    CONNECT CLK -> OutReg.CLK;
+    CONNECT OutReg.Q -> Out;
+}

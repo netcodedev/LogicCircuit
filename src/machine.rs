@@ -237,8 +237,8 @@ mod tests {
         assert_eq!(machine.pc(&circuit), 0);
     }
 
-    /// The 16-bit computers: single cycle and two-stage pipeline.
-    const COMPUTERS_16: [&str; 2] = ["COMPUTER_16B", "COMPUTER_16B_PIPE"];
+    /// The 16-bit computers: single cycle, two- and three-stage pipeline.
+    const COMPUTERS_16: [&str; 3] = ["COMPUTER_16B", "COMPUTER_16B_PIPE", "COMPUTER_16B_PIPE3"];
 
     /// Runs a 16-bit program on `top` to HALT and returns the circuit and
     /// machine.
@@ -284,6 +284,23 @@ mod tests {
             assert_eq!(machine.ram[0xFFFF], 7);
             assert_eq!(machine.ram[0xFFFE], 0xBEEF);
             assert_eq!(read_bus(&circuit, OUT, 16), 107);
+        }
+    }
+
+    /// Back-to-back dependencies that the three-stage pipeline has to
+    /// forward or stall for (see HAZARD_16B); all computers must agree.
+    #[test]
+    fn pipeline_hazards() {
+        let src = "LI R1, 0x2000\n MOVI R2, 5\n SW R2, [R1]\n\
+                   LW R3, [R1]\n ADD R3, R3\n ADDI R3, 1\n SW R3, [R1+1]\n\
+                   LW R4, [R1+1]\n OUT R4\n PUSH R4\n POP R5\n\
+                   LI R6, target\n SW R6, [R1+2]\n LW R7, [R1+2]\n JR R7\n HALT\n\
+                   target: CMP R5, R4\n BEQ ok\n HALT\n\
+                   ok: ADD R0, R5\n MOV R8, R0\n ADD R8, R5\n SW R8, [R1+3]\n HALT";
+        for top in COMPUTERS_16 {
+            let (circuit, machine) = run16(top, src, 0);
+            assert_eq!(machine.ram[0x2000..0x2004], [5, 11, 0x0012, 11], "{top}");
+            assert_eq!(read_bus(&circuit, OUT, 16), 11, "{top}");
         }
     }
 }

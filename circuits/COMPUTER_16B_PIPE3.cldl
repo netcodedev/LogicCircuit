@@ -1,0 +1,45 @@
+CIRCUIT COMPUTER_16B_PIPE3 {
+    // COMPUTER_16B with the pipelined CPU_16B_PIPE3 (fetch | execute | memory).
+    // Same ports, programs and memories; see CPU_16B_PIPE3 for the timing.
+
+    INPUT Instruction[16];
+    INPUT InstructionNext[16];
+    INPUT MemDataIn[16];
+    INPUT In[16];
+    INPUT CLK;
+    INPUT Reset;
+
+    OUTPUT PC[16];
+    OUTPUT MemAddr[16];
+    OUTPUT MemDataOut[16];
+    OUTPUT MemWrite;
+    OUTPUT Halted;
+    OUTPUT Out[16];
+    OUTPUT Seg3[7];     // Out[15..12], segments a..g
+    OUTPUT Seg2[7];
+    OUTPUT Seg1[7];
+    OUTPUT Seg0[7];     // Out[3..0]
+
+    PART Cpu: CPU_16B_PIPE3;
+    PART Display: HEX_DISPLAY_16B;
+
+    CONNECT Instruction -> Cpu.Instruction;
+    CONNECT InstructionNext -> Cpu.InstructionNext;
+    CONNECT MemDataIn -> Cpu.MemDataIn;
+    CONNECT In -> Cpu.In;
+    CONNECT CLK -> Cpu.CLK;
+    CONNECT Reset -> Cpu.Reset;
+
+    CONNECT Cpu.PC -> PC;
+    CONNECT Cpu.MemAddr -> MemAddr;
+    CONNECT Cpu.MemDataOut -> MemDataOut;
+    CONNECT Cpu.MemWrite -> MemWrite;
+    CONNECT Cpu.Halted -> Halted;
+    CONNECT Cpu.Out -> Out;
+
+    CONNECT Cpu.Out -> Display.Value;
+    CONNECT Display.Seg3 -> Seg3;
+    CONNECT Display.Seg2 -> Seg2;
+    CONNECT Display.Seg1 -> Seg1;
+    CONNECT Display.Seg0 -> Seg0;
+}

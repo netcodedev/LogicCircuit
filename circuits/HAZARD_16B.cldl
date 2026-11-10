@@ -1,0 +1,81 @@
+CIRCUIT HAZARD_16B {
+    // Forwarding and load-use detection of CPU_16B_PIPE3. The instruction in
+    // the memory stage writes register RdM at the end of the clock (if
+    // RegWriteM); the instruction in the execute stage reads the registers
+    // in its Rd and Rs fields during the same clock and would see the old
+    // value. Hence (R0 is never written, so RdM = 0 never matches):
+    //   FwdA  = RegWriteM AND NOT LoadM AND RdM = RdE  -> take ResultM for Rd
+    //   FwdB  = RegWriteM AND NOT LoadM AND RdM = RsE  -> take ResultM for Rs
+    //   Stall = RegWriteM AND LoadM AND (RdM = RdE OR RdM = RsE)
+    // A load (LW, POP) only has its value once the memory answers, too late
+    // to forward into the ALU in the same clock: the execute stage waits one
+    // clock instead (Stall). Every instruction is treated as reading both
+    // fields; a needless stall costs a clock, never a wrong result.
+    INPUT RdM[4];
+    INPUT RegWriteM;
+    INPUT LoadM;
+    INPUT RdE[4];
+    INPUT RsE[4];
+
+    OUTPUT FwdA;
+    OUTPUT FwdB;
+    OUTPUT Stall;
+
+    FOR i IN 0..4 {
+        PART DiffA[i]: XOR;
+        PART DiffB[i]: XOR;
+    }
+    PART MatchA: NOR4;   // RdM = RdE
+    PART MatchB: NOR4;   // RdM = RsE
+    PART Zero: NOR4;     // RdM = 0
+    PART NonZero: NOT;
+    PART Write: AND;     // RegWriteM AND RdM != 0
+    PART NotLoad: NOT;
+    PART FwdAnd: AND;    // Write AND NOT LoadM
+    PART LoadAnd: AND;   // Write AND LoadM
+    PART FwdAAnd: AND;
+    PART FwdBAnd: AND;
+    PART MatchAny: OR;
+    PART StallAnd: AND;
+
+    FOR i IN 0..4 {
+        CONNECT RdM[i] -> DiffA[i].in1;
+        CONNECT RdE[i] -> DiffA[i].in2;
+        CONNECT RdM[i] -> DiffB[i].in1;
+        CONNECT RsE[i] -> DiffB[i].in2;
+    }
+    CONNECT DiffA[0].out -> MatchA.A;
+    CONNECT DiffA[1].out -> MatchA.B;
+    CONNECT DiffA[2].out -> MatchA.C;
+    CONNECT DiffA[3].out -> MatchA.D;
+    CONNECT DiffB[0].out -> MatchB.A;
+    CONNECT DiffB[1].out -> MatchB.B;
+    CONNECT DiffB[2].out -> MatchB.C;
+    CONNECT DiffB[3].out -> MatchB.D;
+    CONNECT RdM[0] -> Zero.A;
+    CONNECT RdM[1] -> Zero.B;
+    CONNECT RdM[2] -> Zero.C;
+    CONNECT RdM[3] -> Zero.D;
+    CONNECT Zero.Out -> NonZero.in;
+    CONNECT RegWriteM -> Write.in1;
+    CONNECT NonZero.out -> Write.in2;
+
+    CONNECT LoadM -> NotLoad.in;
+    CONNECT Write.out -> FwdAnd.in1;
+    CONNECT NotLoad.out -> FwdAnd.in2;
+    CONNECT Write.out -> LoadAnd.in1;
+    CONNECT LoadM -> LoadAnd.in2;
+
+    CONNECT FwdAnd.out -> FwdAAnd.in1;
+    CONNECT MatchA.Out -> FwdAAnd.in2;
+    CONNECT FwdAAnd.out -> FwdA;
+    CONNECT FwdAnd.out -> FwdBAnd.in1;
+    CONNECT MatchB.Out -> FwdBAnd.in2;
+    CONNECT FwdBAnd.out -> FwdB;
+
+    CONNECT MatchA.Out -> MatchAny.in1;
+    CONNECT MatchB.Out -> MatchAny.in2;
+    CONNECT LoadAnd.out -> StallAnd.in1;
+    CONNECT MatchAny.out -> StallAnd.in2;
+    CONNECT StallAnd.out -> Stall;
+}
