@@ -259,5 +259,50 @@ Eingängen/Flipflops und Ausgängen/Flipflops (neu in `cargo run -- nands`).
 
 ## Phase 6 – Chip und Vergleich
 
-- [ ] `chip build COMPUTER_16B`, Report, 3D-Ansicht
-- [ ] Vergleich mit COMPUTER_8B (NANDs, Transistoren, Fläche, fmax)
+- [x] `chip build COMPUTER_16B` (Basis-Blöcke, sky130, 10-ns-Takt, 2026-11-09),
+      `chip extract`, `chip report`, isometrische Renders und Chip-3D-Ansicht
+      im Viewer geprüft (Lauf `basic-met5`: 6.478 Zellen platziert, alle 6.550
+      Netze verbunden)
+- [x] Lagen-Experiment COMPUTER_16B:
+
+  | Lauf | Die | Leitung | Vias | DRC | fmax | Laufzeit |
+  |---|---|---|---|---|---|---|
+  | met5, 40 % | 329 µm | 115,2 mm | 34.219 | 0 | 95 MHz | 102 s |
+  | met3, 40 % | 329 µm | 116,4 mm | 34.106 | 0 | 96 MHz | 121 s |
+  | met5, 70 % | 251 µm | 103,8 mm | 33.975 | 0 | 96 MHz | 122 s |
+  | met5 + `--optimize` | 329 µm | 118,4 mm | 34.552 | 0 | 100 MHz | 104 s |
+  | met2, 40 % | 329 µm | – | – | 267 | – | abgebrochen nach 110 min |
+
+  Anders als COMPUTER_8B (DRC-frei schon mit met2) reichen für COMPUTER_16B
+  **zwei Lagen nicht**: Der Detail-Router blieb nach 58 Iterationen bei 267
+  Verletzungen stehen. Ab met3 ist alles DRC-frei; met4/met5 tragen nur 3 %
+  der Leitung. 70 % Auslastung spart 42 % Fläche bei gleichem Takt.
+
+- [x] Vergleich mit COMPUTER_8B (beide `basic-met5`, 40 %, gleiches Image):
+
+  | | COMPUTER_8B | COMPUTER_16B | Faktor |
+  |---|---|---|---|
+  | NANDs (Simulator) | 8.064 | 20.755 | 2,6× |
+  | Zellen (ohne Füller/Taps) | 2.213 | 6.539 | 3,0× |
+  | Transistoren | 13.852 | 38.281 | 2,8× |
+  | Flipflops | | 292 | |
+  | Logikfläche | 14.704 µm² | 41.658 µm² | 2,8× |
+  | Die | 199 × 199 µm | 329 × 329 µm | 2,7× |
+  | Leitung | 31,7 mm | 115,2 mm | 3,6× |
+  | Vias | 11.516 | 34.219 | 3,0× |
+  | fmax | 98 MHz | 95 MHz | 0,97× |
+
+  Ergebnis: Fläche und Transistoren wachsen wie die Logik (≈ 2,8×), die
+  Leitung etwas stärker (3,6×, längere Busse im größeren Die). Der Takt bleibt
+  fast gleich, weil die ALU den Kogge-Stone-Addierer nutzt.
+  Kritischer Pfad von COMPUTER_16B: Flags → `COND_16B` → `BranchAnd` →
+  Inkrement-Mux im PC → **16-Bit-Ripple-Addierer des PC** → Rücksprungadresse
+  → `MemDataOut` (≈ 6,5 ns davon im Ripple-Addierer). Bei COMPUTER_8B endet
+  der längste Pfad im Registerfile.
+  Mit dem eigenen Router (3 Lagen, ohne PDK-Regeln) sah das anders aus
+  (6,4× Fläche): Er musste für die 16-Bit-Busse die Auslastung auf 43 %
+  senken; OpenROAD verteilt die Leitung dagegen problemlos auf met1/met2
+  (91 %).
+- [ ] Möglicher nächster Schritt: PC-Addierer als Kogge-Stone oder Rücksprung-
+      adresse aus einem eigenen Inkrementierer, dann sollte der Pfad über das
+      Registerfile/ALU bestimmen
