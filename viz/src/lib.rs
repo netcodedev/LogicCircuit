@@ -2,7 +2,7 @@ use include_dir::{Dir, DirEntry, include_dir};
 use logic_circuit::circuit::{Circuit, GateKind};
 use std::cell::RefCell;
 use std::collections::HashMap;
-use logic_circuit::cldl::{CircuitBuilder, CircuitView, EndpointView, FlatLevel, PinView};
+use logic_circuit::cldl::{FLIP_FLOP, CircuitBuilder, CircuitView, EndpointView, FlatLevel, PinView};
 use logic_circuit::export::verilog::{CellLib, VerilogOptions, export_verilog};
 use logic_circuit::isa::Isa;
 use logic_circuit::machine::{self, Machine};
@@ -84,6 +84,8 @@ pub struct Sim {
     /// One circuit per built-in gate type, built from NAND gates: gives the
     /// values of the wires inside a gate for the NAND and transistor views.
     nand_cells: RefCell<HashMap<GateKind, Circuit>>,
+    /// Latch version of the flip-flop, for the wires inside built-in flip-flops.
+    flop_cell: RefCell<Option<Circuit>>,
 }
 
 #[wasm_bindgen]
@@ -98,6 +100,7 @@ impl Sim {
             circuit: None,
             machine: None,
             nand_cells: RefCell::new(HashMap::new()),
+            flop_cell: RefCell::new(None),
         }
     }
 
@@ -310,7 +313,7 @@ impl Sim {
 
     /// True if the built circuit has a UART line `Tx` (SOC_16B).
     pub fn has_uart(&self) -> bool {
-        self.circuit.as_ref().is_some_and(|c| c.get_wire_map().contains_key(machine::TX))
+        self.circuit.as_ref().is_some_and(|c| c.has_wire(machine::TX))
     }
 
     /// Text received on the UART line since the circuit was built.
@@ -366,15 +369,15 @@ impl Sim {
 
     /// Values for newline-separated wire keys: 0, 1, or 2 if the key is unknown.
     /// A wire inside a built-in gate (only in the NAND and transistor views)
-    /// is computed from the gate's inputs with its NAND definition.
+    /// is computed from the gate's inputs with its NAND definition; a wire
+    /// inside a built-in flip-flop from its D, CLK and Q with the latch version.
     pub fn values(&self, keys: &str) -> Vec<u8> {
         let Some(c) = &self.circuit else {
             return Vec::new();
         };
-        let map = c.get_wire_map();
         keys.split('\n')
-            .map(|k| match map.get(k) {
-                Some(w) => w.borrow().value as u8,
+            .map(|k| match c.wire_value(k) {
+                Some(v) => v as u8,
                 None => self.inner_value(c, k).map_or(2, |v| v as u8),
             })
             .collect()
@@ -382,33 +385,90 @@ impl Sim {
 }
 
 impl Sim {
-    /// Value of `key` inside a built-in gate, e.g. "Alu.G3.N1.out" in the
-    /// gate "Alu.G3": its NAND definition is set to the gate's input values
-    /// and evaluated. `None` if `key` is not inside a built-in gate.
+    /// Value of `key` inside a built-in gate or flip-flop, e.g.
+    /// "Alu.G3.N1.out" in the gate "Alu.G3": its NAND definition is set to
+    /// the gate's input values and evaluated. `None` if `key` is not inside
+    /// a built-in gate or flip-flop.
     fn inner_value(&self, c: &Circuit, key: &str) -> Option<bool> {
-        let map = c.get_wire_map();
-        // The innermost gate instance that is a prefix of the key.
-        let (gate, rest) = key
-            .match_indices('.')
-            .map(|(i, _)| (&key[..i], &key[i + 1..]))
-            .filter(|(p, _)| c.gate_kind(p).is_some())
-            .last()?;
+        // The outermost flip-flop or innermost gate instance that is a prefix of the key.
+        let prefixes = || key.match_indices('.').map(|(i, _)| (&key[..i], &key[i + 1..]));
+        if let Some((flop, rest)) = prefixes().find(|(p, _)| c.flop(p).is_some()) {
+            return self.flop_inner_value(c, flop, rest);
+        }
+        let (gate, rest) = prefixes().filter(|(p, _)| c.gate_kind(p).is_some()).last()?;
         let kind = c.gate_kind(gate)?;
         let mut cells = self.nand_cells.borrow_mut();
         let cell = cells.entry(kind).or_insert_with(|| self.builder.build_nand(kind.name()));
         for pin in kind.inputs() {
-            let v = map.get(&format!("{gate}.{pin}"))?.borrow().value;
+            let v = c.wire_value(&format!("{gate}.{pin}"))?;
             cell.set_input(pin, v);
         }
         cell.evaluate_stable();
         // The one-gate wrapper names its gate "G".
-        let value = cell.get_wire_map().get(&format!("G.{rest}"))?.borrow().value;
-        Some(value)
+        cell.wire_value(&format!("G.{rest}"))
+    }
+
+    /// Value of `rest` inside the built-in flip-flop `flop`: the latch
+    /// version (from NAND gates) is brought into the same state. Its master
+    /// latch holds D while CLK is 0 and the sampled Q while CLK is 1.
+    fn flop_inner_value(&self, c: &Circuit, flop: &str, rest: &str) -> Option<bool> {
+        let f = c.flop(flop)?;
+        let (d, clk, q) = (c.value(f.d), c.value(f.clk), c.value(f.q));
+        let mut shadow = self.flop_cell.borrow_mut();
+        let cell = shadow.get_or_insert_with(|| self.builder.build_nand(FLIP_FLOP));
+        let step = |pins: &[(&str, bool)]| {
+            for &(pin, v) in pins {
+                cell.set_input(pin, v);
+            }
+            cell.evaluate_stable();
+        };
+        // Both latches to Q, then the clock and D as they are now.
+        step(&[("D", q), ("CLK", false)]);
+        step(&[("CLK", true)]);
+        step(&[("CLK", false)]);
+        step(&[("CLK", clk)]);
+        step(&[("D", d)]);
+        cell.wire_value(rest)
     }
 }
 
 impl Default for Sim {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Wires inside built-in flip-flops (only the latch version has them)
+    /// read the same as in the latch version, at every phase of the clock.
+    #[test]
+    fn values_inside_flip_flops_match_latches() {
+        let mut sim = Sim::new();
+        sim.build("SYNC<2>");
+        let slow = sim.builder.build_latches("SYNC<2>");
+        let fast = sim.circuit.as_ref().unwrap();
+        let mut inner: Vec<&str> = slow.wire_names().map(|(k, _)| k).filter(|k| !fast.has_wire(k)).collect();
+        inner.sort();
+        assert!(inner.iter().any(|k| k.contains("LATCH_M")));
+        let keys = inner.join("\n");
+        for step in 0..24 {
+            let (pin, v) = match step % 4 {
+                0 => ("D.0", step % 8 == 0),
+                1 => ("D.1", step % 12 != 1),
+                2 => ("CLK", true),
+                _ => ("CLK", false),
+            };
+            for c in [fast, &slow] {
+                c.set_input(pin, v);
+                c.evaluate_stable();
+            }
+            let want: Vec<u8> = inner.iter().map(|k| slow.get_wire_value(k) as u8).collect();
+            let got = sim.values(&keys);
+            let bad: Vec<_> = inner.iter().zip(got.iter().zip(&want)).filter(|(_, (g, w))| g != w).map(|(k, (g, w))| format!("{k}={g}/{w}")).collect();
+            assert!(bad.is_empty(), "step {step}: {bad:?}");
+        }
     }
 }

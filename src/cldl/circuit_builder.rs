@@ -3,7 +3,7 @@ use std::{cell::RefCell, collections::HashMap, fs, path::Path, fmt::Write, rc::R
 use include_dir::{Dir, DirEntry};
 
 use crate::{
-    circuit::{Circuit, Gate, GateKind, Wire, wire},
+    circuit::{Circuit, Flop, Gate, GateKind, WireId},
     cldl::{
         CIRCUIT_DIR, CldlDefinition, FlatBlock, FlatCircuit, FlatLevel, FlatPin, InitCommand,
         InitValue, IoPinDef, PinRef,
@@ -12,6 +12,9 @@ use crate::{
 };
 
 use super::CircuitBuilder;
+
+/// The flip-flop definition the simulator builds in (see `circuit::Flop`).
+pub const FLIP_FLOP: &str = "DFLIP_FLOP";
 
 impl CircuitBuilder {
     const PRIMITIVE_GATES: &[&str] = &[
@@ -207,10 +210,16 @@ impl CircuitBuilder {
         self.build_with(top_level_name, &|_| false)
     }
 
+    /// Like `build`, but flip-flops (`DFLIP_FLOP`) are built from their two
+    /// latches instead of being simulated as one built-in flip-flop, so every
+    /// wire inside them exists. Behaves the same as `build`.
+    pub fn build_latches(&self, top_level_name: &str) -> Circuit {
+        self.build_with(top_level_name, &|name| name != FLIP_FLOP)
+    }
+
     /// Builds with the built-in gates for which `native(name)` is true; the
     /// others are expanded into NAND gates (NAND itself always stays).
     fn build_with(&self, top_level_name: &str, native: &dyn Fn(&str) -> bool) -> Circuit {
-        let mut circuit = Circuit::new(top_level_name.to_string());
         let top_def = self.def(top_level_name).unwrap_or_else(|| {
             panic!(
                 "Top-level circuit definition '{}' not found",
@@ -222,7 +231,8 @@ impl CircuitBuilder {
         let mut plan = self.plan_circuit(&top_def, native);
 
         // === Materialization pass: one shared Wire per equivalence class ===
-        let wire_map = plan.materialize();
+        let (wire_map, wires) = plan.materialize();
+        let mut circuit = Circuit::new(top_level_name.to_string(), wires);
 
         // Register circuit inputs (bus-aware) using the shared wires.
         for input_def in &top_def.inputs {
@@ -230,11 +240,11 @@ impl CircuitBuilder {
                 Some(width) => {
                     for i in 0..width {
                         let key = format!("{}.{}", input_def.name, i);
-                        circuit.register_input(&key, wire_map[&key].clone());
+                        circuit.register_input(&key, wire_map[&key]);
                     }
                 }
                 None => {
-                    circuit.register_input(&input_def.name, wire_map[&input_def.name].clone());
+                    circuit.register_input(&input_def.name, wire_map[&input_def.name]);
                 }
             }
         }
@@ -254,8 +264,8 @@ impl CircuitBuilder {
                                     wire_name, top_level_name
                                 )
                             })
-                            .clone();
-                        circuit.add_output(&wire_name, w); // Add individual outputs to circuit
+                            ;
+                        circuit.add_output(&wire_name, *w); // Add individual outputs to circuit
                     }
                 }
                 None => {
@@ -268,8 +278,8 @@ impl CircuitBuilder {
                                 output_def.name, top_level_name
                             )
                         })
-                        .clone();
-                    circuit.add_output(&output_def.name, w);
+                        ;
+                    circuit.add_output(&output_def.name, *w);
                 }
             }
         }
@@ -286,9 +296,12 @@ impl CircuitBuilder {
                     circuit.add_builtin(Gate {
                         id: id.clone(),
                         kind: *kind,
-                        inputs: inputs.iter().map(|k| wire_map[k].clone()).collect(),
-                        out: wire_map[out].clone(),
+                        inputs: inputs.iter().map(|k| wire_map[k]).collect(),
+                        out: wire_map[out],
                     });
+                }
+                BuildEvent::Flop { id, d, clk, q, nq } => {
+                    circuit.add_flop(Flop { id: id.clone(), d: wire_map[d], clk: wire_map[clk], q: wire_map[q], nq: wire_map[nq] });
                 }
                 BuildEvent::Init { prefix, commands, first_gate } => {
                     execute_initialization(&circuit, &wire_map, commands, prefix, *first_gate);
@@ -298,6 +311,7 @@ impl CircuitBuilder {
 
         // Store the full wire map so downstream code (tests) can probe any wire.
         circuit.set_wire_map(wire_map);
+        circuit.finalize();
 
         circuit
     }
@@ -458,7 +472,17 @@ impl CircuitBuilder {
     /// subtree). No `Wire` is created here — that happens later in
     /// `BuildPlan::materialize`.
     fn plan_part(&self, part_type: &str, instance_name: &str, plan: &mut BuildPlan, native: &dyn Fn(&str) -> bool) {
-        if let Some(kind) = GateKind::from_name(part_type) {
+        if part_type == FLIP_FLOP && native(part_type) {
+            // A built-in flip-flop with DFLIP_FLOP's pins. Its INIT (Q = 0)
+            // is the flip-flop's start state.
+            let key = |pin: &str| format!("{}.{}", instance_name, pin);
+            let [d, clk, q, nq] = ["D", "CLK", "Q", "nQ"].map(key);
+            for k in [&d, &clk, &q, &nq] {
+                plan.register(k);
+            }
+            plan.events.push(BuildEvent::Flop { id: instance_name.to_string(), d, clk, q, nq });
+            plan.gates += 1;
+        } else if let Some(kind) = GateKind::from_name(part_type) {
             if let Some(nand_def) = kind.nand_definition().filter(|_| !native(part_type)) {
                 // Expanded into NAND gates: the NAND definition has the same
                 // pins, so the connections to this instance stay the same.
@@ -886,7 +910,7 @@ fn category_of(path: &Path) -> Option<String> {
 /// Helper function to execute initialization using the wire_map
 fn execute_initialization(
     circuit: &Circuit,
-    wire_map: &HashMap<String, Wire>,
+    wire_map: &HashMap<String, WireId>,
     commands: &[InitCommand],
     instance_prefix: &str,
     first_gate: usize,
@@ -908,8 +932,8 @@ fn execute_initialization(
                     let full_pin_name =
                         namespace_pin_ref(&pv.pin_ref, instance_prefix).to_wire_map_key();
 
-                    if let Some(wire_to_set) = wire_map.get(&full_pin_name) {
-                        wire_to_set.borrow_mut().value = value;
+                    if let Some(&wire_to_set) = wire_map.get(&full_pin_name) {
+                        circuit.set_wire(wire_to_set, value);
                     } else {
                         eprintln!(
                             "Warning: [Init] Wire '{}' not found in wire_map during initialization of {}.",
@@ -930,8 +954,8 @@ fn execute_initialization(
                         };
                         let full_pin_name =
                             namespace_pin_ref(&pv.pin_ref, instance_prefix).to_wire_map_key();
-                        if let Some(wire_to_set) = wire_map.get(&full_pin_name) {
-                            wire_to_set.borrow_mut().value = value;
+                        if let Some(&wire_to_set) = wire_map.get(&full_pin_name) {
+                            circuit.set_wire(wire_to_set, value);
                         } else {
                             eprintln!(
                                 "Warning: [Init Seq] Wire '{}' not found in wire_map during initialization of {}.",
@@ -1022,6 +1046,14 @@ enum BuildEvent {
         inputs: Vec<String>,
         out: String,
     },
+    /// Add a built-in flip-flop (`DFLIP_FLOP`) wired to the given keys.
+    Flop {
+        id: String,
+        d: String,
+        clk: String,
+        q: String,
+        nq: String,
+    },
     /// Run an initialization block for the part at `prefix`. Its `EVAL`s
     /// and `SEQ` steps evaluate only the part's own gates (`first_gate` up
     /// to the gates built so far, its subtree in DFS order): an init sets
@@ -1057,18 +1089,19 @@ impl BuildPlan {
         self.union.union(a, b);
     }
 
-    /// Creates exactly one shared `Wire` per equivalence class and returns a map
-    /// from every registered key to its class's wire.
-    fn materialize(&mut self) -> HashMap<String, Wire> {
+    /// Numbers the equivalence classes (one wire each) and returns a map
+    /// from every registered key to its class's wire, and the number of wires.
+    fn materialize(&mut self) -> (HashMap<String, WireId>, usize) {
         let keys: Vec<String> = self.union.ids.keys().cloned().collect();
-        let mut class_wire: HashMap<usize, Wire> = HashMap::new();
-        let mut wire_map: HashMap<String, Wire> = HashMap::with_capacity(keys.len());
+        let mut class_wire: HashMap<usize, WireId> = HashMap::new();
+        let mut wire_map: HashMap<String, WireId> = HashMap::with_capacity(keys.len());
         for key in keys {
             let id = self.union.ids[&key];
             let root = self.union.find(id);
-            let w = class_wire.entry(root).or_insert_with(wire).clone();
+            let next = class_wire.len() as WireId;
+            let w = *class_wire.entry(root).or_insert(next);
             wire_map.insert(key, w);
         }
-        wire_map
+        (wire_map, class_wire.len())
     }
 }

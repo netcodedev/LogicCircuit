@@ -823,7 +823,7 @@ fn run_program(
     // Show the 7-segment outputs if the circuit has them (highest digit first).
     let digits: Vec<u32> = ["Seg3", "Seg2", "Seg1", "Seg0"]
         .iter()
-        .filter(|name| circuit.get_wire_map().contains_key(&format!("{}.0", name)))
+        .filter(|name| circuit.has_wire(&format!("{}.0", name)))
         .map(|name| machine::read_bus(&circuit, name, 7))
         .collect();
     if !digits.is_empty() {
@@ -872,8 +872,12 @@ fn print_nand_breakdown(builder: &CircuitBuilder, name: &str, depth: usize) {
         std::process::exit(1);
     };
     println!("\n{}: {} NANDs", name, group_digits(total));
-    let gates = builder.build(name).gate_count();
-    println!("Simulated as {} built-in gates (NOT, AND, OR, XOR, ...; see src/circuit/gates.rs)", group_digits(gates));
+    let built = builder.build(name);
+    println!(
+        "Simulated as {} built-in gates (NOT, AND, OR, XOR, ...; see src/circuit/gates.rs) and {} flip-flops",
+        group_digits(built.gate_count()),
+        group_digits(built.flop_count())
+    );
     if let Some(d) = builder.logic_depth(name) {
         println!("Logic depth: {} NAND levels (longest path between inputs/flip-flops and outputs/flip-flops)", d);
     }

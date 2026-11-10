@@ -66,11 +66,8 @@ const INSTRUCTION_WIDTH: usize = 16;
 /// Reads an output or internal bus (`name.0` = LSB) as a number.
 /// Missing bits read as 0.
 pub fn read_bus(circuit: &Circuit, name: &str, width: usize) -> u32 {
-    let map = circuit.get_wire_map();
     (0..width).fold(0, |acc, i| {
-        let bit = map
-            .get(&format!("{name}.{i}"))
-            .is_some_and(|w| w.borrow().value);
+        let bit = circuit.wire_value(&format!("{name}.{i}")).unwrap_or(false);
         acc | (bit as u32) << i
     })
 }
@@ -84,23 +81,21 @@ pub fn write_bus(circuit: &Circuit, name: &str, width: usize, value: u32) {
 
 /// Width of bus `name` (number of consecutive `name.i` wires), 0 if absent.
 pub fn bus_width(circuit: &Circuit, name: &str) -> usize {
-    let map = circuit.get_wire_map();
-    (0..).take_while(|i| map.contains_key(&format!("{name}.{i}"))).count()
+    (0..).take_while(|i| circuit.has_wire(&format!("{name}.{i}"))).count()
 }
 
 /// True if the circuit has the ports needed to run programs on it: PC, CLK
 /// and either an instruction port or a memory bus (`Addr`/`DataIn`).
 pub fn is_runnable(circuit: &Circuit) -> bool {
-    let map = circuit.get_wire_map();
-    map.contains_key(&format!("{PC}.0"))
-        && (map.contains_key(&format!("{INSTRUCTION}.0"))
-            || map.contains_key(&format!("{ADDR}.0")) && map.contains_key(&format!("{DATA_IN}.0")))
-        && map.contains_key(CLK)
+    circuit.has_wire(&format!("{PC}.0"))
+        && (circuit.has_wire(&format!("{INSTRUCTION}.0"))
+            || circuit.has_wire(&format!("{ADDR}.0")) && circuit.has_wire(&format!("{DATA_IN}.0")))
+        && circuit.has_wire(CLK)
 }
 
 /// Value of a single-bit wire; false if it does not exist.
 pub fn read_bit(circuit: &Circuit, name: &str) -> bool {
-    circuit.get_wire_map().get(name).is_some_and(|w| w.borrow().value)
+    circuit.wire_value(name).unwrap_or(false)
 }
 
 pub fn halted(circuit: &Circuit) -> bool {
@@ -228,11 +223,11 @@ impl Machine {
             mem_data: bus_width(circuit, MEM_DATA_IN),
             input: bus_width(circuit, INPUT),
             gpio_in: bus_width(circuit, GPIO_IN),
-            i_wait: circuit.get_wire_map().contains_key(I_WAIT),
-            d_wait: circuit.get_wire_map().contains_key(D_WAIT),
+            i_wait: circuit.has_wire(I_WAIT),
+            d_wait: circuit.has_wire(D_WAIT),
             bus: bus_width(circuit, ADDR),
-            tx: circuit.get_wire_map().contains_key(TX),
-            rx: circuit.get_wire_map().contains_key(RX),
+            tx: circuit.has_wire(TX),
+            rx: circuit.has_wire(RX),
             byte_en: bus_width(circuit, BYTE_EN),
         };
         if ports.rx {
@@ -475,7 +470,7 @@ impl Machine {
     /// for a few clocks with the inputs applied, then releases it. Nothing
     /// is written to memory meanwhile. Does nothing without a `Reset` input.
     pub fn reset(&mut self, circuit: &Circuit) {
-        if !circuit.get_wire_map().contains_key(RESET) {
+        if !circuit.has_wire(RESET) {
             return;
         }
         circuit.set_input(RESET, true);
@@ -532,6 +527,31 @@ mod tests {
         }
     }
 
+
+    /// The SoC with built-in flip-flops runs exactly like its latch version:
+    /// every wire compared after each clock of a program.
+    #[test]
+    fn built_in_flip_flops_run_like_latches() {
+        let mut builder = CircuitBuilder::new();
+        builder
+            .load_circuits_from_path(Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/circuits")))
+            .unwrap();
+        let src = include_str!("../programs/16/fibonacci.asm");
+        let run = |circuit: &Circuit| {
+            let mut m = Machine::new(circuit).unwrap();
+            m.rom = m.isa().assemble(src).unwrap().words;
+            m.reset(circuit);
+            m
+        };
+        let (fast, slow) = (builder.build("SOC_16B"), builder.build_latches("SOC_16B"));
+        let (mut mf, mut ms) = (run(&fast), run(&slow));
+        for clock in 0..150 {
+            for (key, w) in fast.wire_names() {
+                assert_eq!(fast.value(w), slow.get_wire_value(key), "{key} at clock {clock}");
+            }
+            assert_eq!(mf.step(&fast), ms.step(&slow));
+        }
+    }
     #[test]
     fn empty_memory_halts_immediately() {
         let (circuit, mut machine) = build("COMPUTER_8B");

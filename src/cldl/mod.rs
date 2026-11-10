@@ -6,6 +6,7 @@ mod elaborate;
 mod view;
 
 pub use view::{CircuitView, ConnectionView, EndpointView, FlatBlock, FlatCircuit, FlatLevel, FlatPin, PartView, PinView};
+pub use circuit_builder::FLIP_FLOP;
 
 #[cfg(debug_assertions)]
 const _GRAMMAR: &str = include_str!("cldl.pest");
