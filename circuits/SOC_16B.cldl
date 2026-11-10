@@ -7,8 +7,9 @@ CIRCUIT SOC_16B {
     //
     // The stack grows down from 0xFFFF and must stay above 0xF0FF.
     //
-    // Reset, GpioIn and In come from outside the clock domain (a button,
-    // switches, a reset circuit) and pass two-flip-flop synchronizers (SYNC):
+    // Reset, GpioIn, In and Rx come from outside the clock domain (a button,
+    // switches, a reset circuit, a serial line) and pass two-flip-flop
+    // synchronizers (SYNC):
     // they act two clocks late, and Reset must be held for at least three
     // clocks. The memory bus (DataIn, Wait) is not synchronized: the external
     // memory (controller) must run on CLK.
@@ -17,12 +18,14 @@ CIRCUIT SOC_16B {
     INPUT Wait;         // external memory not done yet
     INPUT GpioIn[16];   // asynchronous
     INPUT In[16];       // input port of the IN instruction, asynchronous
+    INPUT Rx;           // UART receive line (idles at 1), asynchronous
     INPUT CLK;
     INPUT Reset;        // asynchronous, active-high, hold >= 3 clocks
 
     OUTPUT Addr[16];
     OUTPUT DataOut[16];
     OUTPUT Write;       // write to the external memory
+    OUTPUT ByteEn[2];   // bytes to write: 11 word, 01 low, 10 high (SB)
     OUTPUT Fetch;
     OUTPUT PC[16];
     OUTPUT Halted;
@@ -40,6 +43,7 @@ CIRCUIT SOC_16B {
     PART ResetSync: SYNC<1>;
     PART GpioSync: SYNC<16>;
     PART InSync: SYNC<16>;
+    PART RxSync: SYNC<1>;
     PART Io: IO_16B;
     PART Cpu: CPU_16B_SOC;
     PART Display: HEX_DISPLAY_16B;
@@ -47,6 +51,7 @@ CIRCUIT SOC_16B {
     PART NotSel: NOT;
     PART WaitAnd: AND;             // Wait only for external accesses
     PART WriteAnd: AND;            // Write only for external accesses
+    PART DataReadNor: NOR;         // neither fetch nor write: data read
 
     CONNECT Cpu.Addr -> Io.Addr;
     CONNECT Cpu.DataOut -> Io.WData;
@@ -54,6 +59,12 @@ CIRCUIT SOC_16B {
     CONNECT GpioIn -> GpioSync.D;
     CONNECT CLK -> GpioSync.CLK;
     CONNECT GpioSync.Q -> Io.GpioIn;
+    CONNECT Rx -> RxSync.D[0];
+    CONNECT CLK -> RxSync.CLK;
+    CONNECT RxSync.Q[0] -> Io.Rx;
+    CONNECT Cpu.Fetch -> DataReadNor.in1;
+    CONNECT Cpu.Write -> DataReadNor.in2;
+    CONNECT DataReadNor.out -> Io.DataRead;
     CONNECT CLK -> Io.CLK;
     CONNECT Reset -> ResetSync.D[0];
     CONNECT CLK -> ResetSync.CLK;
@@ -79,6 +90,7 @@ CIRCUIT SOC_16B {
     CONNECT Cpu.Write -> WriteAnd.in1;
     CONNECT NotSel.out -> WriteAnd.in2;
     CONNECT WriteAnd.out -> Write;
+    CONNECT Cpu.ByteEn -> ByteEn;
     CONNECT Cpu.Fetch -> Fetch;
     CONNECT Cpu.PC -> PC;
     CONNECT Cpu.Halted -> Halted;

@@ -12,6 +12,7 @@ CIRCUIT COMPUTER_16B_SOC {
     OUTPUT Addr[16];
     OUTPUT DataOut[16];
     OUTPUT Write;
+    OUTPUT ByteEn[2];   // 11 word, 01 low byte, 10 high byte (SB)
     OUTPUT Fetch;
     OUTPUT PC[16];
     OUTPUT Halted;
@@ -33,6 +34,7 @@ CIRCUIT COMPUTER_16B_SOC {
     CONNECT Cpu.Addr -> Addr;
     CONNECT Cpu.DataOut -> DataOut;
     CONNECT Cpu.Write -> Write;
+    CONNECT Cpu.ByteEn -> ByteEn;
     CONNECT Cpu.Fetch -> Fetch;
     CONNECT Cpu.PC -> PC;
     CONNECT Cpu.Halted -> Halted;

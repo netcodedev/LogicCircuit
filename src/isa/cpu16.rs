@@ -13,6 +13,9 @@
 //!   assembler computes the offset
 //! - `LI R1, 1000`, `JMP label`, `CALL label` (two words)
 //! - `EI`, `DI`, `RETI`: interrupts (CPU_16B_SOC; NOP/RET elsewhere)
+//! - `LB R1, [R2+3]`, `SB R1, [R2]` (op 15, off 0..7): byte at the byte
+//!   address R2 + off, i.e. word (R2 + off) / 2, low byte if even; LB zero-
+//!   extends (CPU_16B_SOC; NOP elsewhere)
 //! - `MULL`/`MULH`/`DIVU`/`MODU R1, R2` (op 7): low/high word of the
 //!   unsigned product, unsigned quotient/remainder. Only CPU_16B_SOC has the
 //!   unit; the other CPUs treat op 7 as NOP
@@ -42,6 +45,8 @@ enum Kind {
     MulDiv { func: u16 },
     /// A fixed word without operands (EI, DI, RETI).
     Fixed { word: u16 },
+    /// op 15: `Rd, [Rs+off3]`, byte access (CPU_16B_SOC).
+    Byte { store: bool },
     /// op 5: `target`.
     Branch { cond: u16 },
     /// op 6 plus a second word: `Rd, value` (LI) or `target`.
@@ -139,6 +144,8 @@ fn kind_of(mnemonic: &str) -> Option<Kind> {
     match m {
         "LW" => return Some(Kind::Mem { op: 3 }),
         "SW" => return Some(Kind::Mem { op: 4 }),
+        "LB" => return Some(Kind::Byte { store: false }),
+        "SB" => return Some(Kind::Byte { store: true }),
         "INC" => return Some(Kind::Step { by: 1 }),
         "DEC" => return Some(Kind::Step { by: -1 }),
         "SUBI" => return Some(Kind::SubI),
@@ -239,6 +246,14 @@ fn encode(p: &Pending, addr: usize, labels: &HashMap<String, usize>) -> Result<V
             expect_operands(p, 0)?;
             vec![word]
         }
+        Kind::Byte { store } => {
+            expect_operands(p, 2)?;
+            let (rs, off) = parse_address(p.operands[1], line, &value)?;
+            if off > 7 {
+                return Err(err(line, format!("byte offset {off} out of range (0..7)")));
+            }
+            vec![0xF000 | reg(0)? << 8 | rs << 4 | (store as u16) << 3 | off]
+        }
         Kind::Branch { cond } => {
             expect_operands(p, 1)?;
             let target = value(p.operands[0], 0, MEMORY_WORDS as i64 - 1)?;
@@ -318,6 +333,13 @@ pub fn disassemble(addr: u16, word: u16, next: u16) -> (String, usize) {
         3 | 4 => {
             let name = if op == 3 { "LW" } else { "SW" };
             match func {
+                0 => (format!("{name} R{rd}, [R{rs}]"), 1),
+                off => (format!("{name} R{rd}, [R{rs}+{off}]"), 1),
+            }
+        }
+        15 => {
+            let name = if func & 8 != 0 { "SB" } else { "LB" };
+            match func & 7 {
                 0 => (format!("{name} R{rd}, [R{rs}]"), 1),
                 off => (format!("{name} R{rd}, [R{rs}+{off}]"), 1),
             }

@@ -66,6 +66,7 @@ CIRCUIT CPU_16B_SOC {
     OUTPUT Addr[16];           // memory address: PC or memory stage
     OUTPUT DataOut[16];        // store data
     OUTPUT Write;              // 1 = write DataOut to Addr
+    OUTPUT ByteEn[2];          // bytes to write: 11 word, 01 low, 10 high
     OUTPUT Fetch;              // 1 = instruction fetch, 0 = memory stage
     OUTPUT PC[16];
     OUTPUT Out[16];            // output register (OUT)
@@ -94,7 +95,8 @@ CIRCUIT CPU_16B_SOC {
     PART ResultM: REGISTER_R<16>;   // ALU, shifter or In result
     PART AddrM: REGISTER_R<16>;     // memory address
     PART DataM: REGISTER_R<16>;     // store data
-    PART CtrlM: REGISTER_R<8>;      // Rd[0..3], RegWrite, MemWrite, Load, Ret
+    PART CtrlM: REGISTER_R<10>;     // Rd[0..3], RegWrite, MemWrite, Load, Ret,
+                                    // Byte, byte select (address bit 0)
     PART RegFile: REG_FILE_16<16>;
     PART MulDiv: MULDIV_16B;         // MULL/MULH/DIVU/MODU, 16 clocks
 
@@ -186,6 +188,33 @@ CIRCUIT CPU_16B_SOC {
     PART ZnRetiOr: OR;
     PART CvRetiOr: OR;
     PART ValidNot: NOT;              // fetched word is real
+
+    // Byte access LB/SB (opcode 15, decoded here; the control unit sees a
+    // reserved code): the ALU adds Rs + off3 as for LW, the word address is
+    // that byte address / 2, bit 0 selects the byte
+    PART ByteHi3: AND3;              // Ir[15..13] = 111
+    PART IsByte: AND;                // ... and Ir[12]: opcode 15
+    PART NotIsByte: NOT;
+    PART NotIr3: NOT;
+    PART ByteStoreG: AND3;           // SB (fn[3] = 1), AND NOT HoldE
+    PART ByteLoadG: AND3;            // LB
+    PART ByteAccess: OR;
+    PART ASrcOr: OR;                 // A = immediate
+    PART ImmSel0Or: OR;              // immediate = off4 (3) ...
+    PART ImmSel1Or: OR;
+    PART Off3And: AND;               // ... with bit 3 = 0 for byte access
+    PART ByteAddrMux: MUX_2_1_BUS<16>; // ALU result, ALU result / 2
+    PART StoreMux: MUX_2_1_BUS<16>;  // store data, low byte of Rd twice
+    PART MemWOr2: OR;                // MemWrite OR SB
+    PART RegWriteOr2: OR;            // RegWrite OR LB
+    PART LoadOr: OR;                 // load bit: LW, POP OR LB
+    PART ByteLane: MUX_2_1_BUS<8>;   // memory stage: low byte, high byte
+    PART LoadData: MUX_2_1_BUS<16>;  // word, zero-extended byte
+    PART SelNot: NOT;
+    PART BeLowNand: AND;             // byte access AND high byte selected
+    PART BeHighNand: AND;            // byte access AND low byte selected
+    PART BeLow: NOT;                 // ByteEn[0]
+    PART BeHigh: NOT;                // ByteEn[1]
     PART Md14Not: NOT;               // Ir opcode 7: multiply/divide
     PART Md13Not: NOT;
     PART Md12Not: NOT;
@@ -349,7 +378,7 @@ CIRCUIT CPU_16B_SOC {
     CONNECT Hazard.FwdB -> FwdMuxB.S;
     CONNECT CLK -> RegFile.CLK;
     CONNECT ResultM.Q -> WbMuxM.A;
-    CONNECT DataIn -> WbMuxM.B;
+    CONNECT LoadData.Out -> WbMuxM.B;   // word or byte (LB)
     CONNECT CtrlM.Q[6] -> WbMuxM.S;
     CONNECT WbMuxM.Out -> RegFile.DataIn;
     CONNECT Reset -> NotReset.in;
@@ -365,15 +394,25 @@ CIRCUIT CPU_16B_SOC {
         CONNECT Ir.Q[7] -> ImmMux.In[24+i];
         CONNECT Ir.Q[i] -> ImmMux.In[40+i];    // 2: imm8 << 8
     }
-    FOR i IN 0..4 {
-        CONNECT Ir.Q[i] -> ImmMux.In[48+i];    // 3: off4
+    FOR i IN 0..3 {
+        CONNECT Ir.Q[i] -> ImmMux.In[48+i];    // 3: off4 (off3 for LB/SB)
     }
-    CONNECT Control.ImmSel -> ImmMux.S;
+    CONNECT Ir.Q[3] -> Off3And.in1;
+    CONNECT NotIsByte.out -> Off3And.in2;
+    CONNECT Off3And.out -> ImmMux.In[51];
+    CONNECT Control.ImmSel[0] -> ImmSel0Or.in1;
+    CONNECT IsByte.out -> ImmSel0Or.in2;
+    CONNECT ImmSel0Or.out -> ImmMux.S[0];
+    CONNECT Control.ImmSel[1] -> ImmSel1Or.in1;
+    CONNECT IsByte.out -> ImmSel1Or.in2;
+    CONNECT ImmSel1Or.out -> ImmMux.S[1];
 
     // 5. ALU operands and control
     CONNECT FwdMuxA.Out -> AMux.A;
     CONNECT ImmMux.Out -> AMux.B;
-    CONNECT Control.ASrc -> AMux.S;
+    CONNECT Control.ASrc -> ASrcOr.in1;
+    CONNECT IsByte.out -> ASrcOr.in2;
+    CONNECT ASrcOr.out -> AMux.S;
     FOR i IN 0..16 {
         CONNECT FwdMuxB.Out[i] -> BMux.In[i];
         CONNECT ImmMux.Out[i] -> BMux.In[16+i];
@@ -414,6 +453,28 @@ CIRCUIT CPU_16B_SOC {
     CONNECT Control.WbSel[1] -> WbS1Or.in1;
     CONNECT MdExec.Out -> WbS1Or.in2;
     CONNECT WbS1Or.out -> WbMux.S[1];
+
+    // 7a. Byte access: decode opcode 15 (fn[3] = 1: SB, else LB)
+    CONNECT Ir.Q[15] -> ByteHi3.A;
+    CONNECT Ir.Q[14] -> ByteHi3.B;
+    CONNECT Ir.Q[13] -> ByteHi3.C;
+    CONNECT ByteHi3.Out -> IsByte.in1;
+    CONNECT Ir.Q[12] -> IsByte.in2;
+    CONNECT IsByte.out -> NotIsByte.in;
+    CONNECT Ir.Q[3] -> NotIr3.in;
+    CONNECT IsByte.out -> ByteStoreG.A;
+    CONNECT Ir.Q[3] -> ByteStoreG.B;
+    CONNECT NotHoldE.out -> ByteStoreG.C;
+    CONNECT IsByte.out -> ByteLoadG.A;
+    CONNECT NotIr3.out -> ByteLoadG.B;
+    CONNECT NotHoldE.out -> ByteLoadG.C;
+    CONNECT ByteStoreG.Out -> ByteAccess.in1;
+    CONNECT ByteLoadG.Out -> ByteAccess.in2;
+    CONNECT Alu.Result -> ByteAddrMux.A;
+    FOR i IN 0..15 {
+        CONNECT Alu.Result[1+i] -> ByteAddrMux.B[i];
+    }
+    CONNECT IsByte.out -> ByteAddrMux.S;
 
     // 7b. Multiply/divide: starts when the instruction reaches execute,
     //     execute waits (MdWait) until Done, then writes the result like an
@@ -485,7 +546,7 @@ CIRCUIT CPU_16B_SOC {
     CONNECT SpDecOr.out -> SpUnit.Dec;
     CONNECT SpUnit.SP -> SP;
     FOR i IN 0..16 {
-        CONNECT Alu.Result[i] -> AddrMux.In[i];
+        CONNECT ByteAddrMux.Out[i] -> AddrMux.In[i];
         CONNECT SpUnit.SP[i] -> AddrMux.In[16+i];
         CONNECT SpUnit.Next[i] -> AddrMux.In[32+i];
     }
@@ -508,21 +569,35 @@ CIRCUIT CPU_16B_SOC {
     //     the memory stage waits)
     CONNECT WbMux.Out -> ResultM.Data;
     CONNECT AddrMux.Out -> AddrM.Data;
-    CONNECT DataMux.Out -> DataM.Data;
+    CONNECT DataMux.Out -> StoreMux.A;
+    FOR i IN 0..8 {
+        CONNECT FwdMuxA.Out[i] -> StoreMux.B[i];
+        CONNECT FwdMuxA.Out[i] -> StoreMux.B[8+i];
+    }
+    CONNECT ByteStoreG.Out -> StoreMux.S;
+    CONNECT StoreMux.Out -> DataM.Data;
     FOR i IN 0..4 {
         CONNECT Ir.Q[8+i] -> CtrlM.Data[i];
     }
     CONNECT RegWriteG.out -> RegWriteOr.in1;
     CONNECT MdExec.Out -> RegWriteOr.in2;
-    CONNECT RegWriteOr.out -> CtrlM.Data[4];
+    CONNECT RegWriteOr.out -> RegWriteOr2.in1;
+    CONNECT ByteLoadG.Out -> RegWriteOr2.in2;
+    CONNECT RegWriteOr2.out -> CtrlM.Data[4];
     CONNECT MemWriteG.out -> MemWOr.in1;
     CONNECT IrqTake.Out -> MemWOr.in2;
-    CONNECT MemWOr.out -> CtrlM.Data[5];
+    CONNECT MemWOr.out -> MemWOr2.in1;
+    CONNECT ByteStoreG.Out -> MemWOr2.in2;
+    CONNECT MemWOr2.out -> CtrlM.Data[5];
     CONNECT Control.WbSel[0] -> NotWb0.in;
     CONNECT Control.WbSel[1] -> LoadAnd.A;
     CONNECT NotWb0.out -> LoadAnd.B;
     CONNECT NotHoldE.out -> LoadAnd.C;
-    CONNECT LoadAnd.Out -> CtrlM.Data[6];
+    CONNECT LoadAnd.Out -> LoadOr.in1;
+    CONNECT ByteLoadG.Out -> LoadOr.in2;
+    CONNECT LoadOr.out -> CtrlM.Data[6];
+    CONNECT ByteAccess.out -> CtrlM.Data[8];
+    CONNECT Alu.Result[0] -> CtrlM.Data[9];
     CONNECT RetAnd.Out -> CtrlM.Data[7];
     CONNECT NotFreeze.out -> ResultM.Load;
     CONNECT NotFreeze.out -> AddrM.Load;
@@ -539,6 +614,25 @@ CIRCUIT CPU_16B_SOC {
     CONNECT CtrlM.Q[5] -> MemAnd.in1;
     CONNECT NotReset.out -> MemAnd.in2;
     CONNECT MemAnd.out -> Write;
+    CONNECT CtrlM.Q[9] -> SelNot.in;
+    CONNECT CtrlM.Q[8] -> BeLowNand.in1;
+    CONNECT CtrlM.Q[9] -> BeLowNand.in2;
+    CONNECT BeLowNand.out -> BeLow.in;
+    CONNECT BeLow.out -> ByteEn[0];
+    CONNECT CtrlM.Q[8] -> BeHighNand.in1;
+    CONNECT SelNot.out -> BeHighNand.in2;
+    CONNECT BeHighNand.out -> BeHigh.in;
+    CONNECT BeHigh.out -> ByteEn[1];
+    FOR i IN 0..8 {
+        CONNECT DataIn[i] -> ByteLane.A[i];
+        CONNECT DataIn[8+i] -> ByteLane.B[i];
+    }
+    CONNECT CtrlM.Q[9] -> ByteLane.S;
+    CONNECT DataIn -> LoadData.A;
+    FOR i IN 0..8 {
+        CONNECT ByteLane.Out[i] -> LoadData.B[i];
+    }
+    CONNECT CtrlM.Q[8] -> LoadData.S;
 
     // 12. Program counter: jumps and branches in execute, RET in memory
     FOR i IN 0..16 {

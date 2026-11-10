@@ -1,26 +1,35 @@
 CIRCUIT IO_16B {
     // Memory-mapped peripherals of SOC_16B on the I/O page 0xF000..0xF0FF
-    // (Sel = 1 for those addresses; the registers repeat every 8 words):
+    // (Sel = 1 for those addresses; the registers repeat every 16 words):
     //
     //   0xF000  GPIO_OUT     read/write  drives GpioOut
     //   0xF001  GPIO_IN      read        the GpioIn pins
     //   0xF002  DISPLAY      read/write  value of the 4-digit hex display
     //   0xF003  UART_DATA    write       send WData[7..0] (reads 0)
-    //   0xF004  UART_STATUS  read        bit 0 = 1 while sending
-    //   0xF005  UART_DIV     read/write  clocks per bit - 1
+    //   0xF004  UART_STATUS  read        bit 0 = 1 while sending, bit 1 = 1
+    //                                    when a received byte is waiting
+    //   0xF005  UART_DIV     read/write  clocks per bit - 1 (send and receive)
     //   0xF006  TIMER        read: count, write: load value (restarts)
     //   0xF007  TIMER_CTRL   read/write  bit 0 enable, bit 1 interrupt
     //                                    enable, bit 2 expired (read only;
     //                                    any write acknowledges it)
+    //   0xF008  UART_RX      read        received byte; reading it
+    //                                    acknowledges (status bit 1 <- 0)
+    //   0xF009  UART_CTRL    read/write  bit 0 = interrupt on received byte
     //
-    // Irq = timer expired with its interrupt enabled.
+    // Irq = timer expired with its interrupt enabled, or a received byte
+    // waiting with the receive interrupt enabled.
     //
     // Reads are combinational (RData for the current Addr), writes happen
-    // on the rising CLK edge when Write = 1. Never waits.
+    // on the rising CLK edge when Write = 1. DataRead = 1 marks a data read
+    // by the CPU (not a fetch), so reading UART_RX acknowledges the byte on
+    // that edge. Never waits.
     INPUT Addr[16];
     INPUT WData[16];
     INPUT Write;
+    INPUT DataRead;
     INPUT GpioIn[16];
+    INPUT Rx;            // UART receive line, synchronized to CLK
     INPUT CLK;
     INPUT Reset;
 
@@ -36,16 +45,24 @@ CIRCUIT IO_16B {
     PART DisplayReg: REGISTER_R<16>;
     PART Uart: UART_TX;
     PART Timer: TIMER_16B;
+    PART UartRx: UART_RX;
+    PART RxIrqEn: REGISTER_R<1>;
 
     PART High3: AND3;        // Addr[15..13] = 111
     PART High4: AND;         // ... and Addr[12] = 1
     PART Low4: NOR4;         // Addr[11..8] = 0000
     PART SelAnd: AND;
     PART WriteAnd: AND;      // Sel AND Write
-    PART Dec: DECODER_4_16;  // register strobes from Addr[2..0]
+    PART ReadAnd: AND;       // Sel AND DataRead
+    PART Dec: DECODER_4_16;  // write strobes from Addr[3..0]
+    PART ReadDec: DECODER_4_16; // read strobes (UART_RX)
     PART ReadLo: MUX_4_1_BUS<16>;  // registers 0..3
     PART ReadHi: MUX_4_1_BUS<16>;  // registers 4..7
+    PART ReadUp: MUX_4_1_BUS<16>;  // registers 8..11
     PART ReadMux: MUX_2_1_BUS<16>; // by Addr[2]
+    PART ReadTop: MUX_2_1_BUS<16>; // by Addr[3]
+    PART RxIrqAnd: AND;
+    PART IrqOr: OR;
 
     // Address decoding
     CONNECT Addr[15] -> High3.A;
@@ -62,10 +79,14 @@ CIRCUIT IO_16B {
     CONNECT SelAnd.out -> Sel;
     CONNECT SelAnd.out -> WriteAnd.in1;
     CONNECT Write -> WriteAnd.in2;
-    FOR i IN 0..3 {
+    CONNECT SelAnd.out -> ReadAnd.in1;
+    CONNECT DataRead -> ReadAnd.in2;
+    FOR i IN 0..4 {
         CONNECT Addr[i] -> Dec.A[i];
+        CONNECT Addr[i] -> ReadDec.A[i];
     }
     CONNECT WriteAnd.out -> Dec.Enable;
+    CONNECT ReadAnd.out -> ReadDec.Enable;
 
     // Registers
     CONNECT WData -> GpioReg.Data;
@@ -89,7 +110,22 @@ CIRCUIT IO_16B {
     CONNECT Dec.O[7] -> Timer.WriteCtrl;
     CONNECT Reset -> Timer.Reset;
     CONNECT CLK -> Timer.CLK;
-    CONNECT Timer.Irq -> Irq;
+    CONNECT Rx -> UartRx.Rx;
+    CONNECT Uart.Div -> UartRx.Div;
+    CONNECT ReadDec.O[8] -> UartRx.Read;
+    CONNECT Reset -> UartRx.Reset;
+    CONNECT CLK -> UartRx.CLK;
+    CONNECT WData[0] -> RxIrqEn.Data[0];
+    CONNECT Dec.O[9] -> RxIrqEn.Load;
+    CONNECT Reset -> RxIrqEn.Reset;
+    CONNECT CLK -> RxIrqEn.CLK;
+
+    // Interrupt request
+    CONNECT UartRx.Ready -> RxIrqAnd.in1;
+    CONNECT RxIrqEn.Q[0] -> RxIrqAnd.in2;
+    CONNECT Timer.Irq -> IrqOr.in1;
+    CONNECT RxIrqAnd.out -> IrqOr.in2;
+    CONNECT IrqOr.out -> Irq;
 
     // Reads (unconnected inputs read 0)
     FOR i IN 0..16 {
@@ -99,16 +135,25 @@ CIRCUIT IO_16B {
         CONNECT Uart.Div[i] -> ReadHi.In[16+i];
         CONNECT Timer.Count[i] -> ReadHi.In[32+i];
     }
+    FOR i IN 0..8 {
+        CONNECT UartRx.Data[i] -> ReadUp.In[i];
+    }
+    CONNECT RxIrqEn.Q[0] -> ReadUp.In[16];
     CONNECT Uart.Busy -> ReadHi.In[0];
+    CONNECT UartRx.Ready -> ReadHi.In[1];
     CONNECT Timer.Enable -> ReadHi.In[48];
     CONNECT Timer.IrqEn -> ReadHi.In[49];
     CONNECT Timer.Expired -> ReadHi.In[50];
-    CONNECT Addr[0] -> ReadLo.S[0];
-    CONNECT Addr[1] -> ReadLo.S[1];
-    CONNECT Addr[0] -> ReadHi.S[0];
-    CONNECT Addr[1] -> ReadHi.S[1];
+    FOR i IN 0..2 {
+        CONNECT Addr[i] -> ReadLo.S[i];
+        CONNECT Addr[i] -> ReadHi.S[i];
+        CONNECT Addr[i] -> ReadUp.S[i];
+    }
     CONNECT ReadLo.Out -> ReadMux.A;
     CONNECT ReadHi.Out -> ReadMux.B;
     CONNECT Addr[2] -> ReadMux.S;
-    CONNECT ReadMux.Out -> RData;
+    CONNECT ReadMux.Out -> ReadTop.A;
+    CONNECT ReadUp.Out -> ReadTop.B;
+    CONNECT Addr[3] -> ReadTop.S;
+    CONNECT ReadTop.Out -> RData;
 }

@@ -86,6 +86,9 @@ enum Commands {
         /// (COMPUTER_16B_PIPE3); 0 = memories answer at once.
         #[arg(long, default_value_t = 0)]
         mem_latency: usize,
+        /// Text to send to the UART receive line (SOC_16B); `\n` is a newline.
+        #[arg(long, default_value = "")]
+        uart_in: String,
     },
     /// Run the benchmarks in programs/bench: instructions on the
     /// instruction-level simulator, clocks on each 16-bit computer.
@@ -397,7 +400,7 @@ fn main() {
                 Err(e) => eprintln!("Error saving .dot file: {}", e),
             }
         }
-        Some(Commands::Run { program, top, input, max_steps, trace, mem_latency }) => {
+        Some(Commands::Run { program, top, input, max_steps, trace, mem_latency, uart_in }) => {
             let top = top.unwrap_or_else(|| {
                 let in_dir = |name: &str| program.parent().is_some_and(|dir| dir.ends_with(name));
                 if in_dir("16") {
@@ -409,7 +412,7 @@ fn main() {
                 }
                 .to_string()
             });
-            run_program(&builder, &program, &top, input, max_steps, trace, mem_latency);
+            run_program(&builder, &program, &top, input, max_steps, trace, mem_latency, &uart_in.replace("\\n", "\n"));
         }
         Some(Commands::Bench { top, mem_latency, isa_only }) => {
             let tops: Vec<&str> = if isa_only { Vec::new() } else { top.split(',').map(str::trim).collect() };
@@ -652,6 +655,7 @@ fn run_program(
     max_steps: usize,
     trace: bool,
     latency: usize,
+    uart_in: &str,
 ) {
     let source = std::fs::read_to_string(path).unwrap_or_else(|e| {
         eprintln!("Error reading {:?}: {}", path, e);
@@ -675,6 +679,7 @@ fn run_program(
     machine.rom = program.words;
     machine.input = Some(input);
     machine.latency = latency;
+    machine.uart_in.extend(uart_in.bytes());
     machine.reset(&circuit);
     // Hex digits of the PC and of Out.
     let pc_digits = machine.pc_width().div_ceil(4);

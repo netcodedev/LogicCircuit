@@ -85,7 +85,7 @@ fn überspringt trotzdem zwei Wörter).
 | 10 | CMPI Rd, imm8 | `A Rd imm8` | Rd − imm8 (vorzeichenbehaftet), ohne Rückschreiben | ZNCV |
 | 11 | ANDI ORI XORI | `B/C/D Rd imm8` | imm8 ohne Vorzeichen | ZN |
 | 14 | LUI Rd, imm8 | `E Rd imm8` | Rd ← imm8 ≪ 8 (mit ORI zusammen eine 16-Bit-Konstante) | |
-| 15 | – | | reserviert | |
+| 15 | LB, SB | `F Rd Rs s off3` | Byte an Byte-Adresse Rs+off3 (Wort = Adresse / 2, gerade = unteres Byte); LB (s = 0) lädt vorzeichenlos, SB (s = 1) schreibt nur dieses Byte (`ByteEn`). Nur CPU_16B_SOC, sonst NOP | |
 
 **Bedingungen** (`cond`, wie ARM): 0 EQ, 1 NE, 2 CS/HS (≥ ohne Vorzeichen),
 3 CC/LO (<), 4 MI, 5 PL, 6 VS, 7 VC, 8 HI, 9 LS, 10 GE, 11 LT, 12 GT, 13 LE,

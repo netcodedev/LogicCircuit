@@ -6,7 +6,8 @@
 //! One memory of 64K words holds program and data (as on CPU_16B_SOC); on
 //! the Harvard CPUs the same programs behave alike as long as they do not
 //! store into their own code. It models the instruction set of
-//! CPU_16B_SOC, including MULL/MULH/DIVU/MODU (a NOP on the other CPUs).
+//! CPU_16B_SOC, including MULL/MULH/DIVU/MODU, EI/DI/RETI, interrupts and
+//! LB/SB (NOP, NOP/RET and NOP on the other CPUs).
 
 use super::cpu16::MEMORY_WORDS;
 
@@ -296,6 +297,18 @@ impl Cpu16 {
                 self.set_reg(rd, r);
             }
             14 => self.set_reg(rd, imm << 8),
+            // LB / SB: byte address Rs + off3, word = address / 2
+            15 => {
+                let ba = self.reg(rs).wrapping_add(func & 7);
+                let (addr, shift) = (ba >> 1, (ba & 1) * 8);
+                let word = self.read(addr);
+                if func & 8 == 0 {
+                    self.set_reg(rd, (word >> shift) & 0xFF);
+                } else {
+                    let byte = (self.reg(rd) & 0xFF) << shift;
+                    self.write(addr, word & !(0xFF << shift) | byte);
+                }
+            }
             _ => {} // reserved: NOP
         }
         self.pc = pc;

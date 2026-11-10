@@ -1212,8 +1212,15 @@ function buildPeripherals(v) {
     return b;
   });
   $('uart-section').hidden = !sim.has_uart();
+  $('uart-input').hidden = !v.inputs.some((p) => p.name === 'Rx');
   updateUart();
 }
+
+$('uart-input').addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  sim.send_uart(`${e.target.value}\n`);
+  e.target.value = '';
+});
 
 function updateUart() {
   if ($('uart-section').hidden) return;

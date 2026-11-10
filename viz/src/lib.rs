@@ -200,6 +200,9 @@ impl Sim {
             if let Some(old) = old.filter(|o| o.isa() == m.isa()) {
                 m.rom = old.rom;
             }
+            // Power-on reset as in the CLI runner (SOC_16B: synchronizers,
+            // idle UART line).
+            m.reset(&circuit);
             m
         });
         self.circuit = Some(circuit);
@@ -287,6 +290,14 @@ impl Sim {
     /// Text received on the UART line since the circuit was built.
     pub fn uart_text(&self) -> String {
         self.machine.as_ref().map_or(String::new(), |m| String::from_utf8_lossy(&m.uart).into_owned())
+    }
+
+    /// Queues `text` for the circuit's UART receive line (`Rx`); it is sent
+    /// while the program runs, at the bit time the circuit's UART is set to.
+    pub fn send_uart(&mut self, text: &str) {
+        if let Some(m) = &mut self.machine {
+            m.uart_in.extend(text.bytes());
+        }
     }
 
     /// Replaces the instruction memory and presents the word at the current PC.

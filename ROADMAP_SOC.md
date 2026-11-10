@@ -79,10 +79,12 @@ noch keine Hardware.
   | 0xF001 | GPIO_IN | lesen (`GpioIn`-Pins) |
   | 0xF002 | DISPLAY | lesen/schreiben, Wert der 4-stelligen Anzeige |
   | 0xF003 | UART_DATA | schreiben: Byte senden |
-  | 0xF004 | UART_STATUS | lesen: Bit 0 = sendet noch |
+  | 0xF004 | UART_STATUS | lesen: Bit 0 = sendet noch, Bit 1 = Byte empfangen |
   | 0xF005 | UART_DIV | lesen/schreiben: Takte pro Bit − 1 |
   | 0xF006 | TIMER | lesen: Zählerstand, schreiben: Startwert (startet neu) |
   | 0xF007 | TIMER_CTRL | Bit 0 an, Bit 1 Interrupt an, Bit 2 abgelaufen (nur lesen); Schreiben quittiert |
+  | 0xF008 | UART_RX | lesen: empfangenes Byte (quittiert) |
+  | 0xF009 | UART_CTRL | Bit 0 = Interrupt bei empfangenem Byte |
 
 - [x] `UART_TX` (2.330 NANDs): 8N1, Teiler-Register (nach Reset 0 = ein Takt
       pro Bit; 50 MHz und 433 ergeben 115200 Baud), Zähler, Schieberegister
@@ -246,6 +248,34 @@ SoC-Linie (`CPU_16B_SOC`, `SOC_16B`).
       Hauptprogramm nicht mehr voran (der nächste Interrupt ist schon
       fällig, bevor nach RETI ein Befehl läuft). Die Periode muss zum
       Handler und zur Speicherlatenz passen
+
+**A5 – UART-Empfang und Byte-Zugriffe**
+- [x] `UART_RX` (2.343 NANDs): 8N1 mit demselben Teiler wie der Sender;
+      tastet jedes Bit in der Mitte ab (erstes Datenbit Div + Div/2 Takte
+      nach dem Start-Bit, dann alle Div + 1). In `IO_16B`: 0xF008 `UART_RX`
+      (Lesen quittiert), Status-Bit 1 in `UART_STATUS`, 0xF009 `UART_CTRL`
+      (Empfangs-Interrupt); `Irq` = Timer oder Empfang. Die Register
+      wiederholen sich jetzt alle 16 Wörter
+- [x] `SOC_16B`: Pin `Rx` (Ruhepegel 1, über `SYNC`), `DataRead` (weder
+      Fetch noch Schreiben) zum Quittieren beim Lesen
+- [x] `LB`/`SB` (Opcode 15, `F Rd Rs s off3`): Byte-Adresse Rs + off3, Wort =
+      Adresse / 2, gerades Byte = unteres. In `CPU_16B_SOC` lokal dekodiert
+      (das Steuerwerk sieht einen reservierten Code): ALU rechnet die
+      Adresse wie bei LW (A = off3), die Speicherstufe nimmt das richtige
+      Byte (LB, vorzeichenlos) bzw. SB legt das Byte auf beide Hälften und
+      setzt `ByteEn` (11 Wort, 01 unten, 10 oben). Assembler,
+      Disassembler, `isa::sim16`
+- [x] Runner: `Rx` wird bedient (`Machine::uart_in`, `run --uart-in "…\n"`,
+      100 Takte Pause nach dem Reset, damit das Programm den Teiler setzen
+      kann), `ByteEn` beim Schreiben. Viewer: Eingabefeld in der
+      UART-Konsole, Einschalt-Reset nach dem Bauen
+- [x] Beispiel `programs/soc/echo.asm`: Zeile empfangen, mit SB puffern,
+      rückwärts in Großbuchstaben mit LB zurücksenden
+- [x] Tests: `UART_RX.clt` (Rahmen bei drei Bitzeiten), Empfang in
+      `IO_16B.clt`, BYTE-Programm in `CPU_16B_SOC.clt` (Referenz
+      `isa::sim16`); Rust: Byte-Programm gegen `isa::sim16`, `soc_uart_echo`
+      (0 und 1 Wartetakt), `soc_uart_receive_interrupt`. SOC_16B: 44.101
+      NANDs (+3.597)
 
 ### Phase 4 – Speicher-Controller
 - [ ] QSPI-Controller (Flash lesen, PSRAM lesen/schreiben), Modell im Runner

@@ -1,0 +1,126 @@
+CIRCUIT UART_RX {
+    // UART receiver, 8N1, same bit time as UART_TX (Div + 1 clocks). Rx must
+    // already be synchronized to CLK (SOC_16B uses a SYNC). The line idles
+    // at 1; a 0 starts a frame. Each bit is sampled in its middle: the first
+    // data bit Div + Div/2 clocks after the start was seen, then every
+    // Div + 1 clocks. After the stop bit Data holds the byte and Ready = 1
+    // until Read = 1 on an edge (a new byte overwrites an unread one).
+    //
+    //   Bits: samples left (9 after the start: 8 data bits and the stop bit)
+    //   Cnt:  clocks to the next sample
+    //   Shift: bits so far, the newest at the top (LSB comes first)
+    INPUT Rx;
+    INPUT Div[16];
+    INPUT Read;         // acknowledge: Ready <- 0
+    INPUT CLK;
+    INPUT Reset;
+
+    OUTPUT Data[8];
+    OUTPUT Ready;
+    OUTPUT Busy;
+
+    // Registers first: their INITs run before the gates driving them exist.
+    PART Cnt: REGISTER_R<16>;
+    PART Bits: REGISTER_R<4>;
+    PART Shift: REGISTER_R<9>;
+    PART DataReg: REGISTER_R<8>;
+    PART ReadyReg: REGISTER_R<1>;
+
+    PART C_TRUE: NOR;              // Constant 1 (VCC), NOR(0,0) = 1
+    PART Idle: NOR4;               // Bits = 0
+    PART BusyNot: NOT;
+    PART RxNot: NOT;
+    PART StartAnd: AND;            // idle AND Rx = 0: a frame begins
+    PART CntDec: ADDER<16>;        // Cnt - 1
+    PART CntZero: ZERO_16B;
+    PART SampleAnd: AND;           // busy AND Cnt = 0: sample now
+    PART FirstWait: ADDER<16>;     // Div + Div/2: to the middle of bit 0
+    PART CntStep: MUX_2_1_BUS<16>; // Cnt - 1, Div (after a sample)
+    PART CntData: MUX_2_1_BUS<16>; // step, first wait (on start)
+    PART CntLoad: OR;              // start OR busy
+    PART BitsDec: ADDER<4>;        // Bits - 1
+    PART BitsData: MUX_2_1_BUS<4>; // Bits - 1, 9 (on start)
+    PART BitsLoad: OR;             // start OR sample
+    PART Upper0: NOR4;             // Bits[3..1] = 0
+    PART LastAnd: AND3;            // sample AND Bits = 1: stop bit
+    PART ReadyLoad: OR;            // last OR Read
+
+    // Busy, start
+    CONNECT Bits.Q[0] -> Idle.A;
+    CONNECT Bits.Q[1] -> Idle.B;
+    CONNECT Bits.Q[2] -> Idle.C;
+    CONNECT Bits.Q[3] -> Idle.D;
+    CONNECT Idle.Out -> BusyNot.in;
+    CONNECT BusyNot.out -> Busy;
+    CONNECT Rx -> RxNot.in;
+    CONNECT Idle.Out -> StartAnd.in1;
+    CONNECT RxNot.out -> StartAnd.in2;
+
+    // Sample timing
+    CONNECT Cnt.Q -> CntDec.A;
+    CONNECT C_TRUE.out -> CntDec.B;    // tee: all ones = -1
+    CONNECT Cnt.Q -> CntZero.A;
+    CONNECT BusyNot.out -> SampleAnd.in1;
+    CONNECT CntZero.Z -> SampleAnd.in2;
+    CONNECT Div -> FirstWait.A;
+    FOR i IN 0..15 {
+        CONNECT Div[1+i] -> FirstWait.B[i];
+    }
+    CONNECT CntDec.S -> CntStep.A;
+    CONNECT Div -> CntStep.B;
+    CONNECT SampleAnd.out -> CntStep.S;
+    CONNECT CntStep.Out -> CntData.A;
+    CONNECT FirstWait.S -> CntData.B;
+    CONNECT StartAnd.out -> CntData.S;
+    CONNECT CntData.Out -> Cnt.Data;
+    CONNECT StartAnd.out -> CntLoad.in1;
+    CONNECT BusyNot.out -> CntLoad.in2;
+    CONNECT CntLoad.out -> Cnt.Load;
+    CONNECT Reset -> Cnt.Reset;
+    CONNECT CLK -> Cnt.CLK;
+
+    // Bits left: 9 on start, -1 per sample
+    CONNECT Bits.Q -> BitsDec.A;
+    CONNECT C_TRUE.out -> BitsDec.B;   // tee: all ones = -1
+    CONNECT BitsDec.S -> BitsData.A;
+    CONNECT C_TRUE.out -> BitsData.B[0];  // 9 = 0b1001
+    CONNECT C_TRUE.out -> BitsData.B[3];
+    CONNECT StartAnd.out -> BitsData.S;
+    CONNECT BitsData.Out -> Bits.Data;
+    CONNECT StartAnd.out -> BitsLoad.in1;
+    CONNECT SampleAnd.out -> BitsLoad.in2;
+    CONNECT BitsLoad.out -> Bits.Load;
+    CONNECT Reset -> Bits.Reset;
+    CONNECT CLK -> Bits.CLK;
+
+    // Shift: each sample moves right, Rx comes in at the top
+    FOR i IN 0..8 {
+        CONNECT Shift.Q[1+i] -> Shift.Data[i];
+    }
+    CONNECT Rx -> Shift.Data[8];
+    CONNECT SampleAnd.out -> Shift.Load;
+    CONNECT Reset -> Shift.Reset;
+    CONNECT CLK -> Shift.CLK;
+
+    // Stop bit: Data <- the 8 data bits (Shift[8..1] before this shift), Ready
+    CONNECT Bits.Q[1] -> Upper0.A;
+    CONNECT Bits.Q[2] -> Upper0.B;
+    CONNECT Bits.Q[3] -> Upper0.C;
+    CONNECT SampleAnd.out -> LastAnd.A;
+    CONNECT Bits.Q[0] -> LastAnd.B;
+    CONNECT Upper0.Out -> LastAnd.C;
+    FOR i IN 0..8 {
+        CONNECT Shift.Q[1+i] -> DataReg.Data[i];
+    }
+    CONNECT LastAnd.Out -> DataReg.Load;
+    CONNECT Reset -> DataReg.Reset;
+    CONNECT CLK -> DataReg.CLK;
+    CONNECT DataReg.Q -> Data;
+    CONNECT LastAnd.Out -> ReadyLoad.in1;
+    CONNECT Read -> ReadyLoad.in2;
+    CONNECT ReadyLoad.out -> ReadyReg.Load;
+    CONNECT LastAnd.Out -> ReadyReg.Data[0];  // a new byte wins over Read
+    CONNECT Reset -> ReadyReg.Reset;
+    CONNECT CLK -> ReadyReg.CLK;
+    CONNECT ReadyReg.Q[0] -> Ready;
+}

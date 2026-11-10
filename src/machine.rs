@@ -21,6 +21,7 @@
 //! work. On the pipelines one step is one clock, not one instruction.
 
 use std::cell::Cell;
+use std::collections::VecDeque;
 
 use crate::circuit::Circuit;
 use crate::isa::Isa;
@@ -43,6 +44,10 @@ pub const FETCH: &str = "Fetch";
 pub const WAIT: &str = "Wait";
 /// UART transmit line of SOC_16B.
 pub const TX: &str = "Tx";
+/// UART receive line of SOC_16B (idles at 1).
+pub const RX: &str = "Rx";
+/// Byte enables of a memory-bus write (11 word, 01 low byte, 10 high byte).
+pub const BYTE_EN: &str = "ByteEn";
 /// Baud divider of the UART inside SOC_16B (clocks per bit - 1). A real
 /// receiver is told the baud rate; the simulated one reads it here.
 const UART_DIV: &str = "Io.Uart.Div";
@@ -118,6 +123,19 @@ struct Ports {
     bus: usize,
     /// `Tx` output (UART) present.
     tx: bool,
+    /// `Rx` input (UART) present.
+    rx: bool,
+    /// Width of `ByteEn` (2 on CPU_16B_SOC, 0 = word writes only).
+    byte_en: usize,
+}
+
+/// Sender for the `Rx` line: frames of [`Machine::uart_in`] (8N1) at the
+/// bit time the circuit's UART is set to, one idle bit time between bytes.
+#[derive(Debug, Clone, Default)]
+struct UartTx {
+    /// Frame (start bit in bit 0 .. stop bit in bit 9), clocks since it
+    /// began, clocks per bit.
+    frame: Option<(u16, usize, usize)>,
 }
 
 /// Receiver for the UART line `Tx` (8N1, LSB first), sampled once per
@@ -189,6 +207,12 @@ pub struct Machine {
     /// Bytes received on the UART line `Tx`, if the circuit has one.
     pub uart: Vec<u8>,
     uart_rx: UartRx,
+    /// Bytes still to send to the circuit on its `Rx` line.
+    pub uart_in: VecDeque<u8>,
+    /// Clocks the line stays idle before the first byte (time for the
+    /// program to set up its UART, as a terminal would only type later).
+    pub uart_in_delay: usize,
+    uart_tx: UartTx,
 }
 
 impl Machine {
@@ -208,7 +232,12 @@ impl Machine {
             d_wait: circuit.get_wire_map().contains_key(D_WAIT),
             bus: bus_width(circuit, ADDR),
             tx: circuit.get_wire_map().contains_key(TX),
+            rx: circuit.get_wire_map().contains_key(RX),
+            byte_en: bus_width(circuit, BYTE_EN),
         };
+        if ports.rx {
+            circuit.set_input(RX, true); // idle line
+        }
         let ram_words = match ports {
             Ports { bus: b @ 1.., .. } => 1 << b,
             Ports { mem_data: 1.., mem_addr, .. } => 1 << mem_addr,
@@ -225,7 +254,33 @@ impl Machine {
             written: vec![false; if ports.bus > 0 { ram_words } else { 0 }],
             uart: Vec::new(),
             uart_rx: UartRx::default(),
+            uart_in: VecDeque::new(),
+            uart_in_delay: 100,
+            uart_tx: UartTx::default(),
         })
+    }
+
+    /// Level of the `Rx` line during the current clock.
+    fn rx_level(&self) -> bool {
+        match self.uart_tx.frame {
+            Some((frame, clocks, period)) if clocks < 10 * period => (frame >> (clocks / period)) & 1 == 1,
+            _ => true,
+        }
+    }
+
+    /// Clock edge for the `Rx` sender: next clock of the frame (plus one
+    /// idle bit time after the stop bit), then the next byte.
+    fn clock_uart_in(&mut self, circuit: &Circuit) {
+        match &mut self.uart_tx.frame {
+            Some((_, clocks, period)) if *clocks + 1 < 11 * *period => *clocks += 1,
+            None if self.uart_in_delay > 0 => self.uart_in_delay -= 1,
+            _ => {
+                self.uart_tx.frame = self.uart_in.pop_front().map(|byte| {
+                    let period = read_bus(circuit, UART_DIV, 16) as usize + 1;
+                    (1 << 9 | (byte as u16) << 1, 0, period)
+                });
+            }
+        }
     }
 
     /// Samples the UART line after a clock edge (the line only changes on
@@ -333,6 +388,9 @@ impl Machine {
     /// Memory bus: presents the word at `Addr` (instruction or data) and the
     /// wait state of the current access, and settles the circuit.
     fn serve_bus(&self, circuit: &Circuit) {
+        if self.ports.rx {
+            circuit.set_input(RX, self.rx_level());
+        }
         if let Some(input) = self.input {
             write_bus(circuit, INPUT, self.ports.input, input as u32);
             write_bus(circuit, GPIO_IN, self.ports.gpio_in, input as u32);
@@ -375,7 +433,14 @@ impl Machine {
         }
         let store = if self.ports.bus > 0 {
             (read_bit(circuit, WRITE) && !read_bit(circuit, WAIT)).then(|| {
-                (read_bus(circuit, ADDR, self.ports.bus) as usize, read_bus(circuit, DATA_OUT, 16) as u16)
+                let addr = read_bus(circuit, ADDR, self.ports.bus) as usize;
+                let data = read_bus(circuit, DATA_OUT, 16) as u16;
+                // SB writes one byte (ByteEn 01 or 10), the rest a word.
+                let mask = match (self.ports.byte_en, read_bus(circuit, BYTE_EN, 2)) {
+                    (0, _) | (_, 3) => 0xFFFF,
+                    (_, be) => if be == 1 { 0x00FF } else { 0xFF00 },
+                };
+                (addr, self.word_at(addr) & !mask | data & mask)
             })
         } else {
             (!self.ram.is_empty() && read_bit(circuit, MEM_WRITE) && !self.data_waiting(circuit))
@@ -398,6 +463,9 @@ impl Machine {
         self.data_wait.clock(!fetching);
         if self.ports.tx {
             self.sample_uart(circuit);
+        }
+        if self.ports.rx {
+            self.clock_uart_in(circuit);
         }
         self.fetch(circuit);
         true
@@ -615,10 +683,11 @@ mod tests {
         ];
         programs.extend(BENCHMARKS.iter().map(|&(_, src, _)| (src, 0)));
         programs.push((MULDIV_TEST, 0));
+        programs.push((BYTE_TEST, 0));
         for top in ["COMPUTER_16B", "SOC_16B"] {
             for &(src, input) in &programs {
-                // Only CPU_16B_SOC has the multiply/divide unit.
-                let uses_muldiv = ["MULL", "MULH", "DIVU", "MODU"].iter().any(|m| src.contains(m));
+                // Only CPU_16B_SOC has the multiply/divide unit and LB/SB.
+                let uses_muldiv = ["MULL", "MULH", "DIVU", "MODU", "LB ", "SB "].iter().any(|m| src.contains(m));
                 if top == "COMPUTER_16B" && uses_muldiv {
                     continue;
                 }
@@ -679,5 +748,49 @@ mod tests {
             assert_eq!(read_bus(&circuit, OUT, 16), 8, "timer.asm, latency {latency}");
             assert_eq!(read_bus(&circuit, "Io.Display", 16), 8, "timer.asm, latency {latency}");
         }
+    }
+
+    /// SB/LB at even and odd byte addresses, a byte store next to a word,
+    /// load-use on LB and an LB right after SB. Out = 0x9BF8.
+    const BYTE_TEST: &str = "LI R3, 0x2001\n LI R1, 0x1234\n LI R4, 0x1000\n SW R1, [R4]\n\
+        MOVI R2, 0x48\n SB R2, [R3+1]\n MOVI R2, 0x9A\n SB R2, [R3]\n LB R5, [R3]\n ADD R5, R5\n\
+        LB R6, [R3+1]\n LW R7, [R4]\n LW R8, [R4+1]\n LB R9, [R3+7]\n ADD R7, R8\n ADD R7, R5\n\
+        ADD R7, R6\n ADD R7, R9\n OUT R7\n HALT";
+
+    /// Runs `src` on SOC_16B with `text` arriving on the UART receive line.
+    fn run_soc_uart(src: &str, text: &str, latency: usize) -> (Circuit, Machine) {
+        let (circuit, mut machine) = build("SOC_16B");
+        machine.rom = Isa::Cpu16.assemble(src).unwrap().words;
+        machine.input = Some(0);
+        machine.latency = latency;
+        machine.uart_in.extend(text.bytes());
+        machine.reset(&circuit);
+        machine.run(&circuit, 1_000_000);
+        assert!(halted(&circuit), "no HALT");
+        (circuit, machine)
+    }
+
+    /// UART receive (polled) and LB/SB: programs/soc/echo.asm.
+    #[test]
+    fn soc_uart_echo() {
+        for latency in [0, 1] {
+            let (_, machine) = run_soc_uart(include_str!("../programs/soc/echo.asm"), "Hello, SoC!\n", latency);
+            assert_eq!(String::from_utf8_lossy(&machine.uart), "!COS ,OLLEH", "latency {latency}");
+        }
+    }
+
+    /// UART receive interrupt: the handler stores each byte (SB) and counts
+    /// them; the main program sums the bytes once four have arrived.
+    #[test]
+    fn soc_uart_receive_interrupt() {
+        let src = "JMP main\n\
+            isr: PUSH R1\n PUSH R2\n LI R1, 0xF000\n LW R2, [R1+8]\n SB R2, [R10]\n INC R10\n POP R2\n POP R1\n RETI\n\
+            main: LI R1, 0xF000\n MOVI R2, 1\n SW R2, [R1+5]\n SW R2, [R1+9]\n LI R10, 0x2000\n EI\n\
+            wait: LI R3, 0x2004\n CMP R10, R3\n BNE wait\n DI\n\
+            LI R4, 0x2000\n MOVI R5, 0\n MOVI R6, 4\n sum: LB R7, [R4]\n ADD R5, R7\n INC R4\n DEC R6\n BNE sum\n\
+            OUT R5\n HALT";
+        let (circuit, machine) = run_soc_uart(src, "LC16", 0);
+        assert_eq!(read_bus(&circuit, OUT, 16), (b'L' + b'C' + b'1' + b'6') as u32);
+        assert_eq!(machine.word_at(0x1000), u16::from_le_bytes([b'L', b'C']));
     }
 }
