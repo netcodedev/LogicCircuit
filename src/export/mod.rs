@@ -117,7 +117,7 @@ mod tests {
         for name in b.circuit_names() {
             for level in [FlatLevel::Basic, FlatLevel::Nand] {
                 for keep_latches in [false, true] {
-                    let opts = VerilogOptions { level, cells: CellLib::Sky130, keep_latches };
+                    let opts = VerilogOptions { level, cells: CellLib::Sky130, keep_latches, mux_cells: !keep_latches };
                     let first = export_verilog(&b, &name, &opts).unwrap_or_else(|e| panic!("{name}: {e}"));
                     let second = export_verilog(&b, &name, &opts).unwrap();
                     assert_eq!(first.text, second.text, "{name} not deterministic");
@@ -132,11 +132,31 @@ mod tests {
     #[test]
     fn nand_level_without_flops_uses_only_nand_cells() {
         let b = builder();
-        let opts = VerilogOptions { level: FlatLevel::Nand, cells: CellLib::Sky130, keep_latches: true };
+        let opts = VerilogOptions { level: FlatLevel::Nand, cells: CellLib::Sky130, keep_latches: true, mux_cells: true };
         let n = export_verilog(&b, "COMPUTER_8B", &opts).unwrap();
         let nands = n.cell_counts.get("sky130_fd_sc_hd__nand2_1").copied().unwrap_or(0);
         assert_eq!(nands, b.nand_count("COMPUTER_8B").unwrap());
         assert!(n.cell_counts.keys().all(|c| c.ends_with("nand2_1") || c.ends_with("conb_1") || c.ends_with("buf_1")));
+    }
+
+    /// With `mux_cells` every MUX_2_1 becomes one mux2 cell; without, none.
+    #[test]
+    fn mux_cells_replace_every_multiplexer() {
+        let b = builder();
+        let muxes = b
+            .flatten_until("COMPUTER_8B", &|t: &str| b.is_basic(t) || t == "MUX_2_1")
+            .unwrap()
+            .blocks
+            .iter()
+            .filter(|bl| bl.kind == "MUX_2_1")
+            .count();
+        assert!(muxes > 100);
+        let mux2 = |mux_cells| {
+            let opts = VerilogOptions { level: FlatLevel::Basic, cells: CellLib::Sky130, keep_latches: false, mux_cells };
+            export_verilog(&b, "COMPUTER_8B", &opts).unwrap().cell_counts.get("sky130_fd_sc_hd__mux2_1").copied().unwrap_or(0)
+        };
+        assert_eq!(mux2(true), muxes);
+        assert_eq!(mux2(false), 0);
     }
 
     /// Runs the .clt suites of a few circuits against the exported generic
@@ -153,11 +173,13 @@ mod tests {
             ("src/circuits/adder/FULL_ADDER.clt", FlatLevel::Nand, true),
             ("src/circuits/memory/REGISTER_4B.clt", FlatLevel::Basic, true),
             ("circuits/COMPUTER_8B.clt", FlatLevel::Basic, false),
+            ("src/circuits/mux/MUX_4_1_BUS.clt", FlatLevel::Basic, false),
         ];
         for (file, level, keep_latches) in cases {
             let src = std::fs::read_to_string(Path::new(root).join(file)).unwrap();
             for suite in parse_clt(&src).unwrap().suites {
-                let opts = VerilogOptions { level, cells: CellLib::Generic, keep_latches };
+                // As in chip builds: flip-flop and multiplexer cells.
+                let opts = VerilogOptions { level, cells: CellLib::Generic, keep_latches, mux_cells: !keep_latches };
                 let work = std::env::temp_dir().join(format!("logiccircuit-test-{}", std::process::id()));
                 let r = verify_with_iverilog(&b, &suite, opts, false, &work).unwrap();
                 assert!(r.checks > 0, "{file}");

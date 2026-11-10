@@ -142,7 +142,8 @@ pub fn build(builder: &CircuitBuilder, name: &str, opts: &BuildOptions, root: &P
     std::fs::create_dir_all(&run_dir).map_err(|e| e.to_string())?;
 
     // Netlist.
-    let vopts = VerilogOptions { level: opts.level, cells: CellLib::Sky130, keep_latches: opts.keep_latches };
+    // Multiplexers become mux2 cells on the chip (half the area of gates).
+    let vopts = VerilogOptions { level: opts.level, cells: CellLib::Sky130, keep_latches: opts.keep_latches, mux_cells: true };
     let netlist = export_verilog(builder, name, &vopts)?;
     let netlist_file = format!("{}.v", netlist.module);
     std::fs::write(run_dir.join(&netlist_file), &netlist.text).map_err(|e| e.to_string())?;

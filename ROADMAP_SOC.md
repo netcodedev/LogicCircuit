@@ -355,8 +355,18 @@ direkt abgebildet, ein Wort pro Eintrag:
       Transistoren statt 80.901. `verify-verilog` 100 Suiten grün; mit
       `--x-init` scheitern wie bisher nur die Grundbaustein-Suiten, die ohne
       Reset „startet bei 0“ prüfen
+- [x] Fläche: 3.351 der Bausteine im SoC sind 2:1-Multiplexer (1.094 davon
+      im Cache), bisher je NOT + 2× AND + OR (≈ 22,5 µm²). Der Chip-Bau
+      bildet `MUX_2_1` jetzt auf die sky130-Zelle `mux2_1` ab (≈ 11,3 µm²;
+      `VerilogOptions::mux_cells`, `export-verilog`/`verify-verilog
+      --mux-cells`); Simulation, Ansichten und der normale Export bleiben bei
+      den Gattern. SOC_16B (gleiche Einstellungen): Logikfläche 133.105 →
+      **91.674 µm² (−31 %)**, Die 429 → **359 µm**, 119.587 → 91.869
+      Transistoren, **143 MHz** (Ziel 7 ns erreicht). `verify-verilog
+      --mux-cells` 108 Suiten grün, `--x-init` wie bisher
 - [ ] Später: SRAM-Makro statt Flipflops (ein Eintrag kostet heute ~1.400
-      NANDs), größere Einträge (2–4 Wörter pro Tag) bei QSPI mit Burst
+      NANDs), größere Einträge (2–4 Wörter pro Tag) bei QSPI mit Burst;
+      `MUX_4_1` auf `mux4_1` abbilden (≈ 21 µm² statt 3 × 11,3)
 
 ### Phase 4 – Speicher-Controller
 - [ ] QSPI-Controller (Flash lesen, PSRAM lesen/schreiben), Modell im Runner

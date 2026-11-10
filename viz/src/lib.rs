@@ -137,6 +137,8 @@ impl Sim {
             level: if level == "nand" { FlatLevel::Nand } else { FlatLevel::Basic },
             cells: if cells == "generic" { CellLib::Generic } else { CellLib::Sky130 },
             keep_latches,
+            // The download shows the gates, as the basic-block view does.
+            mux_cells: false,
         };
         export_verilog(&self.builder, name, &opts).map(|n| n.text).map_err(|e| JsError::new(&e))
     }

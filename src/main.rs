@@ -131,6 +131,10 @@ enum Commands {
         /// Keep flip-flops as our latch gates instead of flip-flop cells.
         #[arg(long)]
         keep_latches: bool,
+        /// Map 2:1 multiplexers (MUX_2_1) to multiplexer cells instead of
+        /// their gates (basic level only; chip builds always do this).
+        #[arg(long)]
+        mux_cells: bool,
         /// Output file (default: <COMPONENT_NAME>.v).
         #[arg(short, long)]
         output: Option<PathBuf>,
@@ -158,6 +162,9 @@ enum Commands {
         /// tests reset first (e.g. SOC_16B, CPU_16B_SOC, CPU_16B_PIPE3).
         #[arg(long)]
         x_init: bool,
+        /// Map 2:1 multiplexers to multiplexer cells, as chip builds do.
+        #[arg(long)]
+        mux_cells: bool,
     },
 }
 #[derive(clap::Subcommand, Debug)]
@@ -424,7 +431,7 @@ fn main() {
             let tops: Vec<&str> = if isa_only { Vec::new() } else { top.split(',').map(str::trim).collect() };
             run_bench(&builder, &tops, mem_latency);
         }
-        Some(Commands::ExportVerilog { component_name, level, cells, keep_latches, output, names }) => {
+        Some(Commands::ExportVerilog { component_name, level, cells, keep_latches, mux_cells, output, names }) => {
             let opts = VerilogOptions {
                 level: level.into(),
                 cells: match cells {
@@ -432,6 +439,7 @@ fn main() {
                     Cells::Generic => CellLib::Generic,
                 },
                 keep_latches,
+                mux_cells,
             };
             let netlist = export_verilog(&builder, &component_name, &opts).unwrap_or_else(|e| {
                 eprintln!("Error: {}", e);
@@ -534,8 +542,8 @@ fn main() {
                 }
             }
         },
-        Some(Commands::VerifyVerilog { component_name, level, keep_latches, x_init }) => {
-            let opts = VerilogOptions { level: level.into(), cells: CellLib::Generic, keep_latches };
+        Some(Commands::VerifyVerilog { component_name, level, keep_latches, x_init, mux_cells }) => {
+            let opts = VerilogOptions { level: level.into(), cells: CellLib::Generic, keep_latches, mux_cells };
             verify_verilog(&builder, component_name.as_deref(), opts, x_init);
         }
         Some(Commands::Nands { component_name, depth }) => match component_name {

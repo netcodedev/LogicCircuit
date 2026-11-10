@@ -35,11 +35,16 @@ pub struct VerilogOptions {
     /// Keep flip-flops as our own latch gates instead of mapping `DFLIP_FLOP`
     /// to a flip-flop cell.
     pub keep_latches: bool,
+    /// Map every `MUX_2_1` to one multiplexer cell (sky130 `mux2_1`, about
+    /// half the area of its NOT/AND/AND/OR gates) instead of its gates. Only
+    /// at `FlatLevel::Basic`; used for chip builds, while the views and the
+    /// plain export keep showing the gates.
+    pub mux_cells: bool,
 }
 
 impl Default for VerilogOptions {
     fn default() -> Self {
-        Self { level: FlatLevel::Basic, cells: CellLib::Sky130, keep_latches: false }
+        Self { level: FlatLevel::Basic, cells: CellLib::Sky130, keep_latches: false, mux_cells: false }
     }
 }
 
@@ -101,9 +106,14 @@ fn cell_for(kind: &str) -> Option<CellMap> {
         "NOR4" => cell("LC_NOR4", "sky130_fd_sc_hd__nor4_1", &["A", "B", "C", "D"], "Out", &["A", "B", "C", "D"], "Y"),
         "XOR" => cell("LC_XOR2", "sky130_fd_sc_hd__xor2_1", TWO, "out", AB, "X"),
         "XNOR" => cell("LC_XNOR2", "sky130_fd_sc_hd__xnor2_1", TWO, "out", AB, "Y"),
+        // Out = S ? B : A; mux2_1: X = S ? A1 : A0 (only with `mux_cells`)
+        MUX_BLOCK => cell("LC_MUX2", "sky130_fd_sc_hd__mux2_1", &["A", "B", "S"], "Out", &["A0", "A1", "S"], "X"),
         _ => return None,
     })
 }
+
+/// The 2:1 multiplexer block mapped to a cell with `VerilogOptions::mux_cells`.
+const MUX_BLOCK: &str = "MUX_2_1";
 
 /// Single-bit type a multi-bit basic block is made of.
 fn bitwise_base(kind: &str) -> Option<&'static str> {
@@ -161,8 +171,11 @@ struct Instance {
 pub fn export_verilog(builder: &CircuitBuilder, top: &str, opts: &VerilogOptions) -> Result<VerilogNetlist, String> {
     let view = builder.describe(top).ok_or_else(|| format!("Circuit '{top}' not found"))?;
     let map_flops = !opts.keep_latches;
+    let map_muxes = opts.mux_cells && opts.level == FlatLevel::Basic;
     let stop = |t: &str| {
-        (opts.level == FlatLevel::Basic && builder.is_basic(t)) || (map_flops && t == "DFLIP_FLOP")
+        (opts.level == FlatLevel::Basic && builder.is_basic(t))
+            || (map_flops && t == "DFLIP_FLOP")
+            || (map_muxes && t == MUX_BLOCK)
     };
     let flat = builder.flatten_until(top, &stop).ok_or_else(|| format!("Circuit '{top}' not found"))?;
 
@@ -355,6 +368,9 @@ pub fn export_verilog(builder: &CircuitBuilder, top: &str, opts: &VerilogOptions
     }
     writeln!(t, "// {top}: exported by LogicCircuit as {level}, {lib}.").unwrap();
     writeln!(t, "// Flip-flops: {}.", if map_flops { "mapped to flip-flop cells" } else { "kept as latch gates" }).unwrap();
+    if map_muxes {
+        writeln!(t, "// 2:1 multiplexers (MUX_2_1): mapped to multiplexer cells.").unwrap();
+    }
     let port_list: Vec<String> = ports.iter().map(|(n, _, _)| port_name(n)).collect();
     writeln!(t, "module {module} ({});", port_list.join(", ")).unwrap();
     for (name, width, output) in &ports {
@@ -438,6 +454,10 @@ endmodule
 module LC_XNOR2 #(parameter INIT = 1'b0, parameter DELAY = 1) (input A, input B, output reg Y);
     initial Y = INIT;
     always @(A or B) Y <= #(DELAY) ~(A ^ B);
+endmodule
+module LC_MUX2 #(parameter INIT = 1'b0, parameter DELAY = 1) (input A0, input A1, input S, output reg Y);
+    initial Y = INIT;
+    always @(A0 or A1 or S) Y <= #(DELAY) (S ? A1 : A0);
 endmodule
 module LC_TIELO (output Y);
     assign Y = 1'b0;
