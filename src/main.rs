@@ -7,6 +7,8 @@ use logic_circuit::cldl::FlatLevel;
 use logic_circuit::export::verilog::{CellLib, VerilogOptions, export_verilog};
 use logic_circuit::export::verify_with_iverilog;
 use logic_circuit::chip::{self, BuildOptions, RunMetrics};
+use logic_circuit::isa::Isa;
+use logic_circuit::isa::sim16::Cpu16;
 use logic_circuit::{clt, machine};
 
 #[derive(clap::ValueEnum, Clone, Copy, Debug)]
@@ -84,6 +86,20 @@ enum Commands {
         /// (COMPUTER_16B_PIPE3); 0 = memories answer at once.
         #[arg(long, default_value_t = 0)]
         mem_latency: usize,
+    },
+    /// Run the benchmarks in programs/bench: instructions on the
+    /// instruction-level simulator, clocks on each 16-bit computer.
+    /// Loads ./circuits automatically if -d is not given.
+    Bench {
+        /// Computers to run on, comma-separated.
+        #[arg(long, default_value = "COMPUTER_16B,COMPUTER_16B_PIPE3,SOC_16B")]
+        top: String,
+        /// Wait states per memory access (see run --mem-latency).
+        #[arg(long, default_value_t = 0)]
+        mem_latency: usize,
+        /// Only the instruction-level simulator (fast).
+        #[arg(long)]
+        isa_only: bool,
     },
     /// Count the NAND gates a circuit is built from, broken down by part.
     /// Without a name, lists every known circuit.
@@ -297,6 +313,7 @@ fn main() {
         args.command,
         Some(
             Commands::Run { .. }
+                | Commands::Bench { .. }
                 | Commands::Nands { .. }
                 | Commands::ExportVerilog { .. }
                 | Commands::VerifyVerilog { .. }
@@ -393,6 +410,10 @@ fn main() {
                 .to_string()
             });
             run_program(&builder, &program, &top, input, max_steps, trace, mem_latency);
+        }
+        Some(Commands::Bench { top, mem_latency, isa_only }) => {
+            let tops: Vec<&str> = if isa_only { Vec::new() } else { top.split(',').map(str::trim).collect() };
+            run_bench(&builder, &tops, mem_latency);
         }
         Some(Commands::ExportVerilog { component_name, level, cells, keep_latches, output, names }) => {
             let opts = VerilogOptions {
@@ -527,6 +548,79 @@ fn parse_word(text: &str) -> Result<u16, String> {
         None => text.parse(),
     }
     .map_err(|e| format!("expected a 16-bit number: {e}"))
+}
+
+/// Runs every program in ./programs/bench on the instruction-level
+/// simulator (instructions, expected Out) and on each computer in `tops`
+/// (clocks; Out must match). Prints clocks and clocks per instruction.
+fn run_bench(builder: &CircuitBuilder, tops: &[&str], latency: usize) {
+    let mut files: Vec<_> = std::fs::read_dir("./programs/bench")
+        .map(|d| d.filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "asm")).collect())
+        .unwrap_or_default();
+    files.sort();
+    if files.is_empty() {
+        eprintln!("No benchmarks in ./programs/bench.");
+        std::process::exit(1);
+    }
+    for top in tops {
+        if builder.describe(top).is_none() {
+            eprintln!("Circuit '{}' not found.", top);
+            std::process::exit(1);
+        }
+    }
+    print!("\n  {:<10} {:>8} {:>7}", "Benchmark", "Out", "Instr");
+    for top in tops {
+        print!("  {:>20}", top);
+    }
+    println!();
+    let mut total_instr = 0u64;
+    let mut total_clocks = vec![0usize; tops.len()];
+    let mut mismatch = false;
+    for path in &files {
+        let name = path.file_stem().unwrap().to_string_lossy();
+        let src = std::fs::read_to_string(path).unwrap_or_default();
+        let words = match Isa::Cpu16.assemble(&src) {
+            Ok(p) => p.words,
+            Err(e) => {
+                eprintln!("{}:{}", path.display(), e);
+                std::process::exit(1);
+            }
+        };
+        let mut cpu = Cpu16::new(&words);
+        cpu.run(10_000_000);
+        total_instr += cpu.steps;
+        print!("  {:<10} {:>8} {:>7}", name, format!("0x{:04X}", cpu.out), cpu.steps);
+        for (i, top) in tops.iter().enumerate() {
+            let circuit = builder.build(top);
+            let mut m = machine::Machine::new(&circuit).expect("not runnable");
+            m.rom = words.clone();
+            m.input = Some(0);
+            m.latency = latency;
+            m.reset(&circuit);
+            let clocks = m.run(&circuit, 1_000_000);
+            let out = machine::read_bus(&circuit, machine::OUT, 16) as u16;
+            let ok = machine::halted(&circuit) && out == cpu.out;
+            mismatch |= !ok;
+            total_clocks[i] += clocks;
+            let cell = format!("{} ({:.2}){}", clocks, clocks as f64 / cpu.steps as f64, if ok { "" } else { " ≠" });
+            print!("  {:>20}", cell);
+            use std::io::Write as _;
+            let _ = std::io::stdout().flush();
+        }
+        println!();
+    }
+    print!("  {:<10} {:>8} {:>7}", "total", "", total_instr);
+    for c in &total_clocks {
+        print!("  {:>20}", format!("{} ({:.2})", c, *c as f64 / total_instr as f64));
+    }
+    println!();
+    if !tops.is_empty() {
+        println!("\n  Instr: instructions (instruction-level simulator); per computer: clocks (clocks per instruction)");
+    }
+    if mismatch {
+        println!("\n≠: wrong Out or no HALT (expected the instruction-level result).");
+        std::process::exit(1);
+    }
 }
 
 fn run_program(

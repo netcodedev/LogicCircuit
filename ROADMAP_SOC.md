@@ -128,6 +128,38 @@ noch keine Hardware.
 - [ ] Signoff (DRC mit Magic/KLayout, LVS, Antennen) – übernimmt bei einer
       Einreichung der TinyTapeout-Flow
 
+### Ausbau A – schneller rechnen, mehr können (2026-11-10)
+
+Reihenfolge: Benchmarks, MUL/DIV, Sprungvorhersage und kritischer Pfad,
+Timer und Interrupts, UART-Empfang und Byte-Zugriffe. Ziel-CPU ist die
+SoC-Linie (`CPU_16B_SOC`, `SOC_16B`).
+
+**A1 – Befehlssatz-Simulator und Benchmarks**
+- [x] `isa::sim16::Cpu16`: führt den CPU_16B-Befehlssatz direkt in Rust aus
+      (ein gemeinsamer Speicher, zählt Befehle). Referenz für die Schaltungen:
+      Rust-Test `isa_simulator_matches_circuit` vergleicht `Out`, SP, Flags
+      und Datenspeicher mit COMPUTER_16B auf allen Beispielprogrammen und
+      Benchmarks
+- [x] Benchmarks `programs/bench/`: `mul` (Software-Multiplikation),
+      `div` (Software-Division, Ziffernsumme), `branch` (Bits zählen),
+      `memory` (füllen, kopieren, summieren), `calls` (rekursives fib(9))
+- [x] `cargo run -- bench [--top A,B] [--mem-latency N] [--isa-only]`:
+      Befehle im Simulator, Takte auf jedem Rechner, Ergebnis muss stimmen
+- [x] Ausgangswerte (Takte, in Klammern Takte pro Befehl):
+
+  | Benchmark | Befehle | COMPUTER_16B | COMPUTER_16B_PIPE3 | SOC_16B |
+  |---|---|---|---|---|
+  | branch | 1.146 | 1.146 (1,00) | 1.388 (1,21) | 1.390 (1,21) |
+  | calls | 925 | 925 (1,00) | 1.308 (1,41) | 1.744 (1,89) |
+  | div | 1.989 | 1.989 (1,00) | 2.557 (1,29) | 2.592 (1,30) |
+  | memory | 778 | 778 (1,00) | 1.016 (1,31) | 1.118 (1,44) |
+  | mul | 358 | 358 (1,00) | 434 (1,21) | 488 (1,36) |
+  | **gesamt** | 5.196 | 5.196 (1,00) | 6.703 (1,29) | 7.332 (1,41) |
+
+  SOC_16B mit 2 Wartetakten pro Speicherzugriff: 19.866 Takte (3,82).
+  Bei `calls` kosten RET (zwei Takte), Zwei-Wort-CALL und Stack-Zugriffe
+  auf dem gemeinsamen Bus am meisten.
+
 ### Phase 4 – Speicher-Controller
 - [ ] QSPI-Controller (Flash lesen, PSRAM lesen/schreiben), Modell im Runner
 - [ ] später ggf. SDRAM-Controller (Init, Refresh, Bänke, CAS-Latenz)

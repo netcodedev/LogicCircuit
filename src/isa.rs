@@ -1,4 +1,5 @@
-//! Instruction sets: CPU_8B here, CPU_16B in [`cpu16`]. [`Isa`] picks one.
+//! Instruction sets: CPU_8B here, CPU_16B in [`cpu16`] (instruction-level
+//! simulator in [`sim16`]). [`Isa`] picks one.
 //!
 //! For CPU_8B one table drives the assembler and the disassembler, so a new
 //! instruction only needs a new row here (plus the hardware).
@@ -10,6 +11,7 @@ use std::collections::HashMap;
 use std::fmt;
 
 pub mod cpu16;
+pub mod sim16;
 
 /// The instruction set of a CPU, chosen by the ports of the circuit (see
 /// `machine::Machine::isa`).

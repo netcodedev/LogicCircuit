@@ -600,4 +600,32 @@ mod tests {
             assert_eq!(machine.ram[0xF002], 0);
         }
     }
+
+    /// The instruction-level simulator (isa::sim16) is the reference for the
+    /// circuits: same Out, SP, flags and data memory on the example programs
+    /// and the benchmarks.
+    #[test]
+    fn isa_simulator_matches_circuit() {
+        use crate::isa::sim16::Cpu16;
+        let mut programs: Vec<(&str, u16)> = vec![
+            (include_str!("../programs/16/fibonacci.asm"), 0),
+            (include_str!("../programs/16/multiply.asm"), 0),
+            (include_str!("../programs/16/factorial.asm"), 6),
+            (include_str!("../programs/16/sort.asm"), 0),
+        ];
+        programs.extend(crate::isa::sim16::BENCHMARKS.iter().map(|&(_, src, _)| (src, 0)));
+        for (src, input) in programs {
+            let (circuit, machine) = run16("COMPUTER_16B", src, input);
+            let mut cpu = Cpu16::new(&Isa::Cpu16.assemble(src).unwrap().words);
+            cpu.input = input;
+            cpu.run(1_000_000);
+            assert_eq!(read_bus(&circuit, OUT, 16), cpu.out as u32);
+            assert_eq!(read_bus(&circuit, "Cpu.SP", 16), cpu.sp as u32);
+            let flags = ["Cpu.FlagZ", "Cpu.FlagN", "Cpu.FlagC", "Cpu.FlagV"].map(|f| read_bit(&circuit, f));
+            assert_eq!(flags, [cpu.flags.z, cpu.flags.n, cpu.flags.c, cpu.flags.v]);
+            // Data memory above the program (Harvard: the program is not in RAM).
+            let len = Isa::Cpu16.assemble(src).unwrap().words.len();
+            assert_eq!(machine.ram[len..], cpu.mem[len..]);
+        }
+    }
 }
