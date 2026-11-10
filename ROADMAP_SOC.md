@@ -277,6 +277,26 @@ SoC-Linie (`CPU_16B_SOC`, `SOC_16B`).
       (0 und 1 Wartetakt), `soc_uart_receive_interrupt`. SOC_16B: 44.101
       NANDs (+3.597)
 
+**Stand nach A1–A5 (2026-11-10)**
+
+| | vor A1 | nach A5 |
+|---|---|---|
+| NANDs (SOC_16B) | 32.070 | 44.101 |
+| Transistoren | 64.990¹ | 80.901 |
+| Die (70 %) | 321 µm¹ | 356 µm |
+| fmax (7 ns Ziel, 3 ns Speicher, `--optimize`) | 110 MHz¹ | 138 MHz |
+| Takte Software-Benchmarks | 7.332 | 6.806 |
+| Division (Ziffernsumme) | 2.592 Takte | 579 Takte (`DIVU`/`MODU`) |
+
+¹ nach A2 (mit MUL/DIV-Einheit), vor A3.
+
+Neu: Hardware-Multiplikation und -Division, Sprungvorhersage, Timer,
+Interrupts, UART-Empfang, Byte-Zugriffe. Der kritische Pfad bleibt
+Befehlsregister → Registerfile → Forwarding → Schieber → Write-back → Z →
+Flags (jetzt über den Flag-Mux für RETI). Für TinyTapeout wären es bei 70 %
+Auslastung etwa 4×2 Tiles (≈ 560 € plus Devkit), noch ohne
+QSPI-Wrapper für die Pins.
+
 ### Phase 4 – Speicher-Controller
 - [ ] QSPI-Controller (Flash lesen, PSRAM lesen/schreiben), Modell im Runner
 - [ ] später ggf. SDRAM-Controller (Init, Refresh, Bänke, CAS-Latenz)
