@@ -25,6 +25,15 @@ the browser's Chip 3D view with an exploded layer stack.*
   [`src/circuits/nand/`](src/circuits/nand)); those stand in for the gates in
   the NAND view, the NAND counts and the NAND netlist export, and
   `test --nand` runs every suite on circuits made of NAND gates alone.
+  The flip-flop `DFLIP_FLOP` (two latches) is simulated as one built-in
+  rising-edge flip-flop the same way.
+- **Fast simulator** – every wire is an index into one value array; after the
+  build the gates are sorted topologically (flip-flops cut the feedback, other
+  loops such as an SR latch are iterated as a group), and each evaluation only
+  recomputes the gates whose inputs changed, in that order
+  ([`src/circuit/schedule.rs`](src/circuit/schedule.rs)). Every clock is still
+  simulated and every wire can be read. `SOC_16B` runs at about 10 kHz
+  (before: about 100 Hz).
 - **Test language (CLT)** – every circuit ships with a test suite (`SET`,
   `EVAL`, `ASSERT`).
 - **A complete 8-bit computer** – `COMPUTER_8B` = `CPU_8B` (ALU, 16 × 8

@@ -197,13 +197,14 @@ pub fn export_verilog(builder: &CircuitBuilder, top: &str, opts: &VerilogOptions
 
     // Initial state for the generic cells.
     let built: Option<Circuit> = (opts.cells == CellLib::Generic).then(|| {
-        let c = builder.build(top);
+        // With the latches kept, their inner wires need the latch version.
+        let c = if opts.keep_latches { builder.build_latches(top) } else { builder.build(top) };
         c.evaluate_stable();
         c
     });
     let init_of = |net: usize| -> u8 {
         built.as_ref().map_or(0, |c| {
-            c.get_wire_map().get(&flat.nets[net]).is_some_and(|w| w.borrow().value) as u8
+            c.wire_value(&flat.nets[net]).unwrap_or(false) as u8
         })
     };
 

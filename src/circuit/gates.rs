@@ -5,9 +5,7 @@
 //! `src/circuits/nand/`, used for the NAND views, NAND counts and the NAND
 //! netlist export.
 
-use std::fmt;
-
-use super::{LogicGate, Wire};
+use super::WireId;
 
 /// A built-in gate type. Pin names match the CLDL parts that used to define
 /// them (`in1`/`in2`/`out`, `in`/`out` for NOT, `A`..`D`/`Out` for AND3 and
@@ -129,37 +127,13 @@ impl GateKind {
     }
 }
 
-/// One built-in gate in a built circuit.
+/// One built-in gate in a built circuit (as handed to `Circuit::add_builtin`).
+#[derive(Debug, Clone)]
 pub struct Gate {
     pub id: String,
     pub kind: GateKind,
-    pub inputs: Box<[Wire]>,
-    pub out: Wire,
-}
-
-impl fmt::Debug for Gate {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Gate")
-            .field("id", &self.id)
-            .field("kind", &self.kind)
-            .field("inputs", &self.inputs)
-            .field("out", &self.out)
-            .finish()
-    }
-}
-
-impl LogicGate for Gate {
-    fn evaluate(&self) -> bool {
-        let mut values = [false; 4];
-        for (v, w) in values.iter_mut().zip(self.inputs.iter()) {
-            *v = w.borrow().value;
-        }
-        let new_val = self.kind.eval(&values[..self.inputs.len()]);
-        let mut out = self.out.borrow_mut();
-        let changed = out.value != new_val;
-        out.value = new_val;
-        changed
-    }
+    pub inputs: Vec<WireId>,
+    pub out: WireId,
 }
 
 #[cfg(test)]

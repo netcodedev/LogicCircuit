@@ -104,10 +104,9 @@ impl Profile {
 /// Wire names of the CPU inside `circuit`: the prefix under which
 /// CPU_16B_SOC's `HoldX` lives ("" for the CPU itself, "Cpu." for SOC_16B).
 pub fn cpu_prefix(circuit: &Circuit) -> Option<String> {
-    let map = circuit.get_wire_map();
     ["", "Cpu."]
         .into_iter()
-        .find(|p| map.contains_key(&format!("{p}HoldX.out")) && map.contains_key(&format!("{p}IrValid.Q.0")))
+        .find(|p| circuit.has_wire(&format!("{p}HoldX.out")) && circuit.has_wire(&format!("{p}IrValid.Q.0")))
         .map(str::to_string)
 }
 
