@@ -648,4 +648,36 @@ mod tests {
         DIVU R8, R7\n MODU R6, R7\n ADD R8, R6\n MOVI R9, 7\n DIVU R9, R0\n LI R10, 0x1000\n\
         SW R3, [R10]\n LW R11, [R10]\n MULL R11, R2\n MODU R1, R1\n BEQ ok\n HALT\n\
         ok: ADD R8, R5\n ADD R8, R9\n ADD R8, R11\n OUT R8\n HALT";
+
+    /// Timer interrupts every `period` clocks while the main program adds
+    /// 0x8000 `rounds` times into R2:R1 with ADD/ADC. The handler changes
+    /// the flags on purpose: only if RETI restores C (and the handler saves
+    /// its registers) is R2 = rounds / 2 at the end. The period must be
+    /// longer than the handler (which takes longer with slow memory).
+    fn interrupt_test(period: u16, rounds: u16) -> String {
+        format!(
+            "JMP main\n\
+             isr: PUSH R7\n PUSH R8\n INC R9\n LI R7, 0xF000\n SW R9, [R7+2]\n MOVI R8, 3\n SW R8, [R7+7]\n\
+             CMPI R9, 0x55\n POP R8\n POP R7\n RETI\n\
+             main: LI R7, 0xF000\n LI R8, {}\n SW R8, [R7+6]\n MOVI R8, 3\n SW R8, [R7+7]\n\
+             MOVI R1, 0\n MOVI R2, 0\n LI R3, 0x8000\n LI R4, {rounds}\n MOVI R9, 0\n EI\n\
+             loop: ADD R1, R3\n ADC R2, R0\n DEC R4\n BNE loop\n DI\n OUT R2\n HALT",
+            period - 1
+        )
+    }
+
+    /// Timer interrupts on SOC_16B: handler entry/return, saved flags and
+    /// registers, also with slow memory.
+    #[test]
+    fn soc_timer_interrupts() {
+        for latency in [0, 1, 3] {
+            let (circuit, _, _) = run16_slow("SOC_16B", &interrupt_test(150, 128), 0, latency);
+            assert_eq!(read_bus(&circuit, OUT, 16), 64, "latency {latency}");
+            let ticks = read_bus(&circuit, "Io.Display", 16);
+            assert!(ticks >= 2, "latency {latency}: only {ticks} interrupts");
+            let (circuit, _, _) = run16_slow("SOC_16B", include_str!("../programs/soc/timer.asm"), 0, latency);
+            assert_eq!(read_bus(&circuit, OUT, 16), 8, "timer.asm, latency {latency}");
+            assert_eq!(read_bus(&circuit, "Io.Display", 16), 8, "timer.asm, latency {latency}");
+        }
+    }
 }

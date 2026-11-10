@@ -57,6 +57,8 @@ fn überspringt trotzdem zwei Wörter).
 | 0 | HALT | `0 - - 0` | PC bleibt stehen | |
 | 0 | NOP | `0 - - 1` | | |
 | 0 | RET | `0 - - 2` | PC ← mem[SP]; SP ← SP+1 | |
+| 0 | EI, DI | `0 1 - 1`, `0 2 - 1` | Interrupts an/aus (NOP-Varianten; nur CPU_16B_SOC) | |
+| 0 | RETI | `0 1 - 2` | RET, stellt Flags wieder her, Interrupts an (RET-Variante; nur CPU_16B_SOC) | ZNCV |
 | 0 | JR Rd | `0 Rd - 3` | PC ← Rd | |
 | 0 | CALLR Rd | `0 Rd - 4` | SP ← SP−1; mem[SP] ← PC+1; PC ← Rd | |
 | 0 | PUSH Rd | `0 Rd - 5` | SP ← SP−1; mem[SP] ← Rd | |

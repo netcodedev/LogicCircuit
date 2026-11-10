@@ -131,4 +131,44 @@ TESTS FOR IO_16B {
         ASSERT RData[0] 0; ASSERT RData[1] 0; ASSERT RData[2] 0; ASSERT RData[3] 0; ASSERT RData[4] 0; ASSERT RData[5] 0; ASSERT RData[6] 0; ASSERT RData[7] 0; ASSERT RData[8] 0; ASSERT RData[9] 0; ASSERT RData[10] 0; ASSERT RData[11] 0; ASSERT RData[12] 0; ASSERT RData[13] 0; ASSERT RData[14] 0; ASSERT RData[15] 0;
         ASSERT Tx 1;
     }
+
+    TEST "TIMER = 2, TIMER_CTRL = 3: counts down, Irq at 0" {
+        SET Addr[0] 0, Addr[1] 1, Addr[2] 1, Addr[3] 0, Addr[4] 0, Addr[5] 0, Addr[6] 0, Addr[7] 0, Addr[8] 0, Addr[9] 0, Addr[10] 0, Addr[11] 0, Addr[12] 1, Addr[13] 1, Addr[14] 1, Addr[15] 1;
+        SET WData[0] 0, WData[1] 1, WData[2] 0, WData[3] 0, WData[4] 0, WData[5] 0, WData[6] 0, WData[7] 0, WData[8] 0, WData[9] 0, WData[10] 0, WData[11] 0, WData[12] 0, WData[13] 0, WData[14] 0, WData[15] 0;
+        SET Write 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Write 0;
+        EVAL;
+        ASSERT RData[0] 0; ASSERT RData[1] 1; ASSERT RData[2] 0; ASSERT RData[3] 0; ASSERT RData[4] 0; ASSERT RData[5] 0; ASSERT RData[6] 0; ASSERT RData[7] 0; ASSERT RData[8] 0; ASSERT RData[9] 0; ASSERT RData[10] 0; ASSERT RData[11] 0; ASSERT RData[12] 0; ASSERT RData[13] 0; ASSERT RData[14] 0; ASSERT RData[15] 0;
+        ASSERT Irq 0;
+        SET Addr[0] 1, Addr[1] 1, Addr[2] 1, Addr[3] 0, Addr[4] 0, Addr[5] 0, Addr[6] 0, Addr[7] 0, Addr[8] 0, Addr[9] 0, Addr[10] 0, Addr[11] 0, Addr[12] 1, Addr[13] 1, Addr[14] 1, Addr[15] 1;
+        SET WData[0] 1, WData[1] 1, WData[2] 0, WData[3] 0, WData[4] 0, WData[5] 0, WData[6] 0, WData[7] 0, WData[8] 0, WData[9] 0, WData[10] 0, WData[11] 0, WData[12] 0, WData[13] 0, WData[14] 0, WData[15] 0;
+        SET Write 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Write 0;
+        SET Addr[0] 0, Addr[1] 1, Addr[2] 1, Addr[3] 0, Addr[4] 0, Addr[5] 0, Addr[6] 0, Addr[7] 0, Addr[8] 0, Addr[9] 0, Addr[10] 0, Addr[11] 0, Addr[12] 1, Addr[13] 1, Addr[14] 1, Addr[15] 1;
+        EVAL;
+        ASSERT RData[0] 0; ASSERT RData[1] 1; ASSERT RData[2] 0; ASSERT RData[3] 0; ASSERT RData[4] 0; ASSERT RData[5] 0; ASSERT RData[6] 0; ASSERT RData[7] 0; ASSERT RData[8] 0; ASSERT RData[9] 0; ASSERT RData[10] 0; ASSERT RData[11] 0; ASSERT RData[12] 0; ASSERT RData[13] 0; ASSERT RData[14] 0; ASSERT RData[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT RData[0] 1; ASSERT RData[1] 0; ASSERT RData[2] 0; ASSERT RData[3] 0; ASSERT RData[4] 0; ASSERT RData[5] 0; ASSERT RData[6] 0; ASSERT RData[7] 0; ASSERT RData[8] 0; ASSERT RData[9] 0; ASSERT RData[10] 0; ASSERT RData[11] 0; ASSERT RData[12] 0; ASSERT RData[13] 0; ASSERT RData[14] 0; ASSERT RData[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT RData[0] 0; ASSERT RData[1] 0; ASSERT RData[2] 0; ASSERT RData[3] 0; ASSERT RData[4] 0; ASSERT RData[5] 0; ASSERT RData[6] 0; ASSERT RData[7] 0; ASSERT RData[8] 0; ASSERT RData[9] 0; ASSERT RData[10] 0; ASSERT RData[11] 0; ASSERT RData[12] 0; ASSERT RData[13] 0; ASSERT RData[14] 0; ASSERT RData[15] 0;
+        ASSERT Irq 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT RData[0] 0; ASSERT RData[1] 1; ASSERT RData[2] 0; ASSERT RData[3] 0; ASSERT RData[4] 0; ASSERT RData[5] 0; ASSERT RData[6] 0; ASSERT RData[7] 0; ASSERT RData[8] 0; ASSERT RData[9] 0; ASSERT RData[10] 0; ASSERT RData[11] 0; ASSERT RData[12] 0; ASSERT RData[13] 0; ASSERT RData[14] 0; ASSERT RData[15] 0;
+        ASSERT Irq 1;
+        SET Addr[0] 1, Addr[1] 1, Addr[2] 1, Addr[3] 0, Addr[4] 0, Addr[5] 0, Addr[6] 0, Addr[7] 0, Addr[8] 0, Addr[9] 0, Addr[10] 0, Addr[11] 0, Addr[12] 1, Addr[13] 1, Addr[14] 1, Addr[15] 1;
+        EVAL;
+        ASSERT RData[0] 1; ASSERT RData[1] 1; ASSERT RData[2] 1; ASSERT RData[3] 0; ASSERT RData[4] 0; ASSERT RData[5] 0; ASSERT RData[6] 0; ASSERT RData[7] 0; ASSERT RData[8] 0; ASSERT RData[9] 0; ASSERT RData[10] 0; ASSERT RData[11] 0; ASSERT RData[12] 0; ASSERT RData[13] 0; ASSERT RData[14] 0; ASSERT RData[15] 0;
+    }
+
+    TEST "Write TIMER_CTRL acknowledges" {
+        SET WData[0] 1, WData[1] 1, WData[2] 0, WData[3] 0, WData[4] 0, WData[5] 0, WData[6] 0, WData[7] 0, WData[8] 0, WData[9] 0, WData[10] 0, WData[11] 0, WData[12] 0, WData[13] 0, WData[14] 0, WData[15] 0;
+        SET Write 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Write 0;
+        EVAL;
+        ASSERT Irq 0;
+        ASSERT RData[0] 1; ASSERT RData[1] 1; ASSERT RData[2] 0; ASSERT RData[3] 0; ASSERT RData[4] 0; ASSERT RData[5] 0; ASSERT RData[6] 0; ASSERT RData[7] 0; ASSERT RData[8] 0; ASSERT RData[9] 0; ASSERT RData[10] 0; ASSERT RData[11] 0; ASSERT RData[12] 0; ASSERT RData[13] 0; ASSERT RData[14] 0; ASSERT RData[15] 0;
+    }
 }

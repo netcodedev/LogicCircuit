@@ -12,6 +12,7 @@
 //! - `BEQ label`: branch targets are addresses (labels or numbers), the
 //!   assembler computes the offset
 //! - `LI R1, 1000`, `JMP label`, `CALL label` (two words)
+//! - `EI`, `DI`, `RETI`: interrupts (CPU_16B_SOC; NOP/RET elsewhere)
 //! - `MULL`/`MULH`/`DIVU`/`MODU R1, R2` (op 7): low/high word of the
 //!   unsigned product, unsigned quotient/remainder. Only CPU_16B_SOC has the
 //!   unit; the other CPUs treat op 7 as NOP
@@ -39,6 +40,8 @@ enum Kind {
     Mem { op: u16 },
     /// op 7: `Rd, Rs`, multiply/divide unit (CPU_16B_SOC).
     MulDiv { func: u16 },
+    /// A fixed word without operands (EI, DI, RETI).
+    Fixed { word: u16 },
     /// op 5: `target`.
     Branch { cond: u16 },
     /// op 6 plus a second word: `Rd, value` (LI) or `target`.
@@ -72,6 +75,10 @@ const SHIFT: &[(&str, u16)] = &[("SHL", 0), ("SHR", 1), ("ROL", 2), ("ROR", 3), 
 
 /// Multiply/divide (op 7, CPU_16B_SOC only; a NOP elsewhere).
 const MULDIV: &[&str] = &["MULL", "MULH", "DIVU", "MODU"];
+
+/// Interrupt control (CPU_16B_SOC): variants of NOP (EI, DI) and RET (RETI)
+/// with Rd != 0, so the other CPUs run them as NOP and RET.
+const FIXED: &[(&str, u16)] = &[("EI", 0x0101), ("DI", 0x0201), ("RETI", 0x0102)];
 
 /// Branch conditions by code (first name is the one the disassembler uses).
 const CONDS: &[&[&str]] = &[
@@ -119,6 +126,9 @@ fn kind_of(mnemonic: &str) -> Option<Kind> {
     }
     if let Some(func) = MULDIV.iter().position(|&a| a == m) {
         return Some(Kind::MulDiv { func: func as u16 });
+    }
+    if let Some(&(_, word)) = FIXED.iter().find(|s| s.0 == m) {
+        return Some(Kind::Fixed { word });
     }
     if let Some(&(_, func, reg)) = LONG.iter().find(|s| s.0 == m) {
         return Some(Kind::Long { func, reg });
@@ -225,6 +235,10 @@ fn encode(p: &Pending, addr: usize, labels: &HashMap<String, usize>) -> Result<V
             expect_operands(p, 2)?;
             vec![0x7000 | reg(0)? << 8 | reg(1)? << 4 | func]
         }
+        Kind::Fixed { word } => {
+            expect_operands(p, 0)?;
+            vec![word]
+        }
         Kind::Branch { cond } => {
             expect_operands(p, 1)?;
             let target = value(p.operands[0], 0, MEMORY_WORDS as i64 - 1)?;
@@ -283,6 +297,9 @@ pub fn disassemble(addr: u16, word: u16, next: u16) -> (String, usize) {
     let func = word & 0xF;
     let imm = word & 0xFF;
     let raw = || (format!(".word 0x{word:04X}"), 1);
+    if let Some(&(name, _)) = FIXED.iter().find(|f| f.1 == word) {
+        return (name.to_string(), 1);
+    }
     match op {
         0 => match SYS.iter().find(|s| s.1 == func) {
             Some(&(name, _, true)) => (format!("{name} R{rd}"), 1),

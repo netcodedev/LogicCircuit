@@ -8,6 +8,12 @@ CIRCUIT IO_16B {
     //   0xF003  UART_DATA    write       send WData[7..0] (reads 0)
     //   0xF004  UART_STATUS  read        bit 0 = 1 while sending
     //   0xF005  UART_DIV     read/write  clocks per bit - 1
+    //   0xF006  TIMER        read: count, write: load value (restarts)
+    //   0xF007  TIMER_CTRL   read/write  bit 0 enable, bit 1 interrupt
+    //                                    enable, bit 2 expired (read only;
+    //                                    any write acknowledges it)
+    //
+    // Irq = timer expired with its interrupt enabled.
     //
     // Reads are combinational (RData for the current Addr), writes happen
     // on the rising CLK edge when Write = 1. Never waits.
@@ -23,11 +29,13 @@ CIRCUIT IO_16B {
     OUTPUT GpioOut[16];
     OUTPUT Display[16];
     OUTPUT Tx;
+    OUTPUT Irq;
 
     // Registers first: their INITs run before the gates driving them exist.
     PART GpioReg: REGISTER_R<16>;
     PART DisplayReg: REGISTER_R<16>;
     PART Uart: UART_TX;
+    PART Timer: TIMER_16B;
 
     PART High3: AND3;        // Addr[15..13] = 111
     PART High4: AND;         // ... and Addr[12] = 1
@@ -76,6 +84,12 @@ CIRCUIT IO_16B {
     CONNECT Reset -> Uart.Reset;
     CONNECT CLK -> Uart.CLK;
     CONNECT Uart.Tx -> Tx;
+    CONNECT WData -> Timer.WData;
+    CONNECT Dec.O[6] -> Timer.WriteLoad;
+    CONNECT Dec.O[7] -> Timer.WriteCtrl;
+    CONNECT Reset -> Timer.Reset;
+    CONNECT CLK -> Timer.CLK;
+    CONNECT Timer.Irq -> Irq;
 
     // Reads (unconnected inputs read 0)
     FOR i IN 0..16 {
@@ -83,8 +97,12 @@ CIRCUIT IO_16B {
         CONNECT GpioIn[i] -> ReadLo.In[16+i];
         CONNECT DisplayReg.Q[i] -> ReadLo.In[32+i];
         CONNECT Uart.Div[i] -> ReadHi.In[16+i];
+        CONNECT Timer.Count[i] -> ReadHi.In[32+i];
     }
     CONNECT Uart.Busy -> ReadHi.In[0];
+    CONNECT Timer.Enable -> ReadHi.In[48];
+    CONNECT Timer.IrqEn -> ReadHi.In[49];
+    CONNECT Timer.Expired -> ReadHi.In[50];
     CONNECT Addr[0] -> ReadLo.S[0];
     CONNECT Addr[1] -> ReadLo.S[1];
     CONNECT Addr[0] -> ReadHi.S[0];

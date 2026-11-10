@@ -1,0 +1,82 @@
+CIRCUIT TIMER_16B {
+    // 16-bit interval timer of IO_16B. While enabled it counts down once per
+    // clock; at 0 it reloads and sets Expired, so it expires every Load + 1
+    // clocks. Expired AND IrqEn raises Irq until software acknowledges it.
+    //
+    //   WriteLoad = 1 (edge): Load and Count <- WData (restarts the period)
+    //   WriteCtrl = 1 (edge): Enable <- WData[0], IrqEn <- WData[1], and
+    //                         Expired <- 0 (acknowledge)
+    INPUT WData[16];
+    INPUT WriteLoad;
+    INPUT WriteCtrl;
+    INPUT CLK;
+    INPUT Reset;
+
+    OUTPUT Count[16];
+    OUTPUT Enable;
+    OUTPUT IrqEn;
+    OUTPUT Expired;
+    OUTPUT Irq;
+
+    // Registers first: their INITs run before the gates driving them exist.
+    PART LoadReg: REGISTER_R<16>;
+    PART CountReg: REGISTER_R<16>;
+    PART CtrlReg: REGISTER_R<2>;   // Enable, IrqEn
+    PART ExpiredReg: REGISTER_R<1>;
+
+    PART C_TRUE: NOR;              // Constant 1 (VCC), NOR(0,0) = 1
+    PART Dec: ADDER<16>;           // Count - 1
+    PART Zero: ZERO_16B;
+    PART NextMux: MUX_2_1_BUS<16>; // Count - 1, Load (at 0)
+    PART WriteMux: MUX_2_1_BUS<16>; // next, WData (WriteLoad)
+    PART CountLoad: OR;            // WriteLoad OR Enable
+    PART ReloadAnd: AND;           // Enable AND Count = 0: expired
+    PART ExpLoad: OR;              // reload OR WriteCtrl
+    PART IrqAnd: AND;
+
+    CONNECT WData -> LoadReg.Data;
+    CONNECT WriteLoad -> LoadReg.Load;
+    CONNECT Reset -> LoadReg.Reset;
+    CONNECT CLK -> LoadReg.CLK;
+
+    CONNECT CountReg.Q -> Dec.A;
+    CONNECT C_TRUE.out -> Dec.B;   // tee: all ones = -1
+    CONNECT CountReg.Q -> Zero.A;
+    CONNECT Dec.S -> NextMux.A;
+    CONNECT LoadReg.Q -> NextMux.B;
+    CONNECT Zero.Z -> NextMux.S;
+    CONNECT NextMux.Out -> WriteMux.A;
+    CONNECT WData -> WriteMux.B;
+    CONNECT WriteLoad -> WriteMux.S;
+    CONNECT WriteMux.Out -> CountReg.Data;
+    CONNECT WriteLoad -> CountLoad.in1;
+    CONNECT CtrlReg.Q[0] -> CountLoad.in2;
+    CONNECT CountLoad.out -> CountReg.Load;
+    CONNECT Reset -> CountReg.Reset;
+    CONNECT CLK -> CountReg.CLK;
+    CONNECT CountReg.Q -> Count;
+
+    CONNECT WData[0] -> CtrlReg.Data[0];
+    CONNECT WData[1] -> CtrlReg.Data[1];
+    CONNECT WriteCtrl -> CtrlReg.Load;
+    CONNECT Reset -> CtrlReg.Reset;
+    CONNECT CLK -> CtrlReg.CLK;
+    CONNECT CtrlReg.Q[0] -> Enable;
+    CONNECT CtrlReg.Q[1] -> IrqEn;
+
+    // Expired: set at the reload, cleared by a write to the control register
+    // (setting wins if both happen on the same edge)
+    CONNECT CtrlReg.Q[0] -> ReloadAnd.in1;
+    CONNECT Zero.Z -> ReloadAnd.in2;
+    CONNECT ReloadAnd.out -> ExpiredReg.Data[0];
+    CONNECT ReloadAnd.out -> ExpLoad.in1;
+    CONNECT WriteCtrl -> ExpLoad.in2;
+    CONNECT ExpLoad.out -> ExpiredReg.Load;
+    CONNECT Reset -> ExpiredReg.Reset;
+    CONNECT CLK -> ExpiredReg.CLK;
+    CONNECT ExpiredReg.Q[0] -> Expired;
+
+    CONNECT ExpiredReg.Q[0] -> IrqAnd.in1;
+    CONNECT CtrlReg.Q[1] -> IrqAnd.in2;
+    CONNECT IrqAnd.out -> Irq;
+}

@@ -67,6 +67,7 @@ CIRCUIT SOC_16B {
     CONNECT Wait -> WaitAnd.in1;
     CONNECT NotSel.out -> WaitAnd.in2;
     CONNECT WaitAnd.out -> Cpu.Wait;
+    CONNECT Io.Irq -> Cpu.Irq;
     CONNECT In -> InSync.D;
     CONNECT CLK -> InSync.CLK;
     CONNECT InSync.Q -> Cpu.In;

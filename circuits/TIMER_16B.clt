@@ -1,0 +1,84 @@
+// Tests for the interval timer (each test continues from the previous one)
+
+TESTS FOR TIMER_16B {
+    TEST "Reset: stopped, nothing pending" {
+        SET WriteLoad 0, WriteCtrl 0, Reset 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Reset 0;
+        EVAL;
+        ASSERT Enable 0; ASSERT Expired 0; ASSERT Irq 0;
+        ASSERT Count[0] 0; ASSERT Count[1] 0; ASSERT Count[2] 0; ASSERT Count[3] 0; ASSERT Count[4] 0; ASSERT Count[5] 0; ASSERT Count[6] 0; ASSERT Count[7] 0; ASSERT Count[8] 0; ASSERT Count[9] 0; ASSERT Count[10] 0; ASSERT Count[11] 0; ASSERT Count[12] 0; ASSERT Count[13] 0; ASSERT Count[14] 0; ASSERT Count[15] 0;
+    }
+
+    TEST "Load 3, not yet enabled: holds" {
+        SET WData[0] 1, WData[1] 1, WData[2] 0, WData[3] 0, WData[4] 0, WData[5] 0, WData[6] 0, WData[7] 0, WData[8] 0, WData[9] 0, WData[10] 0, WData[11] 0, WData[12] 0, WData[13] 0, WData[14] 0, WData[15] 0;
+        SET WriteLoad 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET WriteLoad 0;
+        ASSERT Count[0] 1; ASSERT Count[1] 1; ASSERT Count[2] 0; ASSERT Count[3] 0; ASSERT Count[4] 0; ASSERT Count[5] 0; ASSERT Count[6] 0; ASSERT Count[7] 0; ASSERT Count[8] 0; ASSERT Count[9] 0; ASSERT Count[10] 0; ASSERT Count[11] 0; ASSERT Count[12] 0; ASSERT Count[13] 0; ASSERT Count[14] 0; ASSERT Count[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Count[0] 1; ASSERT Count[1] 1; ASSERT Count[2] 0; ASSERT Count[3] 0; ASSERT Count[4] 0; ASSERT Count[5] 0; ASSERT Count[6] 0; ASSERT Count[7] 0; ASSERT Count[8] 0; ASSERT Count[9] 0; ASSERT Count[10] 0; ASSERT Count[11] 0; ASSERT Count[12] 0; ASSERT Count[13] 0; ASSERT Count[14] 0; ASSERT Count[15] 0;
+    }
+
+    TEST "Enable with interrupt: 3, 2, 1, 0, reload" {
+        SET WData[0] 1, WData[1] 1, WData[2] 0, WData[3] 0, WData[4] 0, WData[5] 0, WData[6] 0, WData[7] 0, WData[8] 0, WData[9] 0, WData[10] 0, WData[11] 0, WData[12] 0, WData[13] 0, WData[14] 0, WData[15] 0;
+        SET WriteCtrl 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET WriteCtrl 0;
+        ASSERT Enable 1; ASSERT IrqEn 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Count[0] 0; ASSERT Count[1] 1; ASSERT Count[2] 0; ASSERT Count[3] 0; ASSERT Count[4] 0; ASSERT Count[5] 0; ASSERT Count[6] 0; ASSERT Count[7] 0; ASSERT Count[8] 0; ASSERT Count[9] 0; ASSERT Count[10] 0; ASSERT Count[11] 0; ASSERT Count[12] 0; ASSERT Count[13] 0; ASSERT Count[14] 0; ASSERT Count[15] 0;
+        ASSERT Expired 0; ASSERT Irq 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Count[0] 1; ASSERT Count[1] 0; ASSERT Count[2] 0; ASSERT Count[3] 0; ASSERT Count[4] 0; ASSERT Count[5] 0; ASSERT Count[6] 0; ASSERT Count[7] 0; ASSERT Count[8] 0; ASSERT Count[9] 0; ASSERT Count[10] 0; ASSERT Count[11] 0; ASSERT Count[12] 0; ASSERT Count[13] 0; ASSERT Count[14] 0; ASSERT Count[15] 0;
+        ASSERT Expired 0; ASSERT Irq 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Count[0] 0; ASSERT Count[1] 0; ASSERT Count[2] 0; ASSERT Count[3] 0; ASSERT Count[4] 0; ASSERT Count[5] 0; ASSERT Count[6] 0; ASSERT Count[7] 0; ASSERT Count[8] 0; ASSERT Count[9] 0; ASSERT Count[10] 0; ASSERT Count[11] 0; ASSERT Count[12] 0; ASSERT Count[13] 0; ASSERT Count[14] 0; ASSERT Count[15] 0;
+        ASSERT Expired 0; ASSERT Irq 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Count[0] 1; ASSERT Count[1] 1; ASSERT Count[2] 0; ASSERT Count[3] 0; ASSERT Count[4] 0; ASSERT Count[5] 0; ASSERT Count[6] 0; ASSERT Count[7] 0; ASSERT Count[8] 0; ASSERT Count[9] 0; ASSERT Count[10] 0; ASSERT Count[11] 0; ASSERT Count[12] 0; ASSERT Count[13] 0; ASSERT Count[14] 0; ASSERT Count[15] 0;
+        ASSERT Expired 1; ASSERT Irq 1;
+    }
+
+    TEST "Stays pending until acknowledged" {
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Count[0] 0; ASSERT Count[1] 1; ASSERT Count[2] 0; ASSERT Count[3] 0; ASSERT Count[4] 0; ASSERT Count[5] 0; ASSERT Count[6] 0; ASSERT Count[7] 0; ASSERT Count[8] 0; ASSERT Count[9] 0; ASSERT Count[10] 0; ASSERT Count[11] 0; ASSERT Count[12] 0; ASSERT Count[13] 0; ASSERT Count[14] 0; ASSERT Count[15] 0;
+        ASSERT Irq 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Count[0] 1; ASSERT Count[1] 0; ASSERT Count[2] 0; ASSERT Count[3] 0; ASSERT Count[4] 0; ASSERT Count[5] 0; ASSERT Count[6] 0; ASSERT Count[7] 0; ASSERT Count[8] 0; ASSERT Count[9] 0; ASSERT Count[10] 0; ASSERT Count[11] 0; ASSERT Count[12] 0; ASSERT Count[13] 0; ASSERT Count[14] 0; ASSERT Count[15] 0;
+        ASSERT Irq 1;
+        SET WData[0] 1, WData[1] 1, WData[2] 0, WData[3] 0, WData[4] 0, WData[5] 0, WData[6] 0, WData[7] 0, WData[8] 0, WData[9] 0, WData[10] 0, WData[11] 0, WData[12] 0, WData[13] 0, WData[14] 0, WData[15] 0;
+        SET WriteCtrl 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET WriteCtrl 0;
+        ASSERT Count[0] 0; ASSERT Count[1] 0; ASSERT Count[2] 0; ASSERT Count[3] 0; ASSERT Count[4] 0; ASSERT Count[5] 0; ASSERT Count[6] 0; ASSERT Count[7] 0; ASSERT Count[8] 0; ASSERT Count[9] 0; ASSERT Count[10] 0; ASSERT Count[11] 0; ASSERT Count[12] 0; ASSERT Count[13] 0; ASSERT Count[14] 0; ASSERT Count[15] 0;
+        ASSERT Expired 0; ASSERT Irq 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Count[0] 1; ASSERT Count[1] 1; ASSERT Count[2] 0; ASSERT Count[3] 0; ASSERT Count[4] 0; ASSERT Count[5] 0; ASSERT Count[6] 0; ASSERT Count[7] 0; ASSERT Count[8] 0; ASSERT Count[9] 0; ASSERT Count[10] 0; ASSERT Count[11] 0; ASSERT Count[12] 0; ASSERT Count[13] 0; ASSERT Count[14] 0; ASSERT Count[15] 0;
+        ASSERT Expired 1; ASSERT Irq 1;
+    }
+
+    TEST "Enable without interrupt: expires, no Irq" {
+        SET WData[0] 1, WData[1] 0, WData[2] 0, WData[3] 0, WData[4] 0, WData[5] 0, WData[6] 0, WData[7] 0, WData[8] 0, WData[9] 0, WData[10] 0, WData[11] 0, WData[12] 0, WData[13] 0, WData[14] 0, WData[15] 0;
+        SET WriteCtrl 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET WriteCtrl 0;
+        ASSERT Expired 0; ASSERT IrqEn 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Expired 1; ASSERT Irq 0;
+    }
+
+    TEST "Stop (counts once more on that edge), then holds" {
+        SET WData[0] 0, WData[1] 0, WData[2] 0, WData[3] 0, WData[4] 0, WData[5] 0, WData[6] 0, WData[7] 0, WData[8] 0, WData[9] 0, WData[10] 0, WData[11] 0, WData[12] 0, WData[13] 0, WData[14] 0, WData[15] 0;
+        SET WriteCtrl 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET WriteCtrl 0;
+        ASSERT Count[0] 1; ASSERT Count[1] 0; ASSERT Count[2] 0; ASSERT Count[3] 0; ASSERT Count[4] 0; ASSERT Count[5] 0; ASSERT Count[6] 0; ASSERT Count[7] 0; ASSERT Count[8] 0; ASSERT Count[9] 0; ASSERT Count[10] 0; ASSERT Count[11] 0; ASSERT Count[12] 0; ASSERT Count[13] 0; ASSERT Count[14] 0; ASSERT Count[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Count[0] 1; ASSERT Count[1] 0; ASSERT Count[2] 0; ASSERT Count[3] 0; ASSERT Count[4] 0; ASSERT Count[5] 0; ASSERT Count[6] 0; ASSERT Count[7] 0; ASSERT Count[8] 0; ASSERT Count[9] 0; ASSERT Count[10] 0; ASSERT Count[11] 0; ASSERT Count[12] 0; ASSERT Count[13] 0; ASSERT Count[14] 0; ASSERT Count[15] 0;
+        ASSERT Enable 0; ASSERT Expired 0;
+    }
+}

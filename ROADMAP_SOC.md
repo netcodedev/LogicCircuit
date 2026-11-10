@@ -81,6 +81,8 @@ noch keine Hardware.
   | 0xF003 | UART_DATA | schreiben: Byte senden |
   | 0xF004 | UART_STATUS | lesen: Bit 0 = sendet noch |
   | 0xF005 | UART_DIV | lesen/schreiben: Takte pro Bit − 1 |
+  | 0xF006 | TIMER | lesen: Zählerstand, schreiben: Startwert (startet neu) |
+  | 0xF007 | TIMER_CTRL | Bit 0 an, Bit 1 Interrupt an, Bit 2 abgelaufen (nur lesen); Schreiben quittiert |
 
 - [x] `UART_TX` (2.330 NANDs): 8N1, Teiler-Register (nach Reset 0 = ein Takt
       pro Bit; 50 MHz und 433 ergeben 115200 Baud), Zähler, Schieberegister
@@ -213,6 +215,37 @@ SoC-Linie (`CPU_16B_SOC`, `SOC_16B`).
       **138 MHz (+25 %)** (Pfad Befehlsregister → Registerfile → Forwarding →
       Schieber → Write-back → Z → Flags). Mit den weniger Takten ≈ 1,35× so
       schnell
+
+**A4 – Timer und Interrupts**
+- [x] `TIMER_16B` (1.867 NANDs) in `IO_16B`: 0xF006 `TIMER` (Startwert,
+      Zählerstand), 0xF007 `TIMER_CTRL` (an, Interrupt an, abgelaufen;
+      Schreiben quittiert). Zählt pro Takt herunter, bei 0 neu laden und
+      `Expired` setzen: alle Startwert + 1 Takte. `Irq` = abgelaufen und
+      Interrupt an (Pegel)
+- [x] Interrupts in `CPU_16B_SOC` (Eingang `Irq`, in `SOC_16B` vom Timer):
+      steht `Irq` an, sind Interrupts erlaubt (`Ie`) und liegt in Execute
+      ein echter Befehl (`IrValid`), der gerade laufen könnte (kein HALT,
+      kein Halten, kein NeedNext, kein MUL/DIV), wird statt dieses Befehls
+      ein `CALL 0x0002` ausgeführt – Rücksprungadresse ist die Adresse des
+      unterbrochenen Befehls (`PcE`), die Flags gehen nach `FlagSave`, `Ie`
+      wird gelöscht. Programme beginnen deshalb mit einem `JMP` (zwei Wörter)
+- [x] Neue Befehle als Varianten bestehender Kodierungen, damit das
+      Steuerwerk unverändert bleibt: `EI` = NOP mit Rd = 1 (0x0101), `DI` =
+      NOP mit Rd = 2 (0x0201), `RETI` = RET mit Rd = 1 (0x0102, stellt die
+      Flags wieder her und erlaubt Interrupts). Auf den anderen CPUs NOP
+      bzw. RET. Assembler, Disassembler, `isa::sim16` (mit `irq`-Eingang)
+- [x] Beispiel `programs/soc/timer.asm`: Handler zählt Ticks auf der
+      Anzeige, das Hauptprogramm wartet mit CMPI/BLT auf 8
+- [x] Tests: `TIMER_16B.clt`, Timer in `IO_16B.clt`, Interrupt-Programm in
+      `SOC_16B.clt` (32-Bit-Addition mit ADD/ADC, während der Handler die
+      Flags verändert); Rust `soc_timer_interrupts` mit 0, 1 und 3
+      Wartetakten (Gegenprobe: ohne Flag-Wiederherstellung kommt mit 3
+      Wartetakten 59 statt 64 heraus), `isa::sim16`-Test für Eintritt und
+      RETI. SOC_16B: 40.504 NANDs (+3.196)
+- [ ] Bekannt: ist der Handler länger als die Timer-Periode, kommt das
+      Hauptprogramm nicht mehr voran (der nächste Interrupt ist schon
+      fällig, bevor nach RETI ein Befehl läuft). Die Periode muss zum
+      Handler und zur Speicherlatenz passen
 
 ### Phase 4 – Speicher-Controller
 - [ ] QSPI-Controller (Flash lesen, PSRAM lesen/schreiben), Modell im Runner

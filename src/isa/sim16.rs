@@ -58,8 +58,14 @@ pub struct Cpu16 {
     /// Output register written by `OUT`.
     pub out: u16,
     pub halted: bool,
-    /// Executed instructions.
+    /// Executed instructions (an interrupt entry counts as one).
     pub steps: u64,
+    /// Interrupts enabled (EI/DI/RETI).
+    pub ie: bool,
+    /// Flags saved at the interrupt entry, restored by RETI.
+    pub saved_flags: Flags,
+    /// Interrupt request line, checked before every instruction.
+    pub irq: bool,
 }
 
 impl Cpu16 {
@@ -67,7 +73,20 @@ impl Cpu16 {
     pub fn new(program: &[u16]) -> Self {
         let mut mem = vec![0; MEMORY_WORDS];
         mem[..program.len()].copy_from_slice(program);
-        Self { regs: [0; 16], pc: 0, sp: 0, flags: Flags::default(), mem, input: 0, out: 0, halted: false, steps: 0 }
+        Self {
+            regs: [0; 16],
+            pc: 0,
+            sp: 0,
+            flags: Flags::default(),
+            mem,
+            input: 0,
+            out: 0,
+            halted: false,
+            steps: 0,
+            ie: false,
+            saved_flags: Flags::default(),
+            irq: false,
+        }
     }
 
     fn reg(&self, r: u16) -> u16 {
@@ -138,6 +157,16 @@ impl Cpu16 {
         if self.halted {
             return false;
         }
+        // Interrupt entry instead of the next instruction (as CPU_16B_SOC):
+        // CALL 0x0002 with the flags saved and Ie cleared.
+        if self.irq && self.ie {
+            self.push(self.pc);
+            self.saved_flags = self.flags;
+            self.ie = false;
+            self.pc = 0x0002;
+            self.steps += 1;
+            return true;
+        }
         let word = self.read(self.pc);
         let next = self.read(self.pc.wrapping_add(1));
         let (op, rd, rs, func) = (word >> 12, (word >> 8) & 15, (word >> 4) & 15, word & 15);
@@ -150,7 +179,17 @@ impl Cpu16 {
                     self.halted = true;
                     return false;
                 }
-                2 => pc = self.pop(),
+                // EI / DI: NOP with Rd = 1 / 2
+                1 if rd == 1 => self.ie = true,
+                1 if rd == 2 => self.ie = false,
+                2 => {
+                    pc = self.pop();
+                    // RETI: RET with Rd = 1
+                    if rd == 1 {
+                        self.flags = self.saved_flags;
+                        self.ie = true;
+                    }
+                }
                 3 => pc = self.reg(rd),
                 4 => {
                     self.push(pc);
@@ -317,6 +356,26 @@ mod tests {
             assert_eq!(cpu.out, out, "{name}");
             assert!(cpu.steps < 5000, "{name}: {} instructions, too slow for the gate-level runs", cpu.steps);
         }
+    }
+
+    #[test]
+    fn interrupt_entry_and_reti() {
+        // Handler at 0x0002 counts in R9; main sets C, gets interrupted
+        // between SUB and ADC and must still see C.
+        let src = "JMP main\n INC R9\n CMPI R9, 0\n RETI\n\
+                   main: EI\n MOVI R1, 5\n MOVI R2, 3\n SUB R1, R2\n ADC R3, R0\n OUT R3\n HALT";
+        let mut cpu = Cpu16::new(&Isa::Cpu16.assemble(src).unwrap().words);
+        while cpu.regs[1] != 2 {
+            cpu.step(); // up to and including SUB (C = 1: no borrow)
+        }
+        cpu.irq = true;
+        cpu.step(); // entry
+        assert_eq!((cpu.pc, cpu.ie), (0x0002, false));
+        cpu.irq = false;
+        cpu.run(1000);
+        assert_eq!(cpu.regs[9], 1);
+        assert_eq!(cpu.out, 1, "C lost across the interrupt");
+        assert!(cpu.ie);
     }
 
     #[test]
