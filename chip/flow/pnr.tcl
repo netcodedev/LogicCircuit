@@ -188,6 +188,20 @@ apply_mem_delay
 if {$clk_port ne ""} {
     report_checks -path_delay max -format full_clock_expanded > $out/timing.rpt
     report_worst_slack
+    # The worst path to every endpoint, one line each ("startpoint endpoint
+    # slack_ns"), worst first: shows how long the paths of each part are, not
+    # just the single worst one. Optional: a failure here keeps the run.
+    if {[catch {
+        set f [open $out/endpoints.txt w]
+        foreach pe [find_timing_paths -path_delay max -group_path_count 100000 -endpoint_path_count 1 -sort_by_slack] {
+            set sp [get_full_name [get_property $pe startpoint]]
+            set ep [get_full_name [get_property $pe endpoint]]
+            puts $f "$sp $ep [format %.3f [get_property $pe slack]]"
+        }
+        close $f
+    } err]} {
+        puts "endpoints.txt: $err"
+    }
 }
 
 # --- Metrics -------------------------------------------------------------------

@@ -108,6 +108,10 @@ enum Commands {
         /// Only the instruction-level simulator (fast).
         #[arg(long)]
         isa_only: bool,
+        /// Also show where the clocks go (computers with CPU_16B_SOC):
+        /// executed instructions and the clocks lost, by cause.
+        #[arg(long)]
+        stalls: bool,
     },
     /// Count the NAND gates a circuit is built from, broken down by part.
     /// Without a name, lists every known circuit.
@@ -427,9 +431,9 @@ fn main() {
             });
             run_program(&builder, &program, &top, input, max_steps, trace, mem_latency, &uart_in.replace("\\n", "\n"));
         }
-        Some(Commands::Bench { top, mem_latency, isa_only }) => {
+        Some(Commands::Bench { top, mem_latency, isa_only, stalls }) => {
             let tops: Vec<&str> = if isa_only { Vec::new() } else { top.split(',').map(str::trim).collect() };
-            run_bench(&builder, &tops, mem_latency);
+            run_bench(&builder, &tops, mem_latency, stalls);
         }
         Some(Commands::ExportVerilog { component_name, level, cells, keep_latches, mux_cells, output, names }) => {
             let opts = VerilogOptions {
@@ -570,7 +574,7 @@ fn parse_word(text: &str) -> Result<u16, String> {
 /// Runs every program in ./programs/bench on the instruction-level
 /// simulator (instructions, expected Out) and on each computer in `tops`
 /// (clocks; Out must match). Prints clocks and clocks per instruction.
-fn run_bench(builder: &CircuitBuilder, tops: &[&str], latency: usize) {
+fn run_bench(builder: &CircuitBuilder, tops: &[&str], latency: usize, stalls: bool) {
     let mut files: Vec<_> = std::fs::read_dir("./programs/bench")
         .map(|d| d.filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "asm")).collect())
         .unwrap_or_default();
@@ -593,6 +597,8 @@ fn run_bench(builder: &CircuitBuilder, tops: &[&str], latency: usize) {
     let mut total_instr = 0u64;
     let mut hw_instr = 0u64;
     let mut total_clocks = vec![0usize; tops.len()];
+    // Per computer: (benchmark, profile) and the sum, when --stalls.
+    let mut profiles: Vec<Vec<(String, u64, logic_circuit::stalls::Profile)>> = vec![Vec::new(); tops.len()];
     let mut mismatch = false;
     for path in &files {
         let name = path.file_stem().unwrap().to_string_lossy();
@@ -623,7 +629,14 @@ fn run_bench(builder: &CircuitBuilder, tops: &[&str], latency: usize) {
             m.input = Some(0);
             m.latency = latency;
             m.reset(&circuit);
-            let clocks = m.run(&circuit, 1_000_000);
+            let profile = if stalls { logic_circuit::stalls::run_profiled(&mut m, &circuit, 1_000_000) } else { None };
+            let clocks = match &profile {
+                Some(p) => p.clocks,
+                None => m.run(&circuit, 1_000_000),
+            };
+            if let Some(p) = profile {
+                profiles[i].push((name.to_string(), cpu.steps, p));
+            }
             let out = machine::read_bus(&circuit, machine::OUT, 16) as u16;
             let ok = machine::halted(&circuit) && out == cpu.out;
             mismatch |= !ok;
@@ -645,9 +658,50 @@ fn run_bench(builder: &CircuitBuilder, tops: &[&str], latency: usize) {
         println!("\n  Instr: instructions (instruction-level simulator); per computer: clocks (clocks per instruction)");
         println!("  –: needs the multiply/divide unit (CPU_16B_SOC); totals leave these out");
     }
+    for (top, runs) in tops.iter().zip(&profiles) {
+        if !runs.is_empty() {
+            print_stalls(top, runs);
+        }
+    }
     if mismatch {
         println!("\n≠: wrong Out or no HALT (expected the instruction-level result).");
         std::process::exit(1);
+    }
+}
+
+/// Table of `bench --stalls`: per benchmark the clocks, the clocks in
+/// which execute ran an instruction, and the lost clocks by cause.
+fn print_stalls(top: &str, runs: &[(String, u64, logic_circuit::stalls::Profile)]) {
+    use logic_circuit::stalls::{Loss, Profile};
+    let mut total = Profile::default();
+    for (_, _, p) in runs {
+        total.add(p);
+    }
+    let instr: u64 = runs.iter().map(|r| r.1).sum();
+    println!("\n  Where the clocks go on {top}:\n");
+    print!("  {:<22}", "");
+    for (name, _, _) in runs {
+        print!(" {:>8}", name);
+    }
+    println!(" {:>8} {:>7}", "total", "share");
+    let row = |label: &str, f: &dyn Fn(&Profile) -> usize| {
+        print!("  {:<22}", label);
+        for (_, _, p) in runs {
+            print!(" {:>8}", f(p));
+        }
+        let t = f(&total);
+        println!(" {:>8} {:>6.1}%", t, 100.0 * t as f64 / total.clocks.max(1) as f64);
+    };
+    row("clocks", &|p| p.clocks);
+    row("instructions executed", &|p| p.executed);
+    for loss in Loss::ALL {
+        if total.lost(loss) > 0 {
+            row(&format!("  {}", loss.label()), &|p| p.lost(loss));
+        }
+    }
+    row("(branches predicted)", &|p| p.predicted);
+    if total.executed as u64 != instr {
+        println!("\n  Note: executed {} ≠ {} instructions of the instruction-level simulator.", total.executed, instr);
     }
 }
 

@@ -377,6 +377,66 @@ direkt abgebildet, ein Wort pro Eintrag:
       NANDs), größere Einträge (2–4 Wörter pro Tag) bei QSPI mit Burst;
       `MUX_4_1` auf `mux4_1` abbilden (≈ 21 µm² statt 3 × 11,3)
 
+### Messung vor einem Pipeline-Ausbau (2026-11-10)
+
+Zwei Werkzeuge: `bench --stalls` (`src/stalls.rs`) ordnet jeden Takt von
+CPU_16B_SOC zu: Execute führt einen Befehl aus, oder der Takt geht
+verloren, mit Ursache aus den internen Leitungen (`HoldX`, `IrValid`,
+`Flush` und was sie auslöst). Die ausgeführten Takte sind genau die Befehle
+von `isa::sim16` (Test `clocks_add_up_to_instructions_and_losses`). Der
+Chip-Flow schreibt zusätzlich `endpoints.txt`: den schlechtesten Pfad zu
+jedem Endpunkt (Start, Ende, Slack).
+
+Takte SOC_16B, alle Benchmarks (5.453 Befehle):
+
+| | ohne Wartetakte | 2 Wartetakte |
+|---|---|---|
+| Takte | 7.297 | 10.045 |
+| Befehle ausgeführt | 5.453 (74,7 %) | 5.453 (54,3 %) |
+| Sprung nicht vorhergesagt (vorwärts genommen) | 470 | 470 |
+| MUL/DIV (16 Takte) | 578 | 578 |
+| RET (2 Takte) | 260 | 260 |
+| zweites Wort (LI/JMP/CALL) | 154 | 238 |
+| JMP/CALL/JR | 130 | 130 |
+| Load-Use | 109 | 105 |
+| Bus belegt, Cache-Fehlschlag | 99 | 95 |
+| Fehlvorhersage | 23 | 23 |
+| Wartetakte Speicherstufe / Fetch | – | 1.488 / 1.198 |
+| Sonstiges (Start nach Reset) | 21 | 7 |
+| *vorhergesagte Sprünge (kosten 0)* | *598* | *598* |
+
+Längste Pfade (5-ns-Lauf, Periode − Slack, je Zielregister):
+
+| Ziel ← Start | Pfad |
+|---|---|
+| PC ← PC (Fetch-Schleife: Cache, Treffer, Vorhersage) | 6,42 ns |
+| Ir ← CtrlM (Speicherstufe belegt Bus → kein Wort → Ir) | 6,26 ns |
+| Flags Z/N ← Ir (Execute: Register, Forwarding, ALU, Z) | 6,26 ns |
+| AddrM ← Ir (Execute: Adressrechnung) | 6,19 ns |
+| ResultM ← Ir (Execute) | 5,96 ns |
+| ICache-Valid ← CtrlM (Invalidieren beim Speichern) | 5,70 ns |
+| SP ← CtrlM | 5,59 ns |
+| Registerdatei ← CtrlM (Rückschreiben) | 5,50 ns |
+
+Folgerungen:
+- Die drei Stufen sind fast gleich lang (6,2–6,4 ns). Nur den Fetch zu
+  teilen brächte 6,42 → 6,26 ns (+2,5 % Takt) und kostete jeden
+  vorhergesagten Sprung einen Takt (+598, +8 %): lohnt sich nicht.
+- Fünf Stufen (Fetch 1/2, Decode, Execute, Memory) müssten alle drei
+  Pfade kürzen. Hochgerechnet aus den Zählungen kosten sie +598
+  (vorhergesagte Sprünge), +470 (später entschiedene Sprünge), +130
+  (JMP/CALL), +130 (RET), +23: 7.297 → ~8.650 Takte (1,59 pro Befehl).
+  Laufzeit heute 7.297 × 6,42 ns = 46,8 µs; mit 5 Stufen bei 4,0 / 4,5 /
+  5,0 ns 34,6 / 38,9 / 43,2 µs, also 1,35× / 1,20× / 1,08× schneller. Mit
+  einem Sprungziel-Puffer im ersten Fetch-Takt entfallen die +598: 1,45×
+  bei 4 ns
+- Ohne neue Stufen: Return-Stack (RET im Fetch, bis −260), dynamische
+  Vorhersage für Vorwärtssprünge (ein Teil der 470), JMP/CALL im Fetch
+  (−130), MUL/DIV mit 2 Bit pro Takt (−289). Zusammen bis ~13 % weniger
+  Takte, aber jede Vorhersage im Fetch verlängert den heute längsten Pfad
+- Mit langsamem Speicher (QSPI) dominieren die Wartetakte (27 % bei 2
+  Wartetakten): dort zählen Cache-Größe und Burst mehr als Stufen
+
 ### Phase 4 – Speicher-Controller
 - [ ] QSPI-Controller (Flash lesen, PSRAM lesen/schreiben), Modell im Runner
 - [ ] später ggf. SDRAM-Controller (Init, Refresh, Bänke, CAS-Latenz)
