@@ -1,0 +1,76 @@
+CIRCUIT CONTROL_REG_16B {
+    // EXPERIMENT (5-stage timing model, see ROADMAP_SOC.md): CONTROL_UNIT_16B
+    // with every output registered, as a decode -> execute boundary.
+    INPUT Op[4];
+    INPUT Fn[4];
+    INPUT CLK;
+
+    OUTPUT RegWrite;
+    OUTPUT ASrc;
+    OUTPUT BSrc[2];
+    OUTPUT ImmSel[2];
+    OUTPUT AluS[2];
+    OUTPUT InvB;
+    OUTPUT ZeroA;
+    OUTPUT CinOne;
+    OUTPUT CinCarry;
+    OUTPUT WbSel[2];
+    OUTPUT LoadZN;
+    OUTPUT LoadCV;
+    OUTPUT MemWrite;
+    OUTPUT MemAddrSel[2];
+    OUTPUT MemDataSel;
+    OUTPUT TargetSel[2];
+    OUTPUT Jump;
+    OUTPUT BranchInstr;
+    OUTPUT Step2;
+    OUTPUT SpInc;
+    OUTPUT SpDec;
+    OUTPUT OutEnable;
+    OUTPUT Halt;
+    OUTPUT ShLeft;
+    OUTPUT ShRot;
+    OUTPUT ShArith;
+    OUTPUT ShImm;
+
+    PART R: REGISTER_R<34>;
+    PART U: CONTROL_UNIT_16B;
+    PART C_TRUE: NOR;
+    CONNECT Op -> U.Op;
+    CONNECT Fn -> U.Fn;
+    CONNECT C_TRUE.out -> R.Load;
+    CONNECT CLK -> R.CLK;
+    CONNECT U.RegWrite -> R.Data[0];     CONNECT R.Q[0] -> RegWrite;
+    CONNECT U.ASrc -> R.Data[1];         CONNECT R.Q[1] -> ASrc;
+    CONNECT U.BSrc[0] -> R.Data[2];      CONNECT R.Q[2] -> BSrc[0];
+    CONNECT U.BSrc[1] -> R.Data[3];      CONNECT R.Q[3] -> BSrc[1];
+    CONNECT U.ImmSel[0] -> R.Data[4];    CONNECT R.Q[4] -> ImmSel[0];
+    CONNECT U.ImmSel[1] -> R.Data[5];    CONNECT R.Q[5] -> ImmSel[1];
+    CONNECT U.AluS[0] -> R.Data[6];      CONNECT R.Q[6] -> AluS[0];
+    CONNECT U.AluS[1] -> R.Data[7];      CONNECT R.Q[7] -> AluS[1];
+    CONNECT U.InvB -> R.Data[8];         CONNECT R.Q[8] -> InvB;
+    CONNECT U.ZeroA -> R.Data[9];        CONNECT R.Q[9] -> ZeroA;
+    CONNECT U.CinOne -> R.Data[10];      CONNECT R.Q[10] -> CinOne;
+    CONNECT U.CinCarry -> R.Data[11];    CONNECT R.Q[11] -> CinCarry;
+    CONNECT U.WbSel[0] -> R.Data[12];    CONNECT R.Q[12] -> WbSel[0];
+    CONNECT U.WbSel[1] -> R.Data[13];    CONNECT R.Q[13] -> WbSel[1];
+    CONNECT U.LoadZN -> R.Data[14];      CONNECT R.Q[14] -> LoadZN;
+    CONNECT U.LoadCV -> R.Data[15];      CONNECT R.Q[15] -> LoadCV;
+    CONNECT U.MemWrite -> R.Data[16];    CONNECT R.Q[16] -> MemWrite;
+    CONNECT U.MemAddrSel[0] -> R.Data[17]; CONNECT R.Q[17] -> MemAddrSel[0];
+    CONNECT U.MemAddrSel[1] -> R.Data[18]; CONNECT R.Q[18] -> MemAddrSel[1];
+    CONNECT U.MemDataSel -> R.Data[19];  CONNECT R.Q[19] -> MemDataSel;
+    CONNECT U.TargetSel[0] -> R.Data[20]; CONNECT R.Q[20] -> TargetSel[0];
+    CONNECT U.TargetSel[1] -> R.Data[21]; CONNECT R.Q[21] -> TargetSel[1];
+    CONNECT U.Jump -> R.Data[22];        CONNECT R.Q[22] -> Jump;
+    CONNECT U.BranchInstr -> R.Data[23]; CONNECT R.Q[23] -> BranchInstr;
+    CONNECT U.Step2 -> R.Data[24];       CONNECT R.Q[24] -> Step2;
+    CONNECT U.SpInc -> R.Data[25];       CONNECT R.Q[25] -> SpInc;
+    CONNECT U.SpDec -> R.Data[26];       CONNECT R.Q[26] -> SpDec;
+    CONNECT U.OutEnable -> R.Data[27];   CONNECT R.Q[27] -> OutEnable;
+    CONNECT U.Halt -> R.Data[28];        CONNECT R.Q[28] -> Halt;
+    CONNECT U.ShLeft -> R.Data[29];      CONNECT R.Q[29] -> ShLeft;
+    CONNECT U.ShRot -> R.Data[30];       CONNECT R.Q[30] -> ShRot;
+    CONNECT U.ShArith -> R.Data[31];     CONNECT R.Q[31] -> ShArith;
+    CONNECT U.ShImm -> R.Data[32];       CONNECT R.Q[32] -> ShImm;
+}

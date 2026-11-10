@@ -533,6 +533,39 @@ wiegt bei 5 Stufen schwerer (Sprünge 3 statt 1 Takt). Günstiger: Shifter
 ohne Umkehr-Muxe und `OR_WIDE` als Baum im Steuerwerk (Flags- und
 AddrM-Pfad, geschätzt 6,0 → ~5,4 ns, +10 %) bei 3 Stufen.
 
+### 5 Stufen gemessen: Zeitmodell (2026-11-10)
+
+Statt einer funktionierenden 5-Stufen-CPU ein Zeitmodell: `CPU_16B_SOC5`
+(mit `CONTROL_REG_16B`) und `SOC_16B5` setzen echte Pipeline-Register an
+die Stufengrenzen, die Hazard- und Sprunglogik ist nicht angepasst, Programme
+laufen darauf nicht richtig. Die Pfadlängen aus OpenROAD sind aber echt.
+Die Schnitte, schrittweise (jeweils die neuen längsten Pfade):
+
+| Schnitte | fmax (hd) |
+|---|---|
+| Fetch 1/2 (Wort, Treffer, PC), Decode/Execute (Steuerbits, Registerwerte, Forwarding) | 183 MHz |
+| + Operanden in Decode, RET-Ziel gespeichert, Cache-Update 1 Takt später, SP-Hold nur im Enable | 196 MHz |
+| + I/O-Select aus einem Register statt aus der Busadresse | **228 MHz** (alle Pfade ~4,4 ns) |
+
+Der gespeicherte I/O-Select allein hilft 3 Stufen nicht (`SOC_16B3S`: 170
+MHz). Takte mit 5 Stufen aus `bench --stalls`: +598 (vorhergesagte
+Sprünge), +986 (in Execute entschiedene Sprünge), +130 bis +260 (JMP/CALL),
++260 (RET 4 statt 2) und +130 (RET-Ziel gespeichert): 7.297 → 9.400–9.530.
+
+| | Takt | Benchmarks | gegenüber 3 Stufen |
+|---|---|---|---|
+| 3 Stufen, hd | 171 MHz | 42,7 µs | 1,00× |
+| 5 Stufen, hd | 215–228 MHz¹ | 41,2–44,3 µs | 0,96–1,03× |
+| + Sprungziel-Puffer | 215–228 MHz | 38,6–41,5 µs | 1,03–1,11× |
+| 3 Stufen, hs | 249 MHz | 29,3 µs | 1,00× |
+| 5 Stufen, hs | 331 MHz | 28,4–28,8 µs | 1,02–1,03× |
+| + Sprungziel-Puffer | 331 MHz | 26,6–27,0 µs | 1,08–1,10× |
+
+¹ 228 MHz im Modell, ohne den Forwarding-Mux in Execute ~0,2 ns mehr.
+
+Ergebnis: 5 Stufen bringen ~25–33 % mehr Takt, verlieren das aber fast
+ganz an teurere Sprünge. Nicht weiter verfolgt.
+
 ### Zellbibliothek wählbar: sky130hd oder sky130hs (2026-11-10)
 
 - [x] `chip build --lib hs` (Viewer: Build-Fenster „Bibliothek“, API
