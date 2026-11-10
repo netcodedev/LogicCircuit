@@ -318,6 +318,7 @@
       <div id="export-menu" class="menu" role="menu" hidden>
         <div class="menu-head">Verilog-Netzliste der aktuellen Ebene<br><span id="export-target"></span></div>
         <button role="menuitem" data-level="basic" data-cells="sky130"><b>Basis-Blöcke · sky130-Zellen</b><span>Standardzellen für OpenROAD (and2, xor2, …)</span></button>
+        <button role="menuitem" data-level="basic" data-cells="sky130hs"><b>Basis-Blöcke · sky130-hs-Zellen</b><span>dieselben Zellen aus der High-Speed-Bibliothek</span></button>
         <button role="menuitem" data-level="basic" data-cells="generic"><b>Basis-Blöcke · generische Zellen</b><span>eigene Zellmodelle, für Icarus Verilog / Verilator</span></button>
         <button role="menuitem" data-level="nand" data-cells="sky130"><b>Nur NANDs · sky130-Zellen</b><span>alles als nand2-Zellen</span></button>
         <button role="menuitem" data-level="nand" data-cells="generic"><b>Nur NANDs · generische Zellen</b><span>alles als NAND, für Icarus Verilog / Verilator</span></button>
@@ -472,6 +473,8 @@
         <select id="chip-build-layer"><option value="met5" selected>bis met5</option><option value="met4">bis met4</option><option value="met3">bis met3</option><option value="met2">bis met2</option></select>
         <label for="chip-build-level">Zellen</label>
         <select id="chip-build-level"><option value="basic" selected>Basis-Blöcke</option><option value="nand">nur NANDs</option></select>
+        <label for="chip-build-lib" title="sky130-Zellbibliothek: hd ist kompakt, hs hat größere, schnellere Zellen">Bibliothek</label>
+        <select id="chip-build-lib"><option value="hd" selected>hd – kompakt</option><option value="hs">hs – schnell, größer</option></select>
         <label for="chip-build-util">Auslastung</label>
         <span><input id="chip-build-util" type="number" min="10" max="90" step="5" value="40"> %</span>
         <label for="chip-build-clock" title="Taktperiode, gegen die das Timing geprüft wird">Taktziel</label>

@@ -103,6 +103,7 @@ mod tests {
     use super::*;
     use crate::cldl::FlatLevel;
     use crate::clt::parse_clt;
+    use std::collections::BTreeMap;
 
     fn builder() -> CircuitBuilder {
         let mut b = CircuitBuilder::new();
@@ -157,6 +158,20 @@ mod tests {
         };
         assert_eq!(mux2(true), muxes);
         assert_eq!(mux2(false), 0);
+    }
+
+    /// The hs export is the hd export with the other library prefix.
+    #[test]
+    fn hs_cells_mirror_hd_cells() {
+        let b = builder();
+        let opts = |cells| VerilogOptions { level: FlatLevel::Basic, cells, keep_latches: false, mux_cells: true };
+        let hd = export_verilog(&b, "COMPUTER_8B", &opts(CellLib::Sky130)).unwrap();
+        let hs = export_verilog(&b, "COMPUTER_8B", &opts(CellLib::Sky130Hs)).unwrap();
+        assert!(!hs.text.contains("sky130_fd_sc_hd__"));
+        assert_eq!(hs.text, hd.text.replace("sky130_fd_sc_hd", "sky130_fd_sc_hs"));
+        let renamed: BTreeMap<String, usize> =
+            hd.cell_counts.iter().map(|(c, n)| (c.replace("_hd__", "_hs__"), *n)).collect();
+        assert_eq!(hs.cell_counts, renamed);
     }
 
     /// Runs the .clt suites of a few circuits against the exported generic

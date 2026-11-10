@@ -29,9 +29,19 @@ impl From<Level> for FlatLevel {
 }
 
 #[derive(clap::ValueEnum, Clone, Copy, Debug)]
+enum LibArg {
+    /// sky130_fd_sc_hd: high density
+    Hd,
+    /// sky130_fd_sc_hs: high speed
+    Hs,
+}
+
+#[derive(clap::ValueEnum, Clone, Copy, Debug)]
 enum Cells {
     /// sky130_fd_sc_hd standard cells (for OpenROAD)
     Sky130,
+    /// sky130_fd_sc_hs standard cells: high speed, larger
+    Sky130Hs,
     /// Self-contained LC_* cell models (for Icarus Verilog / Verilator)
     Generic,
 }
@@ -198,9 +208,14 @@ enum ChipCommand {
         #[arg(long)]
         optimize: bool,
         /// Access time in ns of the instruction and data memories outside the
-        /// chip (PC -> Instruction, MemAddr -> MemDataIn); 0 = ideal memories.
+        /// chip (PC -> Instruction, MemAddr -> MemDataIn, Addr -> DataIn);
+        /// 0 = ideal memories.
         #[arg(long, default_value_t = 0.0)]
         mem_delay: f64,
+        /// Standard cell library: hd (high density) or hs (high speed: larger
+        /// cells, faster; the run name gets "-hs").
+        #[arg(long, value_enum, default_value_t = LibArg::Hd)]
+        lib: LibArg,
     },
     /// Combine DEF, LEF and cell GDS of a run into one layout file
     /// (default <run>/layout.bin) and check it: every exported cell placed,
@@ -440,6 +455,7 @@ fn main() {
                 level: level.into(),
                 cells: match cells {
                     Cells::Sky130 => CellLib::Sky130,
+                    Cells::Sky130Hs => CellLib::Sky130Hs,
                     Cells::Generic => CellLib::Generic,
                 },
                 keep_latches,
@@ -469,9 +485,13 @@ fn main() {
             }
         }
         Some(Commands::Chip { command }) => match command {
-            ChipCommand::Build { component_name, level, keep_latches, max_layer, clock_period, util, die_size, optimize, mem_delay } => {
+            ChipCommand::Build { component_name, level, keep_latches, max_layer, clock_period, util, die_size, optimize, mem_delay, lib } => {
                 let opts = BuildOptions {
                     level: level.into(),
+                    library: match lib {
+                        LibArg::Hd => chip::Library::Hd,
+                        LibArg::Hs => chip::Library::Hs,
+                    },
                     keep_latches,
                     max_layer,
                     clock_period_ns: clock_period,

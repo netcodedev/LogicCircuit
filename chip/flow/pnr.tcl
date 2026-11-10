@@ -1,7 +1,9 @@
-# Place and route a gate-level sky130_fd_sc_hd netlist with OpenROAD.
+# Place and route a gate-level sky130 netlist (hd or hs cells) with OpenROAD.
 #
 # Inputs (environment):
-#   PLATFORM_DIR   ORFS sky130hd platform directory (LEF, liberty, PDN, tracks)
+#   PLATFORM_DIR   ORFS platform directory, sky130hd or sky130hs (LEF, liberty, PDN, tracks)
+#   CELL_LIB       standard cell library: sky130_fd_sc_hd (default) or sky130_fd_sc_hs;
+#                  the netlist must use the same one
 #   NETLIST, TOP   structural Verilog and its top module
 #   OUT_DIR        where DEF/ODB and reports are written
 #   MAX_LAYER      highest metal layer for routing (met2..met5, default met5); the
@@ -35,6 +37,9 @@ proc env_or {name default} {
 set platform  $::env(PLATFORM_DIR)
 set top       $::env(TOP)
 set out       $::env(OUT_DIR)
+set lib       [env_or CELL_LIB sky130_fd_sc_hd]
+# Placement site of the library: unithd (hd), unit (hs).
+set site      [expr {$lib eq "sky130_fd_sc_hs" ? "unit" : "unithd"}]
 set max_layer [env_or MAX_LAYER met5]
 set clk_port  [env_or CLOCK_PORT ""]
 set optimize  [expr {[env_or OPTIMIZE 0] eq "1"}]
@@ -45,9 +50,9 @@ if {[lsearch $layers $max_layer] < 1} {
 file mkdir $out
 
 # --- Technology and design ---------------------------------------------------
-read_lef $platform/lef/sky130_fd_sc_hd.tlef
-read_lef $platform/lef/sky130_fd_sc_hd_merged.lef
-read_liberty $platform/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+read_lef $platform/lef/$lib.tlef
+read_lef $platform/lef/${lib}_merged.lef
+read_liberty $platform/lib/${lib}__tt_025C_1v80.lib
 read_verilog $::env(NETLIST)
 link_design $top
 
@@ -92,7 +97,7 @@ proc apply_mem_delay {} {
                 # A memory drives its outputs through ordinary buffers, not
                 # the ideal driver STA assumes for ports; with fanout to
                 # hundreds of gates (register addresses, control) that matters.
-                set_driving_cell -lib_cell sky130_fd_sc_hd__buf_4 $ports
+                set_driving_cell -lib_cell ${::lib}__buf_4 $ports
                 puts [format "mem_delay %s -> %s: address at %.2f ns, data at %.2f ns" $addr $d $arrival $delay]
             }
         }
@@ -105,7 +110,7 @@ if {[env_or DIE_SIZE ""] ne ""} {
     set wh [split [string tolower $::env(DIE_SIZE)] x]
     set w [lindex $wh 0]
     set h [expr {[llength $wh] > 1 ? [lindex $wh 1] : $w}]
-    initialize_floorplan -die_area "0 0 $w $h" -core_area "5 5 [expr {$w - 5}] [expr {$h - 5}]" -site unithd
+    initialize_floorplan -die_area "0 0 $w $h" -core_area "5 5 [expr {$w - 5}] [expr {$h - 5}]" -site $site
 } else {
     # Size the core by utilisation, but not below MIN_CORE um: the power grid
     # needs room for its straps (pitch ~27 um), tiny designs would not fit.
@@ -120,14 +125,14 @@ if {[env_or DIE_SIZE ""] ne ""} {
     set util [env_or CORE_UTIL 30]
     if {sqrt($cell_area / ($util / 100.0)) < $min_core} {
         set d [expr {$min_core + 10}]
-        initialize_floorplan -die_area "0 0 $d $d" -core_area "5 5 [expr {$d - 5}] [expr {$d - 5}]" -site unithd
+        initialize_floorplan -die_area "0 0 $d $d" -core_area "5 5 [expr {$d - 5}] [expr {$d - 5}]" -site $site
     } else {
-        initialize_floorplan -utilization $util -aspect_ratio 1 -core_space 5 -site unithd
+        initialize_floorplan -utilization $util -aspect_ratio 1 -core_space 5 -site $site
     }
 }
 source $platform/make_tracks.tcl
 
-set ::env(TAP_CELL_NAME) sky130_fd_sc_hd__tapvpwrvgnd_1
+set ::env(TAP_CELL_NAME) ${lib}__tapvpwrvgnd_1
 source $platform/tapcell.tcl
 # Tap cells are new instances: connect their supply pins too.
 global_connect
@@ -160,7 +165,7 @@ if {$optimize} {
 detailed_placement
 
 if {$clk_port ne "" && [env_or NO_CTS 0] ne "1"} {
-    clock_tree_synthesis -root_buf sky130_fd_sc_hd__clkbuf_16 -buf_list sky130_fd_sc_hd__clkbuf_4
+    clock_tree_synthesis -root_buf ${lib}__clkbuf_16 -buf_list ${lib}__clkbuf_4
     set_propagated_clock [all_clocks]
     if {$optimize} {
         estimate_parasitics -placement
@@ -169,7 +174,7 @@ if {$clk_port ne "" && [env_or NO_CTS 0] ne "1"} {
     detailed_placement
 }
 
-filler_placement {sky130_fd_sc_hd__fill_1 sky130_fd_sc_hd__fill_2 sky130_fd_sc_hd__fill_4 sky130_fd_sc_hd__fill_8}
+filler_placement [lmap n {1 2 4 8} {string cat $lib __fill_ $n}]
 
 # --- Routing -------------------------------------------------------------------
 set ::env(MIN_ROUTING_LAYER) met1
@@ -207,7 +212,9 @@ if {$clk_port ne ""} {
 }
 
 # --- Metrics -------------------------------------------------------------------
-# Transistors per cell master, counted from the platform's SPICE netlist.
+# Transistors per cell master, counted from the sky130hd SPICE netlist. The
+# hs platform has none; its cells have the same transistors as the hd cells of
+# the same name (larger, not more), so they are looked up as hd cells.
 proc cdl_transistors {path} {
     set counts [dict create]
     set fh [open $path]
@@ -226,7 +233,7 @@ proc cdl_transistors {path} {
     close $fh
     return $counts
 }
-set transistors_of [cdl_transistors $platform/cdl/sky130hd.cdl]
+set transistors_of [cdl_transistors [file dirname $platform]/sky130hd/cdl/sky130hd.cdl]
 
 set block [ord::get_db_block]
 set dbu [$block getDbUnitsPerMicron]
@@ -245,8 +252,9 @@ foreach inst [$block getInsts] {
     if {![string match *__fill_* $name] && ![string match *__tapvpwrvgnd_* $name]} {
         set logic_area [expr {$logic_area + $a}]
     }
-    if {[dict exists $transistors_of $name]} {
-        incr transistors [dict get $transistors_of $name]
+    set hd_name [string map {sky130_fd_sc_hs__ sky130_fd_sc_hd__} $name]
+    if {[dict exists $transistors_of $hd_name]} {
+        incr transistors [dict get $transistors_of $hd_name]
     }
 }
 set fh [open $out/metrics.txt w]

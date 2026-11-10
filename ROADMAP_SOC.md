@@ -533,6 +533,26 @@ wiegt bei 5 Stufen schwerer (Sprünge 3 statt 1 Takt). Günstiger: Shifter
 ohne Umkehr-Muxe und `OR_WIDE` als Baum im Steuerwerk (Flags- und
 AddrM-Pfad, geschätzt 6,0 → ~5,4 ns, +10 %) bei 3 Stufen.
 
+### Zellbibliothek wählbar: sky130hd oder sky130hs (2026-11-10)
+
+- [x] `chip build --lib hs` (Viewer: Build-Fenster „Bibliothek“, API
+      `lib=hs`): dieselben Zellen aus `sky130_fd_sc_hs` statt
+      `sky130_fd_sc_hd` (Export `CellLib::Sky130Hs`, ORFS-Plattform
+      `sky130hs`, Site `unit`; Transistoren aus der hd-Netzliste, die hs-
+      Plattform hat keine). Laufname mit `-hs`, hd bleibt Standard
+- [x] SOC_16B (u70, `--optimize`), gleiche Netzliste:
+
+| | hd | hs |
+|---|---|---|
+| fmax | 171 MHz | **249 MHz (+46 %)** |
+| Logikfläche | 104.009 µm² | 132.543 µm² (+27 %) |
+| Die | 374 µm | 427 µm |
+| Benchmarks | 42,7 µs | 29,3 µs |
+
+  COMPUTER_8B (40 %, Ziel 5 ns): 114 → 168 MHz, 9.831 → 12.953 µm².
+  Schneller ohne Änderung am Entwurf, dafür größer (und mehr Strom, nicht
+  gemessen); für TinyTapeout, wo Fläche Geld kostet, bleibt hd die Wahl
+
 ### Phase 4 – Speicher-Controller
 - [ ] QSPI-Controller (Flash lesen, PSRAM lesen/schreiben), Modell im Runner
 - [ ] später ggf. SDRAM-Controller (Init, Refresh, Bänke, CAS-Latenz)

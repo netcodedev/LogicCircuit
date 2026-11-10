@@ -131,11 +131,15 @@ impl Sim {
     }
 
     /// Structural Verilog of `name`. `level`: "basic" or "nand"; `cells`:
-    /// "sky130" or "generic".
+    /// "sky130" (hd), "sky130hs" or "generic".
     pub fn export_verilog(&self, name: &str, level: &str, cells: &str, keep_latches: bool) -> Result<String, JsError> {
         let opts = VerilogOptions {
             level: if level == "nand" { FlatLevel::Nand } else { FlatLevel::Basic },
-            cells: if cells == "generic" { CellLib::Generic } else { CellLib::Sky130 },
+            cells: match cells {
+                "generic" => CellLib::Generic,
+                "sky130hs" => CellLib::Sky130Hs,
+                _ => CellLib::Sky130,
+            },
             keep_latches,
             // The download shows the gates, as the basic-block view does.
             mux_cells: false,

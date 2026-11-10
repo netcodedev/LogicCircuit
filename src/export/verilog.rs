@@ -10,7 +10,8 @@
 //!   parameter), so latches and flip-flops begin in the same state. Cells get
 //!   small, varying delays (`DELAY`, 1-3 ps): with zero delay, cross-coupled
 //!   latch gates switching at the same instant oscillate forever.
-//! - `CellLib::Sky130`: `sky130_fd_sc_hd` standard cells for OpenROAD.
+//! - `CellLib::Sky130` / `Sky130Hs`: `sky130_fd_sc_hd` (high density) or
+//!   `sky130_fd_sc_hs` (high speed) standard cells for OpenROAD.
 //!
 //! Names: nets become `n_<key>` and instances `u_<path>`, with `.` replaced by
 //! `__` and any other character outside `[A-Za-z0-9_]` by `_`. The mapping
@@ -25,7 +26,22 @@ use crate::cldl::{CircuitBuilder, FlatBlock, FlatLevel};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CellLib {
     Generic,
+    /// `sky130_fd_sc_hd`: high density (the default for chip builds).
     Sky130,
+    /// `sky130_fd_sc_hs`: high speed, the same cells and pins, larger and
+    /// faster (about +45 % clock, +30 % area on SOC_16B).
+    Sky130Hs,
+}
+
+impl CellLib {
+    /// The sky130 library name (`sky130_fd_sc_hd`), `None` for `Generic`.
+    pub fn sky130_library(self) -> Option<&'static str> {
+        match self {
+            CellLib::Generic => None,
+            CellLib::Sky130 => Some("sky130_fd_sc_hd"),
+            CellLib::Sky130Hs => Some("sky130_fd_sc_hs"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -261,7 +277,7 @@ pub fn export_verilog(builder: &CircuitBuilder, top: &str, opts: &VerilogOptions
             let nq = pin_nets(b, "nQ")?[0];
             let (cell, mut pins) = match opts.cells {
                 CellLib::Generic => ("LC_DFF".to_string(), vec![("CLK".into(), clk), ("D".into(), d), ("Q".into(), q), ("QN".into(), nq)]),
-                CellLib::Sky130 => (
+                CellLib::Sky130 | CellLib::Sky130Hs => (
                     "sky130_fd_sc_hd__dfxbp_1".to_string(),
                     vec![("CLK".into(), clk), ("D".into(), d), ("Q".into(), q), ("Q_N".into(), nq)],
                 ),
@@ -269,7 +285,7 @@ pub fn export_verilog(builder: &CircuitBuilder, top: &str, opts: &VerilogOptions
             // Without a load on nQ the cheaper flip-flop without Q_N will do.
             let nq_used = flat.blocks.iter().any(|o| o.pins.iter().any(|p| !p.output && p.nets.contains(&nq)))
                 || flat.outputs.iter().any(|(_, n)| *n == nq);
-            if !nq_used && opts.cells == CellLib::Sky130 {
+            if !nq_used && opts.cells != CellLib::Generic {
                 pins.pop();
                 emit.push(("sky130_fd_sc_hd__dfxtp_1".into(), b.id.clone(), pins, None));
             } else {
@@ -304,12 +320,12 @@ pub fn export_verilog(builder: &CircuitBuilder, top: &str, opts: &VerilogOptions
                 driven.insert(out);
                 let out_pin = match opts.cells {
                     CellLib::Generic => cm.cell_out_generic,
-                    CellLib::Sky130 => cm.cell_out_sky130,
+                    CellLib::Sky130 | CellLib::Sky130Hs => cm.cell_out_sky130,
                 };
                 pins.push((out_pin.to_string(), out));
                 let (cell, params) = match opts.cells {
                     CellLib::Generic => (cm.generic.to_string(), Some(format!("#(.INIT(1'b{}), .DELAY(@D))", init_of(out)))),
-                    CellLib::Sky130 => (cm.sky130.to_string(), None),
+                    CellLib::Sky130 | CellLib::Sky130Hs => (cm.sky130.to_string(), None),
                 };
                 let id = if bits > 1 { format!("{}.{bit}", b.id) } else { b.id.clone() };
                 emit.push((cell, id, pins, params));
@@ -337,7 +353,7 @@ pub fn export_verilog(builder: &CircuitBuilder, top: &str, opts: &VerilogOptions
         names.insert(name.clone(), format!("(tie-low) {}", flat.nets[net]));
         let (cell, pin) = match opts.cells {
             CellLib::Generic => ("LC_TIELO", "Y"),
-            CellLib::Sky130 => ("sky130_fd_sc_hd__conb_1", "LO"),
+            CellLib::Sky130 | CellLib::Sky130Hs => ("sky130_fd_sc_hd__conb_1", "LO"),
         };
         instances.push(Instance { cell: cell.into(), name, params: None, pins: vec![(pin.into(), sig)] });
     }
@@ -347,17 +363,27 @@ pub fn export_verilog(builder: &CircuitBuilder, top: &str, opts: &VerilogOptions
         names.insert(name.clone(), format!("(buffer) {port}"));
         let (cell, a, y, params) = match opts.cells {
             CellLib::Generic => ("LC_BUF", "A", "Y", Some(format!("#(.INIT(1'b{}), .DELAY(@D))", init_of(net)))),
-            CellLib::Sky130 => ("sky130_fd_sc_hd__buf_1", "A", "X", None),
+            CellLib::Sky130 | CellLib::Sky130Hs => ("sky130_fd_sc_hd__buf_1", "A", "X", None),
         };
         instances.push(Instance { cell: cell.into(), name, params, pins: vec![(a.into(), sig), (y.into(), port)] });
+    }
+
+    // The cell table names sky130_fd_sc_hd cells; the hs library has the
+    // same cells and pins under its own prefix.
+    if opts.cells == CellLib::Sky130Hs {
+        for inst in &mut instances {
+            if let Some(rest) = inst.cell.strip_prefix("sky130_fd_sc_hd__") {
+                inst.cell = format!("sky130_fd_sc_hs__{rest}");
+            }
+        }
     }
 
     // --- Text.
     let module = sanitize(top);
     let mut t = String::new();
-    let lib = match opts.cells {
-        CellLib::Generic => "generic LC_* cells (appended below)",
-        CellLib::Sky130 => "sky130_fd_sc_hd standard cells",
+    let lib = match opts.cells.sky130_library() {
+        None => "generic LC_* cells (appended below)".to_string(),
+        Some(l) => format!("{l} standard cells"),
     };
     let level = match opts.level {
         FlatLevel::Nand => "NAND gates",

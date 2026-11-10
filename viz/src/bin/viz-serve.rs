@@ -8,7 +8,7 @@
 //! - `GET  /api/health`                  -> {"ok":true}
 //! - `GET  /api/chip/runs?name=N`        -> runs of design N (metrics, layout present?, build time)
 //! - `GET  /api/chip/layout?name=N&run=R` -> layout.bin of a run (extracted on demand)
-//! - `POST /api/chip/build?name=N&max_layer=met5&level=basic&util=40&optimize=0&keep_latches=0&clock=10&mem_delay=0`
+//! - `POST /api/chip/build?name=N&max_layer=met5&level=basic&util=40&optimize=0&keep_latches=0&clock=10&mem_delay=0&lib=hd`
 //!   starts `chip build` + `chip extract` in the background (one job at a time)
 //! - `GET  /api/chip/job`                -> state of the current/last job, with the log tail
 //!
@@ -141,7 +141,8 @@ fn runs_json(server: &Server, name: &str) -> Value {
                 .find_map(|p| fs::metadata(p).and_then(|m| m.modified()).ok())
                 .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
                 .map(|t| t.as_secs());
-            out.push(json!({ "run": run, "layout": has_layout, "own": run.starts_with("own-"), "built": built, "metrics": metrics }));
+            let lib = chip::Library::of_run(&d).short();
+            out.push(json!({ "run": run, "layout": has_layout, "own": run.starts_with("own-"), "built": built, "lib": lib, "metrics": metrics }));
         }
     }
     json!({ "name": name, "runs": out })
@@ -180,8 +181,13 @@ fn start_build(server: &Arc<Server>, q: &HashMap<String, String>) -> Result<Valu
     if !(0.0..=50.0).contains(&mem_delay_ns) {
         return Err("mem_delay must be 0..50 ns".into());
     }
+    let library = match q.get("lib").map(String::as_str) {
+        None => chip::Library::Hd,
+        Some(l) => chip::Library::parse(l).ok_or_else(|| format!("lib must be hd or hs, got '{l}'"))?,
+    };
     let opts = BuildOptions {
         level,
+        library,
         keep_latches: q.get("keep_latches").is_some_and(|v| v == "1"),
         max_layer,
         clock_period_ns,

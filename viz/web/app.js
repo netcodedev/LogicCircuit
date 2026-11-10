@@ -912,6 +912,7 @@ function buildParams() {
     name: stack[0].type,
     max_layer: $('chip-build-layer').value,
     level: $('chip-build-level').value,
+    lib: $('chip-build-lib').value,
     util: $('chip-build-util').value,
     clock: $('chip-build-clock').value,
     mem_delay: $('chip-build-mem').value,
@@ -923,6 +924,7 @@ function buildParams() {
 // The run directory these options build into (as BuildOptions::run_name).
 function runName(p) {
   let n = `${p.level}-${p.max_layer}`;
+  if (p.lib !== 'hd') n += `-${p.lib}`;
   if (Number(p.util) !== DEFAULT_UTIL) n += `-u${Number(p.util)}`;
   if (p.keep_latches === '1') n += '-latches';
   if (Number(p.mem_delay) > 0) n += `-mem${Number(p.mem_delay)}`;
@@ -933,11 +935,12 @@ function runName(p) {
 
 function cliCommand(p) {
   let c = `cargo run --release -- chip build ${p.name} --max-layer ${p.max_layer} --level ${p.level} --util ${p.util}`;
+  if (p.lib !== 'hd') c += ` --lib ${p.lib}`;
   if (Number(p.clock) !== 10) c += ` --clock-period ${p.clock}`;
   if (Number(p.mem_delay) > 0) c += ` --mem-delay ${p.mem_delay}`;
   if (p.optimize === '1') c += ' --optimize';
   if (p.keep_latches === '1') c += ' --keep-latches';
-  return `${c}\ncargo run --release -- chip extract ${p.name}`;
+  return `${c}\ncargo run --release -- chip extract ${p.name} --run ${runName(p)}`;
 }
 
 function updateBuildForm() {
@@ -947,7 +950,7 @@ function updateBuildForm() {
   $('build-run-name').textContent = `→ chip/${p.name}/${runName(p)}`;
   $('build-cli').textContent = cliCommand(p);
 }
-for (const id of ['chip-build-layer', 'chip-build-level', 'chip-build-util', 'chip-build-clock', 'chip-build-mem', 'chip-build-opt', 'chip-build-latches']) {
+for (const id of ['chip-build-layer', 'chip-build-level', 'chip-build-lib', 'chip-build-util', 'chip-build-clock', 'chip-build-mem', 'chip-build-opt', 'chip-build-latches']) {
   $(id).addEventListener('input', updateBuildForm);
   $(id).addEventListener('change', updateBuildForm);
 }

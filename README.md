@@ -38,7 +38,8 @@ the browser's Chip 3D view with an exploded layer stack.*
   in Icarus and checks they match the built-in simulator.
 - **Chip flow** – `chip build` runs floorplan, placement, clock tree and
   routing with OpenROAD in a pinned Docker image, with a configurable number of
-  metal layers, utilisation, die size and clock period.
+  metal layers, utilisation, die size, clock period and cell library (sky130
+  `hd`, high density, or `hs`, high speed).
 - **Own placer and router** – a simulated-annealing placer and a
   PathFinder-style maze router in pure Rust (`chip route`), no PDK needed; it
   also runs in the browser via WASM.
@@ -120,6 +121,11 @@ cargo run --release -- chip build COMPUTER_8B --max-layer met5
 ```bash
 cargo run --release -- chip extract COMPUTER_8B
 ```
+
+`--lib hs` builds with the high-speed library `sky130_fd_sc_hs` instead of
+`sky130_fd_sc_hd`: the same cells, larger and faster (SOC_16B: about +45 %
+clock for +30 % area). Those runs get `-hs` in their name, e.g.
+`basic-met5-hs-p5`.
 
 ```bash
 cargo run --release -- chip report COMPUTER_8B

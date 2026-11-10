@@ -19,9 +19,69 @@ const ORFS: &str = "/OpenROAD-flow-scripts";
 /// Default core utilisation in percent; other values appear in the run name.
 pub const DEFAULT_UTIL: u32 = 40;
 
+/// The sky130 standard cell library of a chip build.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Library {
+    /// `sky130_fd_sc_hd`: high density.
+    #[default]
+    Hd,
+    /// `sky130_fd_sc_hs`: high speed (larger cells, faster).
+    Hs,
+}
+
+impl Library {
+    /// Short name as in run names and the API ("hd", "hs").
+    pub fn short(self) -> &'static str {
+        match self {
+            Library::Hd => "hd",
+            Library::Hs => "hs",
+        }
+    }
+
+    pub fn parse(s: &str) -> Option<Library> {
+        match s {
+            "hd" => Some(Library::Hd),
+            "hs" => Some(Library::Hs),
+            _ => None,
+        }
+    }
+
+    /// Cell name prefix without the trailing `__` (`sky130_fd_sc_hd`).
+    pub fn cells(self) -> &'static str {
+        match self {
+            Library::Hd => "sky130_fd_sc_hd",
+            Library::Hs => "sky130_fd_sc_hs",
+        }
+    }
+
+    /// ORFS platform directory name (`sky130hd`).
+    pub fn platform(self) -> &'static str {
+        match self {
+            Library::Hd => "sky130hd",
+            Library::Hs => "sky130hs",
+        }
+    }
+
+    fn cell_lib(self) -> CellLib {
+        match self {
+            Library::Hd => CellLib::Sky130,
+            Library::Hs => CellLib::Sky130Hs,
+        }
+    }
+
+    /// The library a finished run was built with, from its cell masters.
+    pub fn of_run(run_dir: &Path) -> Library {
+        let hs = std::fs::read_to_string(run_dir.join("metrics.txt"))
+            .is_ok_and(|m| m.contains("sky130_fd_sc_hs__"));
+        if hs { Library::Hs } else { Library::Hd }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct BuildOptions {
     pub level: FlatLevel,
+    /// Standard cell library (hd unless asked otherwise).
+    pub library: Library,
     pub keep_latches: bool,
     /// Highest metal layer for routing, power grid and pins (met2..met5).
     pub max_layer: String,
@@ -47,6 +107,10 @@ impl BuildOptions {
             },
             self.max_layer
         );
+        // hd is the default and keeps the names of earlier runs.
+        if self.library != Library::Hd {
+            name.push_str(&format!("-{}", self.library.short()));
+        }
         match self.die_size_um {
             Some((w, h)) if w == h => name.push_str(&format!("-die{w}")),
             Some((w, h)) => name.push_str(&format!("-die{w}x{h}")),
@@ -143,7 +207,7 @@ pub fn build(builder: &CircuitBuilder, name: &str, opts: &BuildOptions, root: &P
 
     // Netlist.
     // Multiplexers become mux2 cells on the chip (half the area of gates).
-    let vopts = VerilogOptions { level: opts.level, cells: CellLib::Sky130, keep_latches: opts.keep_latches, mux_cells: true };
+    let vopts = VerilogOptions { level: opts.level, cells: opts.library.cell_lib(), keep_latches: opts.keep_latches, mux_cells: true };
     let netlist = export_verilog(builder, name, &vopts)?;
     let netlist_file = format!("{}.v", netlist.module);
     std::fs::write(run_dir.join(&netlist_file), &netlist.text).map_err(|e| e.to_string())?;
@@ -170,7 +234,8 @@ pub fn build(builder: &CircuitBuilder, name: &str, opts: &BuildOptions, root: &P
     };
     let rel = |p: &Path| p.to_string_lossy().replace('\\', "/");
     let mut env = vec![
-        format!("PLATFORM_DIR={ORFS}/flow/platforms/sky130hd"),
+        format!("PLATFORM_DIR={ORFS}/flow/platforms/{}", opts.library.platform()),
+        format!("CELL_LIB={}", opts.library.cells()),
         format!("NETLIST={}", rel(&rel_dir.join(&netlist_file))),
         format!("TOP={}", netlist.module),
         format!("OUT_DIR={}", rel(&rel_dir)),
@@ -337,6 +402,7 @@ mod tests {
     fn run_names_encode_options() {
         let mut o = BuildOptions {
             level: FlatLevel::Basic,
+            library: Library::Hd,
             keep_latches: false,
             max_layer: "met3".into(),
             clock_period_ns: 10.0,
@@ -359,6 +425,8 @@ mod tests {
         assert_eq!(o.run_name(), "nand-met3-die160x225-latches-mem2.5-opt");
         o.clock_period_ns = 7.0;
         assert_eq!(o.run_name(), "nand-met3-die160x225-latches-mem2.5-p7-opt");
+        o.library = Library::Hs;
+        assert_eq!(o.run_name(), "nand-met3-hs-die160x225-latches-mem2.5-p7-opt");
     }
 
     /// Extracts a real run if one has been built (needs `chip build
@@ -412,19 +480,20 @@ mod tests {
     }
 }
 
-/// Files of the sky130hd platform needed outside the container.
-const PLATFORM_FILES: [&str; 3] = [
-    "lef/sky130_fd_sc_hd.tlef",
-    "lef/sky130_fd_sc_hd_merged.lef",
-    "gds/sky130_fd_sc_hd.gds",
-];
+/// Files of a platform needed outside the container (tech LEF, cell LEF,
+/// cell GDS), relative to its platform directory.
+fn platform_files(lib: Library) -> [String; 3] {
+    let c = lib.cells();
+    [format!("lef/{c}.tlef"), format!("lef/{c}_merged.lef"), format!("gds/{c}.gds")]
+}
 
-/// Local copy of the platform files (`chip/.platform/sky130hd/`), copied out
-/// of the pinned image on first use.
-pub fn platform_dir(root: &Path) -> Result<PathBuf, String> {
-    let dir = root.join("chip/.platform/sky130hd");
+/// Local copy of the platform files (`chip/.platform/sky130hd/`, or
+/// `sky130hs/`), copied out of the pinned image on first use.
+pub fn platform_dir(root: &Path, lib: Library) -> Result<PathBuf, String> {
+    let dir = root.join("chip/.platform").join(lib.platform());
     let file_name = |f: &str| f.rsplit('/').next().unwrap().to_string();
-    if PLATFORM_FILES.iter().all(|f| dir.join(file_name(f)).is_file()) {
+    let files = platform_files(lib);
+    if files.iter().all(|f| dir.join(file_name(f)).is_file()) {
         return Ok(dir);
     }
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
@@ -435,7 +504,7 @@ pub fn platform_dir(root: &Path) -> Result<PathBuf, String> {
     let id = |flag: &str| {
         Command::new("id").arg(flag).output().ok().map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string()).unwrap_or_default()
     };
-    let sources: Vec<String> = PLATFORM_FILES.iter().map(|f| format!("{ORFS}/flow/platforms/sky130hd/{f}")).collect();
+    let sources: Vec<String> = files.iter().map(|f| format!("{ORFS}/flow/platforms/{}/{f}", lib.platform())).collect();
     let status = Command::new("docker")
         .args(["run", "--rm", "--user", &format!("{}:{}", id("-u"), id("-g"))])
         .arg("-v")
@@ -472,7 +541,9 @@ pub fn resolve_run(root: &Path, name: &str, run: Option<&str>) -> Result<PathBuf
 
 /// Extracts the layout of a run (see `crate::layout`).
 pub fn extract(root: &Path, run_dir: &Path) -> Result<(crate::layout::Layout, crate::layout::Checks), String> {
-    let platform = platform_dir(root)?;
+    let lib = Library::of_run(run_dir);
+    let platform = platform_dir(root, lib)?;
+    let c = lib.cells();
     let def = std::fs::read_dir(run_dir)
         .map_err(|e| e.to_string())?
         .flatten()
@@ -482,9 +553,9 @@ pub fn extract(root: &Path, run_dir: &Path) -> Result<(crate::layout::Layout, cr
     let names = run_dir.join("names.tsv");
     let (mut layout, checks) = crate::layout::extract(&crate::layout::Sources {
         def: &def,
-        tech_lef: &platform.join("sky130_fd_sc_hd.tlef"),
-        cell_lef: &platform.join("sky130_fd_sc_hd_merged.lef"),
-        cell_gds: &platform.join("sky130_fd_sc_hd.gds"),
+        tech_lef: &platform.join(format!("{c}.tlef")),
+        cell_lef: &platform.join(format!("{c}_merged.lef")),
+        cell_gds: &platform.join(format!("{c}.gds")),
         names: names.is_file().then_some(names.as_path()),
     })?;
     // The run's metrics travel with the layout, for viewers.
