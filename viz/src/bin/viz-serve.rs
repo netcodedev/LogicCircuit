@@ -171,6 +171,7 @@ fn start_build(server: &Arc<Server>, q: &HashMap<String, String>) -> Result<Valu
         utilization,
         die_size_um: None,
         optimize: q.get("optimize").is_some_and(|v| v == "1"),
+        mem_delay_ns: 0.0,
     };
     let run = opts.run_name();
     let id = {

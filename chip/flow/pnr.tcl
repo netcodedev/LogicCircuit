@@ -14,6 +14,11 @@
 #                  and crashes); the clock is then routed like any signal
 #   OPTIMIZE       1 = let OpenROAD insert buffers and resize cells (repair_design,
 #                  repair_timing); the netlist then no longer matches ours 1:1
+#   MEM_DELAY      access time in ns of the memories outside the chip (default 0 =
+#                  ideal: every input arrives with the clock edge). The instruction
+#                  memory answers PC with Instruction/InstructionNext, the data
+#                  memory MemAddr with MemDataIn, each MEM_DELAY after its address
+#                  is stable; see apply_mem_delay
 #
 # Besides DEF/ODB/Verilog it writes metrics.txt ("key value" lines): die size,
 # cell area, instances and transistors per cell master. Wire length per
@@ -57,6 +62,41 @@ if {$clk_port ne ""} {
     set_input_delay 0 -clock clk $data_inputs
     set_output_delay 0 -clock clk [all_outputs]
 }
+
+# Memories outside the chip, modelled as input delays: a read port answers
+# MEM_DELAY ns after the latest bit of its address bus arrives at the chip
+# pins. With output delay 0, a port arrives at (period - slack). PC must be
+# timed before Instruction (the data address may depend on the instruction),
+# and MemAddr must not depend on MemDataIn (true for CPU_16B). The data ports
+# also get a buf_4 as driver. Called once before placement (rough, for
+# --optimize) and again before the final report.
+proc apply_mem_delay {} {
+    set t [env_or MEM_DELAY 0]
+    if {$::clk_port eq "" || $t == 0} { return }
+    set period [env_or CLOCK_PERIOD 10]
+    foreach {addr data} {PC {Instruction InstructionNext} MemAddr {MemDataIn}} {
+        set addr_ports [get_ports -quiet "${addr}\[*\]"]
+        if {[llength $addr_ports] == 0} { continue }
+        set arrival 0.0
+        foreach p $addr_ports {
+            set a [expr {$period - [get_property $p slack_max]}]
+            if {$a > $arrival} { set arrival $a }
+        }
+        set delay [expr {$arrival + $t}]
+        foreach d $data {
+            set ports [get_ports -quiet "${d}\[*\]"]
+            if {[llength $ports] > 0} {
+                set_input_delay $delay -clock clk $ports
+                # A memory drives its outputs through ordinary buffers, not
+                # the ideal driver STA assumes for ports; with fanout to
+                # hundreds of gates (register addresses, control) that matters.
+                set_driving_cell -lib_cell sky130_fd_sc_hd__buf_4 $ports
+                puts [format "mem_delay %s -> %s: address at %.2f ns, data at %.2f ns" $addr $d $arrival $delay]
+            }
+        }
+    }
+}
+apply_mem_delay
 
 # --- Floorplan, power grid, pins -----------------------------------------------
 if {[env_or DIE_SIZE ""] ne ""} {
@@ -144,6 +184,7 @@ write_db $out/$top.odb
 write_verilog $out/$top.routed.v
 
 report_design_area
+apply_mem_delay
 if {$clk_port ne ""} {
     report_checks -path_delay max -format full_clock_expanded > $out/timing.rpt
     report_worst_slack

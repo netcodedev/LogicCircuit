@@ -152,6 +152,10 @@ enum ChipCommand {
         /// Let OpenROAD buffer and resize cells (changes the netlist).
         #[arg(long)]
         optimize: bool,
+        /// Access time in ns of the instruction and data memories outside the
+        /// chip (PC -> Instruction, MemAddr -> MemDataIn); 0 = ideal memories.
+        #[arg(long, default_value_t = 0.0)]
+        mem_delay: f64,
     },
     /// Combine DEF, LEF and cell GDS of a run into one layout file
     /// (default <run>/layout.bin) and check it: every exported cell placed,
@@ -406,7 +410,7 @@ fn main() {
             }
         }
         Some(Commands::Chip { command }) => match command {
-            ChipCommand::Build { component_name, level, keep_latches, max_layer, clock_period, util, die_size, optimize } => {
+            ChipCommand::Build { component_name, level, keep_latches, max_layer, clock_period, util, die_size, optimize, mem_delay } => {
                 let opts = BuildOptions {
                     level: level.into(),
                     keep_latches,
@@ -415,6 +419,7 @@ fn main() {
                     utilization: util,
                     die_size_um: die_size,
                     optimize,
+                    mem_delay_ns: mem_delay,
                 };
                 println!("\nBuilding chip/{}/{} with OpenROAD …", component_name, opts.run_name());
                 let started = std::time::Instant::now();

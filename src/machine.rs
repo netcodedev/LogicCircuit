@@ -9,8 +9,9 @@
 //!   combinationally and stores on the rising clock edge
 //! - `In`: an input port, set from [`Machine::input`] if that is `Some`
 //!
-//! The port widths come from the circuit, so CPU_8B, COMPUTER_8B, CPU_16B
-//! and COMPUTER_16B all work.
+//! The port widths come from the circuit, so CPU_8B, COMPUTER_8B, CPU_16B,
+//! COMPUTER_16B and the pipelined COMPUTER_16B_PIPE all work. On the
+//! pipeline one step is one clock, not one instruction.
 
 use crate::circuit::Circuit;
 use crate::isa::Isa;
@@ -236,9 +237,13 @@ mod tests {
         assert_eq!(machine.pc(&circuit), 0);
     }
 
-    /// Runs a 16-bit program to HALT and returns the circuit and machine.
-    fn run16(src: &str, input: u16) -> (Circuit, Machine) {
-        let (circuit, mut machine) = build("COMPUTER_16B");
+    /// The 16-bit computers: single cycle and two-stage pipeline.
+    const COMPUTERS_16: [&str; 2] = ["COMPUTER_16B", "COMPUTER_16B_PIPE"];
+
+    /// Runs a 16-bit program on `top` to HALT and returns the circuit and
+    /// machine.
+    fn run16(top: &str, src: &str, input: u16) -> (Circuit, Machine) {
+        let (circuit, mut machine) = build(top);
         assert_eq!(machine.isa(), Isa::Cpu16);
         assert_eq!(machine.ram.len(), 1 << 16);
         machine.rom = machine.isa().assemble(src).unwrap().words;
@@ -250,16 +255,19 @@ mod tests {
 
     #[test]
     fn runs_16bit_example_programs_to_halt() {
-        for (src, input, out) in [
+        let programs = [
             (include_str!("../programs/16/fibonacci.asm"), 0, 46368),
             (include_str!("../programs/16/multiply.asm"), 0, 1234 * 37),
             (include_str!("../programs/16/factorial.asm"), 8, 40320),
             (include_str!("../programs/16/sort.asm"), 0, 0x1234),
-        ] {
-            let (circuit, machine) = run16(src, input);
-            assert_eq!(read_bus(&circuit, OUT, 16), out);
-            if src.contains("Bubble sort") {
-                assert_eq!(machine.ram[0x100..0x108], [0, 1, 7, 42, 503, 999, 0x0FFF, 0x1234]);
+        ];
+        for top in COMPUTERS_16 {
+            for (src, input, out) in programs {
+                let (circuit, machine) = run16(top, src, input);
+                assert_eq!(read_bus(&circuit, OUT, 16), out, "{top}");
+                if src.contains("Bubble sort") {
+                    assert_eq!(machine.ram[0x100..0x108], [0, 1, 7, 42, 503, 999, 0x0FFF, 0x1234]);
+                }
             }
         }
     }
@@ -269,11 +277,13 @@ mod tests {
         let src = "LI R1, 0x1000\n MOVI R2, 7\n SW R2, [R1+3]\n LW R3, [R1+3]\n\
                    PUSH R3\n LI R4, 0xBEEF\n PUSH R4\n POP R5\n POP R6\n\
                    IN R7\n ADD R7, R6\n OUT R7\n HALT";
-        let (circuit, machine) = run16(src, 100);
-        assert_eq!(machine.ram[0x1003], 7);
-        // The stack grows down from 0xFFFF; popped words stay in memory.
-        assert_eq!(machine.ram[0xFFFF], 7);
-        assert_eq!(machine.ram[0xFFFE], 0xBEEF);
-        assert_eq!(read_bus(&circuit, OUT, 16), 107);
+        for top in COMPUTERS_16 {
+            let (circuit, machine) = run16(top, src, 100);
+            assert_eq!(machine.ram[0x1003], 7);
+            // The stack grows down from 0xFFFF; popped words stay in memory.
+            assert_eq!(machine.ram[0xFFFF], 7);
+            assert_eq!(machine.ram[0xFFFE], 0xBEEF);
+            assert_eq!(read_bus(&circuit, OUT, 16), 107);
+        }
     }
 }

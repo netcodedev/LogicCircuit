@@ -333,7 +333,67 @@ Ohne ISA-Änderung, nur Umbau von `PC_16B` und `SP_16B`.
   jetzt wie erwartet durch den Datenpfad. Größte Einzelposten darauf: das
   Steuersignal `ImmSel` (schwach getriebenes `nor4` mit 16 Mux-Lasten,
   ≈ 1,1 ns) und der Kogge-Stone-Addierer der ALU (≈ 1,5 ns).
-- [ ] Hinweis: Befehle und Daten kommen ohne externe Verzögerung an
+- [x] Hinweis: Befehle und Daten kommen ohne externe Verzögerung an
       (`Instruction` ist Startpunkt mit 0 ns). Mit echtem ROM/RAM läge deren
       Zugriffszeit zusätzlich im Takt – nächster Hebel ist eine Pipeline
-      (Befehlsregister, synchrones RAM)
+      (Befehlsregister, synchrones RAM) – siehe Phase 8
+
+## Phase 8 – Speichermodell und 2-stufige Pipeline (2026-11-10)
+
+- [x] **Speichermodell im Timing** (`chip build --mem-delay NS`, Laufname
+      `…-mem3`; `MEM_DELAY` in `chip/flow/pnr.tcl`): Befehls- und Datenspeicher
+      liegen außerhalb des Chips und antworten NS nach ihrer Adresse.
+      `apply_mem_delay` liest die Ankunftszeit von `PC` bzw. `MemAddr` an den
+      Pins (Periode − Slack bei Output-Delay 0) und setzt darauf den
+      Input-Delay von `Instruction`/`InstructionNext` bzw. `MemDataIn`; damit
+      ist der ganze Pfad PC → ROM → Befehl → … → `MemAddr` → RAM → … im Takt.
+      Die Datenports bekommen außerdem einen `buf_4` als Treiber.
+- [x] **Erkenntnis:** OpenSTA rechnet Eingangsports mit idealem Treiber. Bei
+      der Einzeltakt-CPU treiben `Instruction`-Pins direkt Hunderte Lasten
+      (Registerfile-Adressen, Steuerwerk) – das war in den 132 MHz aus
+      Phase 7 kostenlos. Ein Flipflop als Treiber (Pipeline) braucht dafür
+      ohne Puffer 6,4 ns.
+- [x] `CPU_16B_PIPE` / `COMPUTER_16B_PIPE`: Fetch | Execute, gleiche Ports,
+      gleiche ISA, gleicher Datenpfad.
+  - `IR_16B`: Befehlsregister (Wort und Folgewort). Bit 0 invertiert
+    gespeichert, damit „gelöscht“ NOP (0x0001) statt HALT (0x0000) ist;
+    Flush (genommener Sprung) und Reset laden NOP. Beide Hälften sind
+    `REGISTER_R`: ein einfaches `REGISTER` setzt in seinem INIT den
+    `Load`-Eingang, der hier mit dem PC-Enable verbunden ist – der PC zählte
+    beim Bauen schon einmal hoch.
+  - `PC_FETCH_16B`: Fetch-PC. Während ein Befehl ausgeführt wird, zeigt der PC
+    schon dahinter, daher Sprungziel = PC + Offset und Rücksprungadresse = PC
+    (kein eigenes PC-Register für die Execute-Stufe). Ein Vor-Decoder
+    (Opcode 6) überspringt das zweite Wort von LI/JMP/CALL.
+  - Keine Daten-Hazards (Register, Flags und Speicher nur in Execute);
+    genommene Sprünge kosten einen Takt, ebenso der erste Takt nach Reset.
+  - Tests: `IR_16B.clt`, `PC_FETCH_16B.clt`, `CPU_16B_PIPE.clt` (dieselben
+    sechs Programme wie `CPU_16B.clt`, aus dem Simulator erzeugt; Endzustand,
+    `Out`, SP, Flags und alle Speicherschreibzugriffe gleich wie bei
+    `CPU_16B`), `COMPUTER_16B_PIPE.clt`; Rust-Tests laufen alle Programme auf
+    beiden Rechnern. `verify-verilog`: 86 Suiten in 4 Varianten grün.
+  - 22.680 NANDs (+1.175 gegenüber COMPUTER_16B: `IR_16B` 1.160).
+- [x] Takte pro Programm (Einzeltakt → Pipeline): Arithmetik 31 → 32,
+      Schleifen 47 → 62, Speicher/CALL 34 → 45, Fibonacci 122 → 146,
+      factorial.asm 488 → 595 (≈ +20 %).
+- [x] Ergebnis (basic, met5, 40 %, `--mem-delay 3`):
+
+  | | COMPUTER_16B | COMPUTER_16B_PIPE |
+  |---|---|---|
+  | fmax ohne `--optimize` | 59 MHz | 54 MHz |
+  | fmax mit `--optimize` | 57 MHz | **71 MHz** |
+  | Takte pro Befehl (Programme oben) | 1,0 | ≈ 1,2 |
+  | Befehle pro µs (bester Lauf) | ≈ 59 | ≈ 59 |
+  | Transistoren | 40.710 | 42.368 |
+
+  Ohne Puffer ist die Pipeline langsamer (Fanout des Befehlsregisters, s. o.);
+  mit `--optimize` puffert OpenROAD es, und der Takt steigt um ≈ 20 % – das
+  frisst der verlorene Takt pro genommenem Sprung aber wieder auf. Netto
+  kein Gewinn, weil der RAM-Zugriff weiter mitten in Execute liegt: der
+  kritische Pfad ist jetzt Befehlsregister → SP/ALU → `MemAddr` (9,6 ns) →
+  RAM (3 ns) → `MemDataIn` → `TargetMux` → PC (RET).
+- [ ] Nächster Hebel: Speicherstufe (Fetch | Execute | Memory) mit
+      registrierter Speicheradresse bzw. synchronem RAM. Kostet einen
+      Forwarding-Pfad bzw. einen Wartetakt bei „Laden, dann sofort benutzen“
+      und macht RET/POP zweitaktig. Alternativ Sprungvorhersage
+      (z. B. rückwärts = genommen), um den Sprung-Takt zurückzuholen.

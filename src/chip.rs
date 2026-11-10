@@ -32,6 +32,9 @@ pub struct BuildOptions {
     pub die_size_um: Option<(f64, f64)>,
     /// Allow OpenROAD to buffer and resize (changes the netlist).
     pub optimize: bool,
+    /// Access time in ns of the external instruction and data memories
+    /// (0 = ideal: inputs arrive with the clock edge). See pnr.tcl.
+    pub mem_delay_ns: f64,
 }
 
 impl BuildOptions {
@@ -52,6 +55,9 @@ impl BuildOptions {
         }
         if self.keep_latches {
             name.push_str("-latches");
+        }
+        if self.mem_delay_ns > 0.0 {
+            name.push_str(&format!("-mem{}", self.mem_delay_ns));
         }
         if self.optimize {
             name.push_str("-opt");
@@ -167,6 +173,7 @@ pub fn build(builder: &CircuitBuilder, name: &str, opts: &BuildOptions, root: &P
         format!("CLOCK_PERIOD={}", opts.clock_period_ns),
         format!("CORE_UTIL={}", opts.utilization),
         format!("OPTIMIZE={}", opts.optimize as u8),
+        format!("MEM_DELAY={}", opts.mem_delay_ns),
         // Latch-based designs have no flip-flop cells for a clock tree.
         format!("NO_CTS={}", opts.keep_latches as u8),
         "HOME=/tmp".into(),
@@ -330,6 +337,7 @@ mod tests {
             utilization: 40,
             die_size_um: None,
             optimize: false,
+            mem_delay_ns: 0.0,
         };
         assert_eq!(o.run_name(), "basic-met3");
         o.level = FlatLevel::Nand;
@@ -341,6 +349,8 @@ mod tests {
         assert_eq!(o.run_name(), "nand-met3-die150-latches-opt");
         o.die_size_um = Some((160.0, 225.0));
         assert_eq!(o.run_name(), "nand-met3-die160x225-latches-opt");
+        o.mem_delay_ns = 2.5;
+        assert_eq!(o.run_name(), "nand-met3-die160x225-latches-mem2.5-opt");
     }
 
     /// Extracts a real run if one has been built (needs `chip build

@@ -1,0 +1,73 @@
+// Program-flow tests for COMPUTER_16B_PIPE (two-stage pipeline). The harness plays both
+// memories like CPU_16B.clt (same programs): it feeds the words at PC and
+// PC+1 and answers data-memory reads. After each clock it checks PC and every
+// change of Out, SP and the flags; memory writes are checked as address and
+// data. Each test starts with a Reset. Generated from the simulator; the
+// final Out, SP, flags and all memory writes match COMPUTER_16B (one clock more
+// per taken jump or branch, plus one after the reset).
+
+TESTS FOR COMPUTER_16B_PIPE {
+    // IN port and NOP
+    //   IN   R1
+    //   NOP
+    //   ADDI R1, 1
+    //   OUT  R1
+    //   HALT
+    TEST "IN port and NOP (5 clocks, Out = 0x1000)" {
+        SET Reset 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Reset 0;
+        EVAL;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 0; ASSERT Out[10] 0; ASSERT Out[11] 0; ASSERT Out[12] 0; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 0;
+        SET In[0] 1, In[1] 1, In[2] 1, In[3] 1, In[4] 1, In[5] 1, In[6] 1, In[7] 1, In[8] 1, In[9] 1, In[10] 1, In[11] 1, In[12] 0, In[13] 0, In[14] 0, In[15] 0;
+        // 0x0000: 0x0108
+        SET Instruction[0] 0, Instruction[1] 0, Instruction[2] 0, Instruction[3] 1, Instruction[4] 0, Instruction[5] 0, Instruction[6] 0, Instruction[7] 0, Instruction[8] 1, Instruction[9] 0, Instruction[10] 0, Instruction[11] 0, Instruction[12] 0, Instruction[13] 0, Instruction[14] 0, Instruction[15] 0;
+        SET InstructionNext[0] 1, InstructionNext[1] 0, InstructionNext[2] 0, InstructionNext[3] 0, InstructionNext[4] 0, InstructionNext[5] 0, InstructionNext[6] 0, InstructionNext[7] 0, InstructionNext[8] 0, InstructionNext[9] 0, InstructionNext[10] 0, InstructionNext[11] 0, InstructionNext[12] 0, InstructionNext[13] 0, InstructionNext[14] 0, InstructionNext[15] 0;
+        SET MemDataIn[0] 0, MemDataIn[1] 0, MemDataIn[2] 0, MemDataIn[3] 0, MemDataIn[4] 0, MemDataIn[5] 0, MemDataIn[6] 0, MemDataIn[7] 0, MemDataIn[8] 0, MemDataIn[9] 0, MemDataIn[10] 0, MemDataIn[11] 0, MemDataIn[12] 0, MemDataIn[13] 0, MemDataIn[14] 0, MemDataIn[15] 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT MemWrite 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0001: 0x0001
+        SET Instruction[0] 1, Instruction[1] 0, Instruction[2] 0, Instruction[3] 0, Instruction[4] 0, Instruction[5] 0, Instruction[6] 0, Instruction[7] 0, Instruction[8] 0, Instruction[9] 0, Instruction[10] 0, Instruction[11] 0, Instruction[12] 0, Instruction[13] 0, Instruction[14] 0, Instruction[15] 0;
+        SET InstructionNext[0] 1, InstructionNext[1] 0, InstructionNext[2] 0, InstructionNext[3] 0, InstructionNext[4] 0, InstructionNext[5] 0, InstructionNext[6] 0, InstructionNext[7] 0, InstructionNext[8] 1, InstructionNext[9] 0, InstructionNext[10] 0, InstructionNext[11] 0, InstructionNext[12] 1, InstructionNext[13] 0, InstructionNext[14] 0, InstructionNext[15] 1;
+        SET MemDataIn[0] 0, MemDataIn[1] 0, MemDataIn[2] 0, MemDataIn[3] 0, MemDataIn[4] 0, MemDataIn[5] 0, MemDataIn[6] 0, MemDataIn[7] 0, MemDataIn[8] 0, MemDataIn[9] 0, MemDataIn[10] 0, MemDataIn[11] 0, MemDataIn[12] 0, MemDataIn[13] 0, MemDataIn[14] 0, MemDataIn[15] 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT MemWrite 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0002: 0x9101
+        SET Instruction[0] 1, Instruction[1] 0, Instruction[2] 0, Instruction[3] 0, Instruction[4] 0, Instruction[5] 0, Instruction[6] 0, Instruction[7] 0, Instruction[8] 1, Instruction[9] 0, Instruction[10] 0, Instruction[11] 0, Instruction[12] 1, Instruction[13] 0, Instruction[14] 0, Instruction[15] 1;
+        SET InstructionNext[0] 1, InstructionNext[1] 1, InstructionNext[2] 1, InstructionNext[3] 0, InstructionNext[4] 0, InstructionNext[5] 0, InstructionNext[6] 0, InstructionNext[7] 0, InstructionNext[8] 1, InstructionNext[9] 0, InstructionNext[10] 0, InstructionNext[11] 0, InstructionNext[12] 0, InstructionNext[13] 0, InstructionNext[14] 0, InstructionNext[15] 0;
+        SET MemDataIn[0] 0, MemDataIn[1] 0, MemDataIn[2] 0, MemDataIn[3] 0, MemDataIn[4] 0, MemDataIn[5] 0, MemDataIn[6] 0, MemDataIn[7] 0, MemDataIn[8] 0, MemDataIn[9] 0, MemDataIn[10] 0, MemDataIn[11] 0, MemDataIn[12] 0, MemDataIn[13] 0, MemDataIn[14] 0, MemDataIn[15] 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT MemWrite 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0003: 0x0107
+        SET Instruction[0] 1, Instruction[1] 1, Instruction[2] 1, Instruction[3] 0, Instruction[4] 0, Instruction[5] 0, Instruction[6] 0, Instruction[7] 0, Instruction[8] 1, Instruction[9] 0, Instruction[10] 0, Instruction[11] 0, Instruction[12] 0, Instruction[13] 0, Instruction[14] 0, Instruction[15] 0;
+        SET InstructionNext[0] 0, InstructionNext[1] 0, InstructionNext[2] 0, InstructionNext[3] 0, InstructionNext[4] 0, InstructionNext[5] 0, InstructionNext[6] 0, InstructionNext[7] 0, InstructionNext[8] 0, InstructionNext[9] 0, InstructionNext[10] 0, InstructionNext[11] 0, InstructionNext[12] 0, InstructionNext[13] 0, InstructionNext[14] 0, InstructionNext[15] 0;
+        SET MemDataIn[0] 0, MemDataIn[1] 0, MemDataIn[2] 0, MemDataIn[3] 0, MemDataIn[4] 0, MemDataIn[5] 0, MemDataIn[6] 0, MemDataIn[7] 0, MemDataIn[8] 0, MemDataIn[9] 0, MemDataIn[10] 0, MemDataIn[11] 0, MemDataIn[12] 0, MemDataIn[13] 0, MemDataIn[14] 0, MemDataIn[15] 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT MemWrite 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0004: 0x0000
+        SET Instruction[0] 0, Instruction[1] 0, Instruction[2] 0, Instruction[3] 0, Instruction[4] 0, Instruction[5] 0, Instruction[6] 0, Instruction[7] 0, Instruction[8] 0, Instruction[9] 0, Instruction[10] 0, Instruction[11] 0, Instruction[12] 0, Instruction[13] 0, Instruction[14] 0, Instruction[15] 0;
+        SET InstructionNext[0] 0, InstructionNext[1] 0, InstructionNext[2] 0, InstructionNext[3] 0, InstructionNext[4] 0, InstructionNext[5] 0, InstructionNext[6] 0, InstructionNext[7] 0, InstructionNext[8] 0, InstructionNext[9] 0, InstructionNext[10] 0, InstructionNext[11] 0, InstructionNext[12] 0, InstructionNext[13] 0, InstructionNext[14] 0, InstructionNext[15] 0;
+        SET MemDataIn[0] 0, MemDataIn[1] 0, MemDataIn[2] 0, MemDataIn[3] 0, MemDataIn[4] 0, MemDataIn[5] 0, MemDataIn[6] 0, MemDataIn[7] 0, MemDataIn[8] 0, MemDataIn[9] 0, MemDataIn[10] 0, MemDataIn[11] 0, MemDataIn[12] 0, MemDataIn[13] 0, MemDataIn[14] 0, MemDataIn[15] 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT MemWrite 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 0; ASSERT Out[10] 0; ASSERT Out[11] 0; ASSERT Out[12] 1; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 0;
+        // 0x0005: 0x0000
+        SET Instruction[0] 0, Instruction[1] 0, Instruction[2] 0, Instruction[3] 0, Instruction[4] 0, Instruction[5] 0, Instruction[6] 0, Instruction[7] 0, Instruction[8] 0, Instruction[9] 0, Instruction[10] 0, Instruction[11] 0, Instruction[12] 0, Instruction[13] 0, Instruction[14] 0, Instruction[15] 0;
+        SET InstructionNext[0] 0, InstructionNext[1] 0, InstructionNext[2] 0, InstructionNext[3] 0, InstructionNext[4] 0, InstructionNext[5] 0, InstructionNext[6] 0, InstructionNext[7] 0, InstructionNext[8] 0, InstructionNext[9] 0, InstructionNext[10] 0, InstructionNext[11] 0, InstructionNext[12] 0, InstructionNext[13] 0, InstructionNext[14] 0, InstructionNext[15] 0;
+        SET MemDataIn[0] 0, MemDataIn[1] 0, MemDataIn[2] 0, MemDataIn[3] 0, MemDataIn[4] 0, MemDataIn[5] 0, MemDataIn[6] 0, MemDataIn[7] 0, MemDataIn[8] 0, MemDataIn[9] 0, MemDataIn[10] 0, MemDataIn[11] 0, MemDataIn[12] 0, MemDataIn[13] 0, MemDataIn[14] 0, MemDataIn[15] 0;
+        EVAL;
+        ASSERT Halted 1; ASSERT MemWrite 0;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 0; ASSERT Out[10] 0; ASSERT Out[11] 0; ASSERT Out[12] 1; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 0;
+    }
+}

@@ -1,0 +1,58 @@
+CIRCUIT PC_FETCH_16B {
+    // Fetch program counter of CPU_16B_PIPE. Addr is the address of the
+    // word being fetched; the instruction in the execute stage was fetched
+    // one clock earlier, so while it executes Addr already points behind it
+    // (PC_E + 1, or PC_E + 2 for a two-word instruction). Hence
+    //   relative branch target = PC_E + 1 + Offset = Addr + Offset
+    //   CALL return address    = PC_E + 1 + Step2  = Addr
+    // On each rising CLK edge:
+    //   Reset = 1              -> PC <- 0
+    //   Enable = 1, Branch = 1 -> PC <- PC + Offset
+    //   Enable = 1, Jump = 1   -> PC <- Target
+    //   Enable = 1, otherwise  -> PC <- PC + 1 + Step2
+    //   otherwise              -> hold
+    // Branch and Jump come from the execute stage, Step2 from a pre-decode
+    // of the fetched word (two-word instruction: skip its second word).
+    //
+    // Enable and Reset are active-high on purpose (see PC_16B).
+    INPUT Target[16];   // Absolute jump target (JMP/CALL addr16, JR, RET)
+    INPUT Offset[16];   // Relative branch offset
+    INPUT Jump;         // 1 = load Target
+    INPUT Branch;       // 1 = load PC + Offset
+    INPUT Step2;        // 1 = the fetched word starts a two-word instruction
+    INPUT Enable;       // 1 = update PC on the clock edge
+    INPUT Reset;        // 1 = PC <- 0 on the clock edge
+    INPUT CLK;
+
+    OUTPUT Addr[16];    // Fetch address
+
+    // PC_Reg is declared first so its INIT runs before the gates that drive
+    // its inputs exist.
+    PART PC_Reg: REGISTER_R<16>;
+    PART Inc: ADDER_CLA_16B;         // PC + Step2 + 1
+    PART BranchAdder: ADDER_CLA_16B; // PC + Offset
+    PART JumpMux: MUX_2_1_BUS<16>;   // S=0 -> Inc, S=1 -> Target
+    PART BranchMux: MUX_2_1_BUS<16>; // S=0 -> JumpMux, S=1 -> BranchAdder
+    PART C_TRUE: NOR;                // Constant 1 (VCC), NOR(0,0) = 1
+
+    CONNECT PC_Reg.Q -> Addr;
+
+    // Inc.B[15..1] and BranchAdder.Cin stay unconnected (0).
+    CONNECT PC_Reg.Q -> Inc.A;
+    CONNECT Step2 -> Inc.B[0];
+    CONNECT C_TRUE.out -> Inc.Cin;
+
+    CONNECT PC_Reg.Q -> BranchAdder.A;
+    CONNECT Offset -> BranchAdder.B;
+
+    CONNECT Inc.S -> JumpMux.A;
+    CONNECT Target -> JumpMux.B;
+    CONNECT Jump -> JumpMux.S;
+    CONNECT JumpMux.Out -> BranchMux.A;
+    CONNECT BranchAdder.S -> BranchMux.B;
+    CONNECT Branch -> BranchMux.S;
+    CONNECT BranchMux.Out -> PC_Reg.Data;
+    CONNECT Enable -> PC_Reg.Load;
+    CONNECT Reset -> PC_Reg.Reset;
+    CONNECT CLK -> PC_Reg.CLK;
+}
