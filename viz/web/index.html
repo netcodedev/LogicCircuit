@@ -187,6 +187,15 @@
   .seg { fill: var(--seg-off); transition: fill .08s; }
   .seg.on { fill: var(--seg-on); filter: drop-shadow(0 0 3px var(--seg-on)); }
   #display { width: 100%; height: 96px; background: #07090b; border-radius: 8px; padding: 6px; display: block; }
+  .gpio-label { font-size: 11px; color: var(--muted); margin: 6px 0 3px; }
+  .gpio-row { display: grid; grid-template-columns: repeat(16, 1fr); gap: 3px; }
+  .gpio-row :nth-child(4n):not(:last-child) { margin-right: 4px; }
+  .led { aspect-ratio: 1; max-height: 14px; border-radius: 50%; background: #1d2a17; justify-self: center; width: 100%; max-width: 14px; transition: background .08s; }
+  .led.on { background: #7dff5a; box-shadow: 0 0 5px #7dff5a; }
+  .gpio-sw { height: 18px; padding: 0; border: 1px solid var(--line); border-radius: 3px; background: var(--panel-2); color: var(--muted); font: 9px ui-monospace, monospace; cursor: pointer; }
+  .gpio-sw.on { background: var(--accent); border-color: var(--accent); color: #0b0d10; }
+  #uart { margin: 0; min-height: 3.2em; max-height: 9em; overflow: auto; background: #07090b; color: #a8ffcf; border-radius: 8px; padding: 6px 8px; font: 12px/1.45 ui-monospace, monospace; white-space: pre-wrap; word-break: break-all; }
+  #uart:empty::before { content: '(noch nichts empfangen)'; color: var(--muted); }
   #source { width: 100%; flex: 1; min-height: 0; resize: none; font: 12px/1.45 ui-monospace, monospace; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; tab-size: 8; }
   .val-edit { width: 64px; font: 12px ui-monospace, monospace; text-align: right; background: var(--panel-2); color: var(--text); border: 1px solid var(--accent); border-radius: 4px; padding: 0 4px; }
   .val-edit.bad { border-color: var(--unk); }
@@ -237,6 +246,11 @@
     </label>
   </section>
   <section id="display-section" hidden><h2>Anzeige</h2><svg id="display"></svg></section>
+  <section id="gpio-section" hidden><h2>GPIO</h2>
+    <div class="gpio-label" id="gpio-out-label">Ausgänge (Bit 15 … 0)</div><div class="gpio-row" id="gpio-out"></div>
+    <div class="gpio-label" id="gpio-in-label">Eingänge – klicken zum Umschalten</div><div class="gpio-row" id="gpio-in"></div>
+  </section>
+  <section id="uart-section" hidden><h2>UART</h2><pre id="uart" title="Text, den der Chip über die Tx-Leitung gesendet hat"></pre></section>
   <section><h2>Eingänge</h2><div id="inputs"></div></section>
   <section><h2>Ausgänge</h2><div id="outputs"></div></section>
 </aside>

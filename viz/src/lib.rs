@@ -12,7 +12,7 @@ use wasm_bindgen::prelude::*;
 static EXTRA_CIRCUITS: Dir = include_dir!("$CARGO_MANIFEST_DIR/../circuits");
 
 // Example programs offered in the viewer: CPU_8B programs at the top level,
-// CPU_16B programs in programs/16.
+// CPU_16B programs in programs/16, SOC_16B I/O programs in programs/soc.
 static PROGRAMS: Dir = include_dir!("$CARGO_MANIFEST_DIR/../programs");
 
 fn load_extra(dir: &Dir, builder: &mut CircuitBuilder) {
@@ -237,25 +237,40 @@ impl Sim {
     }
 
     /// Example programs for the instruction set of the built circuit as
-    /// JSON [{"name":..,"source":..}], sorted by name.
+    /// JSON [{"name":..,"source":..}], sorted by name. A circuit with a UART
+    /// (SOC_16B) gets the I/O programs of programs/soc first, named "soc/…".
     pub fn examples(&self) -> String {
-        let dir = match self.isa_of() {
-            Isa::Cpu8 => Some(&PROGRAMS),
-            Isa::Cpu16 => PROGRAMS.get_dir("16"),
-        };
-        let mut list: Vec<Value> = dir
-            .into_iter()
-            .flat_map(|d| d.files())
-            .filter(|f| f.path().extension().is_some_and(|e| e == "asm"))
-            .map(|f| {
-                json!({
-                    "name": f.path().file_stem().and_then(|s| s.to_str()).unwrap_or(""),
-                    "source": f.contents_utf8().unwrap_or(""),
+        let group = |dir: Option<&Dir>, prefix: &str| -> Vec<Value> {
+            let mut list: Vec<Value> = dir
+                .into_iter()
+                .flat_map(|d| d.files())
+                .filter(|f| f.path().extension().is_some_and(|e| e == "asm"))
+                .map(|f| {
+                    let stem = f.path().file_stem().and_then(|s| s.to_str()).unwrap_or("");
+                    json!({ "name": format!("{prefix}{stem}"), "source": f.contents_utf8().unwrap_or("") })
                 })
-            })
-            .collect();
-        list.sort_by(|a, b| a["name"].as_str().cmp(&b["name"].as_str()));
+                .collect();
+            list.sort_by(|a, b| a["name"].as_str().cmp(&b["name"].as_str()));
+            list
+        };
+        let list = match self.isa_of() {
+            Isa::Cpu8 => group(Some(&PROGRAMS), ""),
+            Isa::Cpu16 if self.has_uart() => {
+                [group(PROGRAMS.get_dir("soc"), "soc/"), group(PROGRAMS.get_dir("16"), "")].concat()
+            }
+            Isa::Cpu16 => group(PROGRAMS.get_dir("16"), ""),
+        };
         Value::Array(list).to_string()
+    }
+
+    /// True if the built circuit has a UART line `Tx` (SOC_16B).
+    pub fn has_uart(&self) -> bool {
+        self.circuit.as_ref().is_some_and(|c| c.get_wire_map().contains_key(machine::TX))
+    }
+
+    /// Text received on the UART line since the circuit was built.
+    pub fn uart_text(&self) -> String {
+        self.machine.as_ref().map_or(String::new(), |m| String::from_utf8_lossy(&m.uart).into_owned())
     }
 
     /// Replaces the instruction memory and presents the word at the current PC.

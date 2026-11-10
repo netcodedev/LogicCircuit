@@ -1162,6 +1162,7 @@ function buildSidebar() {
   $('program-panel').hidden = !runnable;
   $('prog-split').hidden = !runnable;
   buildDisplay(v);
+  buildPeripherals(v);
 }
 
 // ---------------------------------------------------------------- display
@@ -1181,6 +1182,47 @@ function buildDisplay(v) {
     const segs = drawDigit(svg, i * (DIGIT_W + gap), 0);
     sidebarProbes.push({ keys: pinKeys(p.name, 7), apply(vals) { showSegments(segs, vals); } });
   });
+}
+
+// GPIO pins (SOC_16B): GpioOut as LEDs, GpioIn as switches, bit 15 on the
+// left as on a board. The UART console shows what arrived on Tx.
+function buildPeripherals(v) {
+  const out = v.outputs.find((p) => p.name === 'GpioOut');
+  const inp = v.inputs.find((p) => p.name === 'GpioIn');
+  $('gpio-section').hidden = !out && !inp;
+  $('gpio-out-label').hidden = $('gpio-out').hidden = !out;
+  $('gpio-in-label').hidden = $('gpio-in').hidden = !inp;
+  const row = (id, pin, make) => {
+    const el = $(id);
+    el.replaceChildren();
+    if (!pin) return;
+    const cells = [];
+    for (let i = pin.width - 1; i >= 0; i--) {
+      const c = make(i);
+      c.title = `${pin.name}[${i}]`;
+      el.appendChild(c);
+      cells[i] = c;
+    }
+    sidebarProbes.push({ keys: pinKeys(pin.name, pin.width), apply(vals) { cells.forEach((c, i) => c.classList.toggle('on', vals[i] === 1)); } });
+  };
+  row('gpio-out', out, () => Object.assign(document.createElement('div'), { className: 'led' }));
+  row('gpio-in', inp, (i) => {
+    const b = Object.assign(document.createElement('button'), { className: 'gpio-sw', textContent: i.toString(16).toUpperCase() });
+    b.addEventListener('click', () => { toggleInput(`GpioIn.${i}`); sim.fetch(); refresh(); });
+    return b;
+  });
+  $('uart-section').hidden = !sim.has_uart();
+  updateUart();
+}
+
+function updateUart() {
+  if ($('uart-section').hidden) return;
+  const el = $('uart');
+  const text = sim.uart_text();
+  if (el.textContent !== text) {
+    el.textContent = text;
+    el.scrollTop = el.scrollHeight;
+  }
 }
 
 // ---------------------------------------------------------------- program
@@ -1254,6 +1296,7 @@ function renderListing() {
 
 function updateProgramView() {
   if (!sim.is_runnable()) return;
+  updateUart();
   const pc = sim.pc();
   const halted = sim.halted();
   const rows = $('listing').children;
@@ -1397,10 +1440,13 @@ function select(type) {
   resetStats();
   buildSidebar();
   if (sim.is_runnable()) {
+    // The examples depend on the CPU (instruction set, peripherals).
+    const selected = $('examples').value;
+    loadExamples();
+    if (examples.some((x) => x.name === selected)) $('examples').value = selected;
     // A program for the other instruction set does not fit: start over
     // with this CPU's first example.
     if (program?.isa !== sim.isa()) {
-      loadExamples();
       program = null;
       $('listing').replaceChildren();
     }
