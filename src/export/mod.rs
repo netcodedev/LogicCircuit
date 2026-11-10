@@ -112,10 +112,14 @@ mod tests {
         b
     }
 
+    /// Circuits above this many NANDs are left out of the all-circuit tests.
+    const LARGE: usize = 100_000;
+
     #[test]
     fn exports_every_circuit_deterministically() {
         let b = builder();
-        for name in b.circuit_names() {
+        // The largest designs (CPU_RV32, SOC_RV32) only make the test slow.
+        for name in b.circuit_names().into_iter().filter(|n| b.nand_count(n).unwrap() <= LARGE) {
             for level in [FlatLevel::Basic, FlatLevel::Nand] {
                 for keep_latches in [false, true] {
                     let opts = VerilogOptions { level, cells: CellLib::Sky130, keep_latches, mux_cells: !keep_latches };

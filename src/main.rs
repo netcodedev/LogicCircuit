@@ -9,7 +9,7 @@ use logic_circuit::export::verify_with_iverilog;
 use logic_circuit::chip::{self, BuildOptions, RunMetrics};
 use logic_circuit::isa::Isa;
 use logic_circuit::isa::sim16::Cpu16;
-use logic_circuit::{clt, machine};
+use logic_circuit::{clt, machine, riscv};
 
 #[derive(clap::ValueEnum, Clone, Copy, Debug)]
 enum Level {
@@ -156,6 +156,12 @@ enum Commands {
         #[arg(long, value_name = "FILE")]
         names: Option<PathBuf>,
     },
+    /// The RISC-V SoC (SOC_RV32): assemble, run, benchmark.
+    /// Loads ./circuits automatically if -d is not given.
+    Riscv {
+        #[command(subcommand)]
+        command: RiscvCommand,
+    },
     /// Chip layout: place and route with OpenROAD (Docker) and report.
     /// Loads ./circuits automatically if -d is not given.
     Chip {
@@ -181,6 +187,52 @@ enum Commands {
         mux_cells: bool,
     },
 }
+#[derive(clap::Subcommand, Debug)]
+enum RiscvCommand {
+    /// Print the listing of an assembly program (address, word, source).
+    Asm {
+        #[arg(value_name = "PROGRAM")]
+        program: PathBuf,
+    },
+    /// Run a program (.s, or .c with clang + lld) on SOC_RV32 or the
+    /// instruction-level simulator.
+    Run {
+        #[arg(value_name = "PROGRAM")]
+        program: PathBuf,
+        /// Circuit with CPU_RV32's bus (default SOC_RV32).
+        #[arg(long)]
+        top: Option<String>,
+        /// Run on the instruction-level simulator instead of a circuit.
+        #[arg(long)]
+        iss: bool,
+        /// Stop after this many clocks (instructions with --iss).
+        #[arg(long, default_value_t = 1_000_000)]
+        max: u64,
+        /// Print the PC and instruction every clock.
+        #[arg(long)]
+        trace: bool,
+        /// Wait states per memory access.
+        #[arg(long, default_value_t = 0)]
+        mem_latency: usize,
+        /// Text to send to the UART; `\\n` is a newline.
+        #[arg(long, default_value = "")]
+        uart_in: String,
+        /// Value on the GPIO inputs (decimal or 0x hex).
+        #[arg(long, default_value = "0", value_parser = parse_u32)]
+        gpio_in: u32,
+    },
+    /// Run the programs in programs/riscv/bench: instructions on the
+    /// instruction-level simulator, clocks on each circuit.
+    Bench {
+        #[arg(long, default_value = "SOC_RV32")]
+        top: String,
+        #[arg(long, default_value = "programs/riscv/bench")]
+        dir: PathBuf,
+        #[arg(long, default_value_t = 0)]
+        mem_latency: usize,
+    },
+}
+
 #[derive(clap::Subcommand, Debug)]
 enum ChipCommand {
     /// Export as sky130 netlist, then floorplan, place, clock tree and route.
@@ -352,6 +404,7 @@ fn main() {
                 | Commands::ExportVerilog { .. }
                 | Commands::VerifyVerilog { .. }
                 | Commands::Chip { .. }
+                | Commands::Riscv { .. }
         )
     ) {
         let default_dir = Path::new("./circuits");
@@ -446,6 +499,25 @@ fn main() {
             });
             run_program(&builder, &program, &top, input, max_steps, trace, mem_latency, &uart_in.replace("\\n", "\n"));
         }
+        Some(Commands::Riscv { command }) => match command {
+            RiscvCommand::Asm { program } => riscv::cli::asm(&program),
+            RiscvCommand::Run { program, top, iss, max, trace, mem_latency, uart_in, gpio_in } => {
+                let o = riscv::cli::RunOptions {
+                    top,
+                    iss,
+                    max,
+                    trace,
+                    latency: mem_latency,
+                    uart_in: uart_in.replace("\\n", "\n"),
+                    gpio_in,
+                };
+                riscv::cli::run(&builder, &program, &o);
+            }
+            RiscvCommand::Bench { top, dir, mem_latency } => {
+                let tops: Vec<&str> = top.split(',').map(str::trim).filter(|t| !t.is_empty()).collect();
+                riscv::cli::bench(&builder, &dir, &tops, mem_latency);
+            }
+        },
         Some(Commands::Bench { top, mem_latency, isa_only, stalls }) => {
             let tops: Vec<&str> = if isa_only { Vec::new() } else { top.split(',').map(str::trim).collect() };
             run_bench(&builder, &tops, mem_latency, stalls);
@@ -583,6 +655,14 @@ fn main() {
 }
 
 /// Parses a 16-bit value given as decimal or `0x` hex.
+fn parse_u32(text: &str) -> Result<u32, String> {
+    match text.strip_prefix("0x").or_else(|| text.strip_prefix("0X")) {
+        Some(hex) => u32::from_str_radix(hex, 16),
+        None => text.parse(),
+    }
+    .map_err(|e| format!("expected a 32-bit number: {e}"))
+}
+
 fn parse_word(text: &str) -> Result<u16, String> {
     match text.strip_prefix("0x").or_else(|| text.strip_prefix("0X")) {
         Some(hex) => u16::from_str_radix(hex, 16),

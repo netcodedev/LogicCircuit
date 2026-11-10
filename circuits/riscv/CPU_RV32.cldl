@@ -1,0 +1,571 @@
+CIRCUIT CPU_RV32 {
+    // RISC-V RV32IM + Zicsr, machine mode only (see ROADMAP_32BIT.md).
+    //
+    // Three stages, as CPU_16B_SOC: fetch | execute | memory.
+    //   Fetch reads the word at PC into Ir (with PcE = its address) when
+    //   the bus is free; IrValid = 0 marks a bubble.
+    //   Execute decodes Ir (CONTROL_RV32, IMM_RV32), reads the registers,
+    //   computes the ALU result, the jump target and the branch condition,
+    //   reads/writes CSRs, raises exceptions and takes interrupts. A jump,
+    //   taken branch, trap or mret loads PC and drops the word fetched in
+    //   the same clock (one bubble).
+    //   Memory does the load or store of the instruction from execute and
+    //   writes the destination register (ResultM, or the load data).
+    //
+    // One bus (von Neumann): Addr, DataIn (a whole word, Addr AND NOT 3),
+    // DataOut, ByteEn (lanes to write), Write, Read, Fetch. The memory
+    // stage has priority; the fetch waits while it uses the bus. Wait = 1
+    // means the memory has not finished the current access: a fetch gives
+    // no word, a load or store holds the whole pipeline (Freeze).
+    //
+    // Hazards: the memory stage's result is forwarded to execute
+    // (ResultM, not for loads); an instruction that needs a register a load
+    // in the memory stage is about to write waits one clock (load-use).
+    //
+    // Multiply/divide (MULDIV_RV32) starts when the instruction reaches
+    // execute, which then waits 32 clocks; its result goes through the
+    // memory stage like an ALU result.
+    //
+    // Traps: illegal instruction (incl. a CSR that does not exist or a
+    // write to a read-only one), ecall, a misaligned jump/branch target,
+    // misaligned load/store. The instruction in execute is not executed;
+    // CSR_RV32 saves its address in mepc, the cause and mtval, and PC goes
+    // to mtvec. An interrupt (IrqPending, from mstatus.MIE, mie and the
+    // MTIP/MEIP inputs) is taken the same way when execute holds an
+    // instruction that could run now. ebreak halts the CPU (Halted = 1);
+    // wfi and fence do nothing.
+    //
+    // Reset (synchronous) clears PC, the pipeline, the CSRs and Halted;
+    // execution starts at 0. The register file is not cleared.
+
+    // --- Inputs ---
+    INPUT DataIn[32];          // memory word at Addr AND NOT 3
+    INPUT Wait;                // 1 = current access not done yet
+    INPUT MTIP;                // timer interrupt (level)
+    INPUT MEIP;                // external interrupt (level)
+    INPUT CLK;
+    INPUT Reset;
+
+    // --- Outputs ---
+    OUTPUT Addr[32];           // byte address: PC or the memory stage's
+    OUTPUT DataOut[32];        // store data (in every lane it can go to)
+    OUTPUT ByteEn[4];          // lanes to write
+    OUTPUT Write;              // 1 = store
+    OUTPUT Read;               // 1 = load
+    OUTPUT Fetch;              // 1 = instruction fetch
+    OUTPUT PC[32];
+    OUTPUT Halted;             // 1 once ebreak executed
+
+    // --- Registers (first: their INITs pulse CLK) ---
+    PART PcReg: REGISTER_R<32>;
+    PART Ir: REGISTER_R<32>;
+    PART IrValid: REGISTER_R<1>;
+    PART PcE: REGISTER_R<32>;       // address of the instruction in Ir
+    PART ResultM: REGISTER_R<32>;   // ALU/CSR/muldiv result or address
+    PART DataM: REGISTER_R<32>;     // rs2 of a store
+    PART CtrlM: REGISTER_R<11>;     // Rd[0..4], RegWrite 5, Load 6, Store 7,
+                                    // Size 8..9, Unsigned 10
+    PART HaltReg: REGISTER_R<1>;
+    PART RegFile: REG_FILE_32<32>;
+    PART Csr: CSR_RV32;
+    PART MulDiv: MULDIV_RV32;
+
+    PART C_TRUE: NOR;               // Constant 1 (VCC), NOR(0,0) = 1
+    PART Control: CONTROL_RV32;
+    PART Imm: IMM_RV32;
+    PART Alu: ALU_RV32;
+    PART Lsu: LSU_RV32;
+
+    // --- Memory stage and bus ---
+    PART AccessOr: OR;              // LoadM OR StoreM: memory stage uses the bus
+    PART NotAccess: NOT;
+    PART BusMux: MUX_2_1_BUS<32>;   // Addr: PC, ResultM
+    PART FreezeAnd: AND;            // access AND Wait: everything holds
+    PART NotFreeze: NOT;
+    PART FetchOk: NOR;              // NOT access AND NOT Wait: word at PC arrived
+    PART WbMux: MUX_2_1_BUS<32>;    // register write data: ResultM, load data
+    PART WbEn: AND;                 // RegWriteM AND NOT Freeze
+
+    // --- Forwarding and load-use ---
+    PART EqXA: XOR_BUS<5>;          // rs1 XOR RdM
+    PART EqXB: XOR_BUS<5>;
+    PART NeA: OR_WIDE<2>;
+    PART NeB: OR_WIDE<2>;
+    PART EqA: NOT;
+    PART EqB: NOT;
+    PART RdNz: OR_WIDE<2>;          // RdM != 0
+    PART NotLoadM: NOT;
+    PART MWrites: AND3;             // RegWriteM AND RdM != 0 AND NOT LoadM
+    PART FwdA: AND;
+    PART FwdB: AND;
+    PART LoadNz: AND;               // LoadM AND RdM != 0
+    PART LuA: AND3;                 // ... AND rs1 = RdM AND uses rs1
+    PART LuB: AND3;
+    PART LuOr: OR;
+    PART LoadUse: AND;              // ... AND IrValid
+    PART RegA: MUX_2_1_BUS<32>;     // rs1: register file, ResultM
+    PART RegB: MUX_2_1_BUS<32>;
+
+    // --- Operands, target, condition ---
+    PART AMux: MUX_2_1_BUS<32>;     // rs1, PcE
+    PART NotAZero: NOT;
+    PART AOp: AND_BUS<32>;          // ... AND NOT ASelZero
+    PART BMux: MUX_2_1_BUS<32>;     // rs2, Imm
+    PART BOp: MUX_2_1_BUS<32>;      // ..., 4
+    PART TgtMux: MUX_2_1_BUS<32>;   // PcE, rs1 (jalr)
+    PART TgtAdd: ADDER_KS5<32>;     // target = base + Imm (bit 0 always 0)
+    PART LtMux: MUX_2_1;            // Lt, Ltu by funct3[1]
+    PART CondMux: MUX_2_1;          // Eq, LtMux by funct3[2]
+    PART CondX: XOR;                // ... XOR funct3[0]
+    PART Taken: AND;                // IsBranch AND condition
+    PART JumpOr: OR_WIDE<1>;        // Taken OR jal OR jalr
+    PART ResMux: MUX_2_1_BUS<32>;   // ALU, muldiv
+    PART CsrMux: MUX_2_1_BUS<32>;   // ..., CSR read value
+
+    // --- CSR access ---
+    PART Rs1Nz: OR_WIDE<2>;         // rs1 field != 0
+    PART NotIr13: NOT;
+    PART RwOp: AND;                 // funct3[1:0] = 01: csrrw(i) always writes
+    PART WriteIntent: OR;
+    PART SrcMux: MUX_2_1_BUS<32>;   // rs1, zero-extended uimm
+    PART NotExists: NOT;
+    PART RoWrite: AND;              // read-only AND write
+    PART CsrBad: OR;
+    PART CsrIll: AND;               // IsCsr AND (not there OR read-only write)
+
+    // --- Exceptions ---
+    PART Ill: OR;                   // Control.Illegal OR CsrIll
+    PART NotIll: NOT;
+    PART MisT: AND3;                // jump AND target[1] AND NOT Ill
+    PART A0or1: OR;
+    PART MisHalf: AND;              // funct3[0] AND addr[0]
+    PART MisWord: AND;              // funct3[1] AND addr[1:0] != 0
+    PART MisLs: OR;
+    PART MisLd: AND3;               // IsLoad AND misaligned AND NOT Ill
+    PART MisSt: AND3;
+    PART ExcOr: OR_WIDE<2>;
+    PART Code1: OR_WIDE<1>;         // cause bit 1: ecall, illegal, store
+    PART Code2: OR;                 // cause bit 2: load, store
+    PART NotExt: NOT;
+    PART CodeMux: MUX_2_1_BUS<4>;   // exception, interrupt cause
+    PART MisLsAny: OR;              // MisLd OR MisSt
+    PART TvIll: AND_BUS<32>;        // Ir for illegal
+    PART TvTgt: AND_BUS<32>;        // target for a misaligned jump
+    PART TvAddr: AND_BUS<32>;       // address for a misaligned load/store
+    PART TvOr1: OR_BUS<32>;
+    PART TvOr2: OR_BUS<32>;
+    PART TvGate: AND_BUS<32>;       // 0 for interrupts
+
+    // --- Pipeline control ---
+    PART MdIsAnd: AND;              // IsMulDiv AND IrValid
+    PART MdNotDone: NOT;
+    PART MdWait: AND;               // ... AND NOT Done: execute waits
+    PART MdIdle: NOR;               // NOT Busy AND NOT Done
+    PART HoldO: OR_WIDE<1>;         // Freeze OR LoadUse OR halted
+    PART NotHoldO: NOT;
+    PART MdStart: AND3;             // muldiv in execute, idle, not held
+    PART HoldE: OR;                 // HoldO OR MdWait
+    PART NotHoldE: NOT;
+    PART XGo: AND;                  // IrValid AND NOT HoldE
+    PART MdConsume: AND;            // Done AND XGo
+    PART TakeIrq: AND;              // XGo AND IrqPending
+    PART NotIrq: NOT;
+    PART NotExc: NOT;
+    PART Commit: AND3;              // XGo AND NOT TakeIrq AND NOT Exc
+    PART TrapAny: OR;               // IrqPending OR Exc
+    PART TrapTake: AND;             // XGo AND ...
+    PART JumpMret: OR;
+    PART CommitJump: AND;
+    PART Redirect: OR;
+    PART NotRedirect: NOT;
+    PART MretMux: MUX_2_1_BUS<32>;  // target, mepc
+    PART TrapMux: MUX_2_1_BUS<32>;  // ..., mtvec
+    PART PcInc: ADDER_KS5<30>;      // PC[31:2] + 1
+    PART PcMux: MUX_2_1_BUS<32>;    // PC + 4, redirect
+    PART FetchGo: AND;              // FetchOk AND NOT HoldE
+    PART PcLoad: OR;
+    PART ValidIn: AND;              // FetchOk AND NOT Redirect
+
+    // --- Effects ---
+    PART RegWriteG: AND;            // Commit AND RegWrite
+    PART LoadG: AND;
+    PART StoreG: AND;
+    PART CsrWriteG: AND3;           // Commit AND IsCsr AND WriteIntent
+    PART MretG: AND;
+    PART HaltG: AND;                // Commit AND ebreak
+
+    // ================= Fetch =================
+    CONNECT PcReg.Q -> PC;
+    CONNECT PcReg.Q -> BusMux.A;
+    CONNECT ResultM.Q -> BusMux.B;
+    CONNECT AccessOr.out -> BusMux.S;
+    CONNECT BusMux.Out -> Addr;
+    CONNECT CtrlM.Q[6] -> AccessOr.in1;
+    CONNECT CtrlM.Q[7] -> AccessOr.in2;
+    CONNECT AccessOr.out -> NotAccess.in;
+    CONNECT NotAccess.out -> Fetch;
+    CONNECT CtrlM.Q[6] -> Read;
+    CONNECT CtrlM.Q[7] -> Write;
+    CONNECT AccessOr.out -> FreezeAnd.in1;
+    CONNECT Wait -> FreezeAnd.in2;
+    CONNECT FreezeAnd.out -> NotFreeze.in;
+    CONNECT AccessOr.out -> FetchOk.in1;
+    CONNECT Wait -> FetchOk.in2;
+
+    CONNECT DataIn -> Ir.Data;
+    CONNECT NotHoldE.out -> Ir.Load;
+    CONNECT CLK -> Ir.CLK;
+    CONNECT PcReg.Q -> PcE.Data;
+    CONNECT NotHoldE.out -> PcE.Load;
+    CONNECT CLK -> PcE.CLK;
+    CONNECT FetchOk.out -> ValidIn.in1;
+    CONNECT NotRedirect.out -> ValidIn.in2;
+    CONNECT ValidIn.out -> IrValid.Data[0];
+    CONNECT NotHoldE.out -> IrValid.Load;
+    CONNECT Reset -> IrValid.Reset;
+    CONNECT CLK -> IrValid.CLK;
+
+    // PC: PC + 4, or the redirect target
+    FOR i IN 0..30 {
+        CONNECT PcReg.Q[2+i] -> PcInc.A[i];
+        CONNECT PcInc.S[i] -> PcMux.A[2+i];
+    }
+    CONNECT C_TRUE.out -> PcInc.Cin;
+    CONNECT TrapMux.Out -> PcMux.B;
+    CONNECT Redirect.out -> PcMux.S;
+    CONNECT PcMux.Out -> PcReg.Data;
+    CONNECT FetchOk.out -> FetchGo.in1;
+    CONNECT NotHoldE.out -> FetchGo.in2;
+    CONNECT FetchGo.out -> PcLoad.in1;
+    CONNECT Redirect.out -> PcLoad.in2;
+    CONNECT PcLoad.out -> PcReg.Load;
+    CONNECT Reset -> PcReg.Reset;
+    CONNECT CLK -> PcReg.CLK;
+
+    // ================= Execute =================
+    CONNECT Ir.Q -> Control.Ir;
+    CONNECT Ir.Q -> Imm.Ir;
+    CONNECT Control.FmtI -> Imm.FmtI;
+    CONNECT Control.FmtS -> Imm.FmtS;
+    CONNECT Control.FmtB -> Imm.FmtB;
+    CONNECT Control.FmtU -> Imm.FmtU;
+    CONNECT Control.FmtJ -> Imm.FmtJ;
+
+    // Register file: read rs1/rs2 in execute, write in the memory stage
+    FOR i IN 0..5 {
+        CONNECT Ir.Q[15+i] -> RegFile.ReadAddrA[i];
+        CONNECT Ir.Q[20+i] -> RegFile.ReadAddrB[i];
+        CONNECT CtrlM.Q[i] -> RegFile.WriteAddr[i];
+    }
+    CONNECT WbMux.Out -> RegFile.DataIn;
+    CONNECT WbEn.out -> RegFile.WriteEnable;
+    CONNECT CLK -> RegFile.CLK;
+
+    // Forwarding from the memory stage (not for loads: load-use waits)
+    FOR i IN 0..5 {
+        CONNECT Ir.Q[15+i] -> EqXA.A[i];
+        CONNECT Ir.Q[20+i] -> EqXB.A[i];
+        CONNECT CtrlM.Q[i] -> EqXA.B[i];
+        CONNECT CtrlM.Q[i] -> EqXB.B[i];
+        CONNECT EqXA.Out[i] -> NeA.In[i];
+        CONNECT EqXB.Out[i] -> NeB.In[i];
+        CONNECT CtrlM.Q[i] -> RdNz.In[i];
+    }
+    CONNECT NeA.Out -> EqA.in;
+    CONNECT NeB.Out -> EqB.in;
+    CONNECT CtrlM.Q[6] -> NotLoadM.in;
+    CONNECT CtrlM.Q[5] -> MWrites.A;
+    CONNECT RdNz.Out -> MWrites.B;
+    CONNECT NotLoadM.out -> MWrites.C;
+    CONNECT MWrites.Out -> FwdA.in1;
+    CONNECT EqA.out -> FwdA.in2;
+    CONNECT MWrites.Out -> FwdB.in1;
+    CONNECT EqB.out -> FwdB.in2;
+    CONNECT RegFile.DataOutA -> RegA.A;
+    CONNECT ResultM.Q -> RegA.B;
+    CONNECT FwdA.out -> RegA.S;
+    CONNECT RegFile.DataOutB -> RegB.A;
+    CONNECT ResultM.Q -> RegB.B;
+    CONNECT FwdB.out -> RegB.S;
+
+    CONNECT CtrlM.Q[6] -> LoadNz.in1;
+    CONNECT RdNz.Out -> LoadNz.in2;
+    CONNECT LoadNz.out -> LuA.A;
+    CONNECT EqA.out -> LuA.B;
+    CONNECT Control.UsesRs1 -> LuA.C;
+    CONNECT LoadNz.out -> LuB.A;
+    CONNECT EqB.out -> LuB.B;
+    CONNECT Control.UsesRs2 -> LuB.C;
+    CONNECT LuA.Out -> LuOr.in1;
+    CONNECT LuB.Out -> LuOr.in2;
+    CONNECT LuOr.out -> LoadUse.in1;
+    CONNECT IrValid.Q[0] -> LoadUse.in2;
+
+    // ALU operands: A = rs1 / PcE / 0, B = rs2 / Imm / 4
+    CONNECT RegA.Out -> AMux.A;
+    CONNECT PcE.Q -> AMux.B;
+    CONNECT Control.ASelPc -> AMux.S;
+    CONNECT Control.ASelZero -> NotAZero.in;
+    CONNECT AMux.Out -> AOp.A;
+    CONNECT NotAZero.out -> AOp.B;      // tee
+    CONNECT RegB.Out -> BMux.A;
+    CONNECT Imm.Imm -> BMux.B;
+    CONNECT Control.BSelImm -> BMux.S;
+    CONNECT BMux.Out -> BOp.A;
+    CONNECT C_TRUE.out -> BOp.B[2];
+    CONNECT Control.BSelFour -> BOp.S;
+    CONNECT AOp.Out -> Alu.A;
+    CONNECT BOp.Out -> Alu.B;
+    CONNECT Control.AluF -> Alu.F;
+    CONNECT Control.AluSub -> Alu.Sub;
+    CONNECT Control.AluArith -> Alu.Arith;
+
+    // Jump/branch target and condition
+    CONNECT PcE.Q -> TgtMux.A;
+    CONNECT RegA.Out -> TgtMux.B;
+    CONNECT Control.IsJalr -> TgtMux.S;
+    CONNECT TgtMux.Out -> TgtAdd.A;
+    CONNECT Imm.Imm -> TgtAdd.B;
+    CONNECT Alu.Lt -> LtMux.A;
+    CONNECT Alu.Ltu -> LtMux.B;
+    CONNECT Ir.Q[13] -> LtMux.S;
+    CONNECT Alu.Eq -> CondMux.A;
+    CONNECT LtMux.Out -> CondMux.B;
+    CONNECT Ir.Q[14] -> CondMux.S;
+    CONNECT CondMux.Out -> CondX.in1;
+    CONNECT Ir.Q[12] -> CondX.in2;
+    CONNECT Control.IsBranch -> Taken.in1;
+    CONNECT CondX.out -> Taken.in2;
+    CONNECT Taken.out -> JumpOr.In[0];
+    CONNECT Control.IsJal -> JumpOr.In[1];
+    CONNECT Control.IsJalr -> JumpOr.In[2];
+
+    // Multiply/divide
+    CONNECT RegA.Out -> MulDiv.A;
+    CONNECT RegB.Out -> MulDiv.B;
+    FOR i IN 0..3 {
+        CONNECT Ir.Q[12+i] -> MulDiv.F[i];
+    }
+    CONNECT MdStart.Out -> MulDiv.Start;
+    CONNECT MdConsume.out -> MulDiv.Consume;
+    CONNECT Reset -> MulDiv.Reset;
+    CONNECT CLK -> MulDiv.CLK;
+
+    // Result to the memory stage: ALU, muldiv or CSR read value
+    CONNECT Alu.Result -> ResMux.A;
+    CONNECT MulDiv.Result -> ResMux.B;
+    CONNECT Control.IsMulDiv -> ResMux.S;
+    CONNECT ResMux.Out -> CsrMux.A;
+    CONNECT Csr.ReadValue -> CsrMux.B;
+    CONNECT Control.IsCsr -> CsrMux.S;
+
+    // CSRs: csrrw(i) always writes, csrrs/c(i) only with rs1/uimm != 0
+    FOR i IN 0..5 {
+        CONNECT Ir.Q[15+i] -> Rs1Nz.In[i];
+        CONNECT Ir.Q[15+i] -> SrcMux.B[i];
+    }
+    CONNECT Ir.Q[13] -> NotIr13.in;
+    CONNECT Ir.Q[12] -> RwOp.in1;
+    CONNECT NotIr13.out -> RwOp.in2;
+    CONNECT RwOp.out -> WriteIntent.in1;
+    CONNECT Rs1Nz.Out -> WriteIntent.in2;
+    CONNECT RegA.Out -> SrcMux.A;
+    CONNECT Control.CsrImm -> SrcMux.S;
+    CONNECT Csr.Exists -> NotExists.in;
+    CONNECT Csr.ReadOnly -> RoWrite.in1;
+    CONNECT WriteIntent.out -> RoWrite.in2;
+    CONNECT NotExists.out -> CsrBad.in1;
+    CONNECT RoWrite.out -> CsrBad.in2;
+    CONNECT Control.IsCsr -> CsrIll.in1;
+    CONNECT CsrBad.out -> CsrIll.in2;
+
+    CONNECT Control.CsrHi -> Csr.CsrHi;
+    CONNECT Control.CsrMid -> Csr.CsrMid;
+    CONNECT Control.CsrLo -> Csr.CsrLo;
+    CONNECT Ir.Q[12] -> Csr.Op[0];
+    CONNECT Ir.Q[13] -> Csr.Op[1];
+    CONNECT SrcMux.Out -> Csr.Src;
+    CONNECT CsrWriteG.Out -> Csr.CsrWrite;
+    CONNECT TrapTake.out -> Csr.Trap;
+    CONNECT TakeIrq.out -> Csr.CauseInt;
+    CONNECT CodeMux.Out -> Csr.CauseCode;
+    CONNECT PcE.Q -> Csr.TrapPc;
+    CONNECT TvGate.Out -> Csr.TrapVal;
+    CONNECT MretG.out -> Csr.Mret;
+    CONNECT Commit.Out -> Csr.Retire;
+    CONNECT MTIP -> Csr.MTIP;
+    CONNECT MEIP -> Csr.MEIP;
+    CONNECT CLK -> Csr.CLK;
+    CONNECT Reset -> Csr.Reset;
+
+    // Exceptions
+    CONNECT Control.Illegal -> Ill.in1;
+    CONNECT CsrIll.out -> Ill.in2;
+    CONNECT Ill.out -> NotIll.in;
+    CONNECT JumpOr.Out -> MisT.A;
+    CONNECT TgtAdd.S[1] -> MisT.B;
+    CONNECT NotIll.out -> MisT.C;
+    CONNECT Alu.Result[0] -> A0or1.in1;
+    CONNECT Alu.Result[1] -> A0or1.in2;
+    CONNECT Ir.Q[12] -> MisHalf.in1;
+    CONNECT Alu.Result[0] -> MisHalf.in2;
+    CONNECT Ir.Q[13] -> MisWord.in1;
+    CONNECT A0or1.out -> MisWord.in2;
+    CONNECT MisHalf.out -> MisLs.in1;
+    CONNECT MisWord.out -> MisLs.in2;
+    CONNECT Control.IsLoad -> MisLd.A;
+    CONNECT MisLs.out -> MisLd.B;
+    CONNECT NotIll.out -> MisLd.C;
+    CONNECT Control.IsStore -> MisSt.A;
+    CONNECT MisLs.out -> MisSt.B;
+    CONNECT NotIll.out -> MisSt.C;
+    CONNECT Ill.out -> ExcOr.In[0];
+    CONNECT Control.Ecall -> ExcOr.In[1];
+    CONNECT MisT.Out -> ExcOr.In[2];
+    CONNECT MisLd.Out -> ExcOr.In[3];
+    CONNECT MisSt.Out -> ExcOr.In[4];
+
+    // Cause: illegal 2, ecall 11, jump 0, load 4, store 6; timer 7, external 11
+    CONNECT Control.Ecall -> CodeMux.A[0];
+    CONNECT Control.Ecall -> Code1.In[0];
+    CONNECT Ill.out -> Code1.In[1];
+    CONNECT MisSt.Out -> Code1.In[2];
+    CONNECT Code1.Out -> CodeMux.A[1];
+    CONNECT MisLd.Out -> Code2.in1;
+    CONNECT MisSt.Out -> Code2.in2;
+    CONNECT Code2.out -> CodeMux.A[2];
+    CONNECT Control.Ecall -> CodeMux.A[3];
+    CONNECT C_TRUE.out -> CodeMux.B[0];
+    CONNECT C_TRUE.out -> CodeMux.B[1];
+    CONNECT Csr.IrqExternal -> NotExt.in;
+    CONNECT NotExt.out -> CodeMux.B[2];
+    CONNECT Csr.IrqExternal -> CodeMux.B[3];
+    CONNECT TakeIrq.out -> CodeMux.S;
+
+    // mtval: the instruction, the target or the address; 0 otherwise
+    CONNECT MisLd.Out -> MisLsAny.in1;
+    CONNECT MisSt.Out -> MisLsAny.in2;
+    CONNECT Ir.Q -> TvIll.A;
+    CONNECT Ill.out -> TvIll.B;            // tee
+    FOR i IN 1..32 {
+        CONNECT TgtAdd.S[i] -> TvTgt.A[i];
+    }
+    CONNECT MisT.Out -> TvTgt.B;           // tee
+    CONNECT Alu.Result -> TvAddr.A;
+    CONNECT MisLsAny.out -> TvAddr.B;      // tee
+    CONNECT TvIll.Out -> TvOr1.A;
+    CONNECT TvTgt.Out -> TvOr1.B;
+    CONNECT TvOr1.Out -> TvOr2.A;
+    CONNECT TvAddr.Out -> TvOr2.B;
+    CONNECT TvOr2.Out -> TvGate.A;
+    CONNECT NotIrq.out -> TvGate.B;        // tee
+
+    // ================= Pipeline control =================
+    CONNECT Control.IsMulDiv -> MdIsAnd.in1;
+    CONNECT IrValid.Q[0] -> MdIsAnd.in2;
+    CONNECT MulDiv.Done -> MdNotDone.in;
+    CONNECT MdIsAnd.out -> MdWait.in1;
+    CONNECT MdNotDone.out -> MdWait.in2;
+    CONNECT MulDiv.Busy -> MdIdle.in1;
+    CONNECT MulDiv.Done -> MdIdle.in2;
+    CONNECT FreezeAnd.out -> HoldO.In[0];
+    CONNECT LoadUse.out -> HoldO.In[1];
+    CONNECT HaltReg.Q[0] -> HoldO.In[2];
+    CONNECT HoldO.Out -> NotHoldO.in;
+    CONNECT MdIsAnd.out -> MdStart.A;
+    CONNECT MdIdle.out -> MdStart.B;
+    CONNECT NotHoldO.out -> MdStart.C;
+    CONNECT HoldO.Out -> HoldE.in1;
+    CONNECT MdWait.out -> HoldE.in2;
+    CONNECT HoldE.out -> NotHoldE.in;
+    CONNECT IrValid.Q[0] -> XGo.in1;
+    CONNECT NotHoldE.out -> XGo.in2;
+    CONNECT MulDiv.Done -> MdConsume.in1;
+    CONNECT XGo.out -> MdConsume.in2;
+
+    CONNECT XGo.out -> TakeIrq.in1;
+    CONNECT Csr.IrqPending -> TakeIrq.in2;
+    CONNECT TakeIrq.out -> NotIrq.in;
+    CONNECT ExcOr.Out -> NotExc.in;
+    CONNECT XGo.out -> Commit.A;
+    CONNECT NotIrq.out -> Commit.B;
+    CONNECT NotExc.out -> Commit.C;
+    CONNECT Csr.IrqPending -> TrapAny.in1;
+    CONNECT ExcOr.Out -> TrapAny.in2;
+    CONNECT XGo.out -> TrapTake.in1;
+    CONNECT TrapAny.out -> TrapTake.in2;
+
+    // Redirect: trap -> mtvec, mret -> mepc, jump/branch -> target
+    CONNECT JumpOr.Out -> JumpMret.in1;
+    CONNECT Control.Mret -> JumpMret.in2;
+    CONNECT Commit.Out -> CommitJump.in1;
+    CONNECT JumpMret.out -> CommitJump.in2;
+    CONNECT TrapTake.out -> Redirect.in1;
+    CONNECT CommitJump.out -> Redirect.in2;
+    CONNECT Redirect.out -> NotRedirect.in;
+    FOR i IN 1..32 {
+        CONNECT TgtAdd.S[i] -> MretMux.A[i];
+    }
+    CONNECT Csr.Mepc -> MretMux.B;
+    CONNECT Control.Mret -> MretMux.S;
+    CONNECT MretMux.Out -> TrapMux.A;
+    CONNECT Csr.Mtvec -> TrapMux.B;
+    CONNECT TrapTake.out -> TrapMux.S;
+
+    // ================= Effects (into the memory stage) =================
+    CONNECT Commit.Out -> RegWriteG.in1;
+    CONNECT Control.RegWrite -> RegWriteG.in2;
+    CONNECT Commit.Out -> LoadG.in1;
+    CONNECT Control.IsLoad -> LoadG.in2;
+    CONNECT Commit.Out -> StoreG.in1;
+    CONNECT Control.IsStore -> StoreG.in2;
+    CONNECT Commit.Out -> CsrWriteG.A;
+    CONNECT Control.IsCsr -> CsrWriteG.B;
+    CONNECT WriteIntent.out -> CsrWriteG.C;
+    CONNECT Commit.Out -> MretG.in1;
+    CONNECT Control.Mret -> MretG.in2;
+    CONNECT Commit.Out -> HaltG.in1;
+    CONNECT Control.Ebreak -> HaltG.in2;
+    CONNECT C_TRUE.out -> HaltReg.Data[0];
+    CONNECT HaltG.out -> HaltReg.Load;
+    CONNECT Reset -> HaltReg.Reset;
+    CONNECT CLK -> HaltReg.CLK;
+    CONNECT HaltReg.Q[0] -> Halted;
+
+    CONNECT CsrMux.Out -> ResultM.Data;
+    CONNECT NotFreeze.out -> ResultM.Load;
+    CONNECT Reset -> ResultM.Reset;
+    CONNECT CLK -> ResultM.CLK;
+    CONNECT RegB.Out -> DataM.Data;
+    CONNECT NotFreeze.out -> DataM.Load;
+    CONNECT Reset -> DataM.Reset;
+    CONNECT CLK -> DataM.CLK;
+    FOR i IN 0..5 {
+        CONNECT Ir.Q[7+i] -> CtrlM.Data[i];
+    }
+    CONNECT RegWriteG.out -> CtrlM.Data[5];
+    CONNECT LoadG.out -> CtrlM.Data[6];
+    CONNECT StoreG.out -> CtrlM.Data[7];
+    CONNECT Ir.Q[12] -> CtrlM.Data[8];
+    CONNECT Ir.Q[13] -> CtrlM.Data[9];
+    CONNECT Ir.Q[14] -> CtrlM.Data[10];
+    CONNECT NotFreeze.out -> CtrlM.Load;
+    CONNECT Reset -> CtrlM.Reset;
+    CONNECT CLK -> CtrlM.CLK;
+
+    // ================= Memory stage =================
+    CONNECT DataM.Q -> Lsu.Rs2;
+    CONNECT DataIn -> Lsu.Word;
+    CONNECT CtrlM.Q[8] -> Lsu.Size[0];
+    CONNECT CtrlM.Q[9] -> Lsu.Size[1];
+    CONNECT CtrlM.Q[10] -> Lsu.Unsigned;
+    CONNECT ResultM.Q[0] -> Lsu.Addr[0];
+    CONNECT ResultM.Q[1] -> Lsu.Addr[1];
+    CONNECT Lsu.StoreData -> DataOut;
+    CONNECT Lsu.ByteEn -> ByteEn;
+    CONNECT ResultM.Q -> WbMux.A;
+    CONNECT Lsu.LoadData -> WbMux.B;
+    CONNECT CtrlM.Q[6] -> WbMux.S;
+    CONNECT CtrlM.Q[5] -> WbEn.in1;
+    CONNECT NotFreeze.out -> WbEn.in2;
+}

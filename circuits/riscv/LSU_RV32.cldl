@@ -1,0 +1,121 @@
+CIRCUIT LSU_RV32 {
+    // Byte lanes of CPU_RV32's loads and stores. Size = funct3[1:0]
+    // (00 byte, 01 half, 10 word), Unsigned = funct3[2], Addr = the low two
+    // address bits.
+    //
+    // Store: StoreData has the value in every lane it can go to (byte in
+    // all four, half in both halves), ByteEn selects the lanes:
+    //   byte: 1 << Addr   half: 0011 or 1100 (Addr[1])   word: 1111
+    // Load: Word is the memory word at Addr AND NOT 3; LoadData is the
+    // addressed byte/half/word, sign- or zero-extended.
+    INPUT Rs2[32];
+    INPUT Word[32];
+    INPUT Size[2];
+    INPUT Unsigned;
+    INPUT Addr[2];
+
+    OUTPUT StoreData[32];
+    OUTPUT ByteEn[4];
+    OUTPUT LoadData[32];
+
+    // --- Store ---
+    PART NotS1: NOT;
+    PART NotS0: NOT;
+    PART IsByte: AND;              // Size = 00
+    PART HiMux: MUX_2_1_BUS<16>;   // upper half: Rs2[31:16], Rs2[15:0] (byte/half)
+    PART B1Mux: MUX_2_1_BUS<8>;    // lane 1: Rs2[15:8], Rs2[7:0] (byte)
+    PART B3Mux: MUX_2_1_BUS<8>;    // lane 3: HiMux[15:8], Rs2[7:0] (byte)
+    PART Narrow: NOT;              // Size[1] = 0: byte or half
+    CONNECT Size[1] -> NotS1.in;
+    CONNECT Size[0] -> NotS0.in;
+    CONNECT NotS1.out -> IsByte.in1;
+    CONNECT NotS0.out -> IsByte.in2;
+    CONNECT Size[1] -> Narrow.in;
+    FOR i IN 0..16 {
+        CONNECT Rs2[16+i] -> HiMux.A[i];
+        CONNECT Rs2[i] -> HiMux.B[i];
+    }
+    CONNECT Narrow.out -> HiMux.S;
+    FOR i IN 0..8 {
+        CONNECT Rs2[8+i] -> B1Mux.A[i];
+        CONNECT Rs2[i] -> B1Mux.B[i];
+        CONNECT HiMux.Out[8+i] -> B3Mux.A[i];
+        CONNECT Rs2[i] -> B3Mux.B[i];
+        CONNECT Rs2[i] -> StoreData[i];
+        CONNECT B1Mux.Out[i] -> StoreData[8+i];
+        CONNECT HiMux.Out[i] -> StoreData[16+i];
+        CONNECT B3Mux.Out[i] -> StoreData[24+i];
+    }
+    CONNECT IsByte.out -> B1Mux.S;
+    CONNECT IsByte.out -> B3Mux.S;
+    // Byte enables
+    PART Lanes: DECODER_2_4;       // byte: one lane
+    PART NotA1: NOT;
+    PART HalfLo: AND;              // half, Addr[1] = 0
+    PART HalfHi: AND;              // half, Addr[1] = 1
+    PART IsHalf: AND;              // Size = 01
+    FOR k IN 0..4 {
+        PART En[k]: OR_WIDE<1>;
+        CONNECT En[k].Out -> ByteEn[k];
+        CONNECT Size[1] -> En[k].In[0];      // word: all lanes
+    }
+    CONNECT Addr -> Lanes.A;
+    CONNECT IsByte.out -> Lanes.Enable;
+    CONNECT NotS1.out -> IsHalf.in1;
+    CONNECT Size[0] -> IsHalf.in2;
+    CONNECT Addr[1] -> NotA1.in;
+    CONNECT IsHalf.out -> HalfLo.in1;
+    CONNECT NotA1.out -> HalfLo.in2;
+    CONNECT IsHalf.out -> HalfHi.in1;
+    CONNECT Addr[1] -> HalfHi.in2;
+    FOR k IN 0..4 {
+        CONNECT Lanes.O[k] -> En[k].In[1];
+    }
+    CONNECT HalfLo.out -> En[0].In[2];
+    CONNECT HalfLo.out -> En[1].In[2];
+    CONNECT HalfHi.out -> En[2].In[2];
+    CONNECT HalfHi.out -> En[3].In[2];
+
+    // --- Load ---
+    PART L0: MUX_4_1_BUS<8>;       // bits 7:0: byte at Addr
+    PART L1: MUX_2_1_BUS<8>;       // bits 15:8: Word[15:8] or Word[31:24] (Addr[1])
+    PART NotU: NOT;
+    PART Ext8: AND;                // sign of the byte (signed loads)
+    PART Ext16: AND;               // sign of the half
+    PART ExtMux: MUX_2_1;          // upper fill: Ext8 (byte), Ext16 (half)
+    PART Mid: MUX_2_1_BUS<8>;      // bits 15:8: Ext8 (byte), L1
+    PART Top: MUX_2_1_BUS<16>;     // bits 31:16: fill, Word[31:16] (word)
+    FOR i IN 0..8 {
+        CONNECT Word[i] -> L0.In[i];
+        CONNECT Word[8+i] -> L0.In[8+i];
+        CONNECT Word[16+i] -> L0.In[16+i];
+        CONNECT Word[24+i] -> L0.In[24+i];
+        CONNECT Word[8+i] -> L1.A[i];
+        CONNECT Word[24+i] -> L1.B[i];
+    }
+    CONNECT Addr -> L0.S;
+    CONNECT Addr[1] -> L1.S;
+    CONNECT Unsigned -> NotU.in;
+    CONNECT NotU.out -> Ext8.in1;
+    CONNECT L0.Out[7] -> Ext8.in2;
+    CONNECT NotU.out -> Ext16.in1;
+    CONNECT L1.Out[7] -> Ext16.in2;
+    CONNECT Ext8.out -> ExtMux.A;
+    CONNECT Ext16.out -> ExtMux.B;
+    CONNECT Size[0] -> ExtMux.S;
+    CONNECT L1.Out -> Mid.A;
+    CONNECT Ext8.out -> Mid.B;     // tee
+    CONNECT IsByte.out -> Mid.S;
+    CONNECT ExtMux.Out -> Top.A;   // tee
+    FOR i IN 0..16 {
+        CONNECT Word[16+i] -> Top.B[i];
+    }
+    CONNECT Size[1] -> Top.S;
+    FOR i IN 0..8 {
+        CONNECT L0.Out[i] -> LoadData[i];
+        CONNECT Mid.Out[i] -> LoadData[8+i];
+    }
+    FOR i IN 0..16 {
+        CONNECT Top.Out[i] -> LoadData[16+i];
+    }
+}

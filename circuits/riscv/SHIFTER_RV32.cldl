@@ -1,0 +1,60 @@
+CIRCUIT SHIFTER_RV32 {
+    // 32-bit barrel shifter for SLL, SRL and SRA: shifts A by Amt (0..31).
+    //
+    //   op    Left Arith
+    //   SLL    1    0     zeros in from the right
+    //   SRL    0    0     zeros in from the left
+    //   SRA    0    1     copies of A[31] in from the left
+    //
+    // A right shifter with five stages (1, 2, 4, 8, 16); a left shift is a
+    // right shift of the bit-reversed word, reversed again. RV64 needs a
+    // sixth stage (Amt[5]).
+    INPUT A[32];
+    INPUT Amt[5];
+    INPUT Left;
+    INPUT Arith;
+
+    OUTPUT Out[32];
+
+    PART InRev: MUX_2_1_BUS<32>;   // A, reversed A
+    PART Stage1: SHIFT_STAGE<32, 1>;
+    PART Stage2: SHIFT_STAGE<32, 2>;
+    PART Stage4: SHIFT_STAGE<32, 4>;
+    PART Stage8: SHIFT_STAGE<32, 8>;
+    PART Stage16: SHIFT_STAGE<32, 16>;
+    PART OutRev: MUX_2_1_BUS<32>;  // result, reversed result
+    PART FillAnd: AND;             // fill bit = Arith AND A[31]
+
+    CONNECT A -> InRev.A;
+    FOR i IN 0..32 {
+        CONNECT A[31-i] -> InRev.B[i];
+    }
+    CONNECT Left -> InRev.S;
+
+    CONNECT Arith -> FillAnd.in1;
+    CONNECT A[31] -> FillAnd.in2;
+
+    CONNECT InRev.Out -> Stage1.In;
+    CONNECT Stage1.Out -> Stage2.In;
+    CONNECT Stage2.Out -> Stage4.In;
+    CONNECT Stage4.Out -> Stage8.In;
+    CONNECT Stage8.Out -> Stage16.In;
+    CONNECT Amt[0] -> Stage1.Sel;
+    CONNECT Amt[1] -> Stage2.Sel;
+    CONNECT Amt[2] -> Stage4.Sel;
+    CONNECT Amt[3] -> Stage8.Sel;
+    CONNECT Amt[4] -> Stage16.Sel;
+    CONNECT FillAnd.out -> Stage1.Fill;
+    CONNECT FillAnd.out -> Stage2.Fill;
+    CONNECT FillAnd.out -> Stage4.Fill;
+    CONNECT FillAnd.out -> Stage8.Fill;
+    CONNECT FillAnd.out -> Stage16.Fill;
+    // Rot unconnected: 0 (shift, not rotate)
+
+    CONNECT Stage16.Out -> OutRev.A;
+    FOR i IN 0..32 {
+        CONNECT Stage16.Out[31-i] -> OutRev.B[i];
+    }
+    CONNECT Left -> OutRev.S;
+    CONNECT OutRev.Out -> Out;
+}

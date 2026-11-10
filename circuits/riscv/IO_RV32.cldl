@@ -1,0 +1,231 @@
+CIRCUIT IO_RV32 {
+    // Memory-mapped peripherals of SOC_RV32 at 0x1000_0000 (Sel = 1 for
+    // Addr[31:28] = 1; the registers repeat every 64 bytes, see
+    // ROADMAP_32BIT.md):
+    //
+    //   0x00  GPIO_OUT     read/write  drives GpioOut
+    //   0x04  GPIO_IN      read        the GpioIn pins
+    //   0x08  DISPLAY      read/write  value of the 8-digit hex display
+    //   0x0C  UART_DATA    write: send WData[7..0]; read: the received byte,
+    //                      which acknowledges it (status bit 1 <- 0)
+    //   0x10  UART_STATUS  read        bit 0 = 1 while sending, bit 1 = 1
+    //                                  when a received byte is waiting
+    //   0x14  UART_CTRL    read/write  bit 0 = interrupt (MEIP) while a
+    //                                  received byte is waiting
+    //   0x18  UART_DIV     read/write  clocks per bit - 1 (send and receive)
+    //   0x20  MTIME        64 bits (low, high at 0x24), counts clocks
+    //   0x28  MTIMECMP     64 bits (low, high at 0x2C); MTIP = 1 while
+    //                      mtime >= mtimecmp
+    //
+    // Reads are combinational (RData for the current Addr), writes happen
+    // on the rising CLK edge when Write = 1. A write takes WData AND the
+    // byte lanes of ByteEn (other bytes of the register become 0, so a
+    // byte store to UART_DATA sends that byte). DataRead = 1 marks a load
+    // by the CPU, so reading UART_DATA acknowledges the byte on that edge.
+    // Never waits.
+    INPUT Addr[32];
+    INPUT WData[32];
+    INPUT ByteEn[4];
+    INPUT Write;
+    INPUT DataRead;
+    INPUT GpioIn[32];
+    INPUT Rx;            // UART receive line, synchronized to CLK
+    INPUT CLK;
+    INPUT Reset;
+
+    OUTPUT Sel;          // Addr is in the I/O region
+    OUTPUT RData[32];
+    OUTPUT GpioOut[32];
+    OUTPUT Display[32];
+    OUTPUT Tx;
+    OUTPUT MTIP;
+    OUTPUT MEIP;
+
+    // Registers first: their INITs run before the gates driving them exist.
+    PART GpioReg: REGISTER_R<32>;
+    PART DisplayReg: REGISTER_R<32>;
+    PART Uart: UART_TX;
+    PART UartRx: UART_RX;
+    PART RxIrqEn: REGISTER_R<1>;
+    PART MtimeLo: REGISTER_R<32>;
+    PART MtimeHi: REGISTER_R<32>;
+    PART CmpLo: REGISTER_R<32>;
+    PART CmpHi: REGISTER_R<32>;
+
+    PART C_TRUE: NOR;        // Constant 1 (VCC), NOR(0,0) = 1
+    PART Top0: NOR4;         // Addr[31..29] = 000
+    PART SelAnd: AND;        // ... and Addr[28] = 1
+    PART WriteAnd: AND;      // Sel AND Write
+    PART ReadAnd: AND;       // Sel AND DataRead
+    PART Dec: DECODER_4_16;  // write strobes from Addr[5..2]
+    PART ReadDec: DECODER_4_16; // read selects
+    PART AckAnd: AND;        // load from UART_DATA: acknowledge
+    PART Lanes: AND_BUS<32>; // WData AND byte lanes
+
+    // Timer
+    PART IncLo: ADDER_KS5<32>;    // mtime + 1
+    PART IncHi: ADDER_KS5<32>;
+    PART TimeLoMux: MUX_2_1_BUS<32>;
+    PART TimeHiMux: MUX_2_1_BUS<32>;
+    PART NotCmpLo: NOT_BUS<32>;
+    PART NotCmpHi: NOT_BUS<32>;
+    PART GeLo: ADDER_KS5<32>;     // mtime - mtimecmp: carry = no borrow
+    PART GeHi: ADDER_KS5<32>;
+
+    PART RxIrqAnd: AND;
+
+    // Address decoding
+    CONNECT Addr[31] -> Top0.A;
+    CONNECT Addr[30] -> Top0.B;
+    CONNECT Addr[29] -> Top0.C;
+    CONNECT Top0.Out -> SelAnd.in1;
+    CONNECT Addr[28] -> SelAnd.in2;
+    CONNECT SelAnd.out -> Sel;
+    CONNECT SelAnd.out -> WriteAnd.in1;
+    CONNECT Write -> WriteAnd.in2;
+    CONNECT SelAnd.out -> ReadAnd.in1;
+    CONNECT DataRead -> ReadAnd.in2;
+    FOR i IN 0..4 {
+        CONNECT Addr[2+i] -> Dec.A[i];
+        CONNECT Addr[2+i] -> ReadDec.A[i];
+    }
+    CONNECT WriteAnd.out -> Dec.Enable;
+    CONNECT C_TRUE.out -> ReadDec.Enable;
+    CONNECT ReadAnd.out -> AckAnd.in1;
+    CONNECT ReadDec.O[3] -> AckAnd.in2;
+    CONNECT WData -> Lanes.A;
+    FOR b IN 0..4 {
+        FOR i IN 0..8 {
+            CONNECT ByteEn[b] -> Lanes.B[8*b+i];
+        }
+    }
+
+    // Registers
+    CONNECT Lanes.Out -> GpioReg.Data;
+    CONNECT Dec.O[0] -> GpioReg.Load;
+    CONNECT Reset -> GpioReg.Reset;
+    CONNECT CLK -> GpioReg.CLK;
+    CONNECT GpioReg.Q -> GpioOut;
+    CONNECT Lanes.Out -> DisplayReg.Data;
+    CONNECT Dec.O[2] -> DisplayReg.Load;
+    CONNECT Reset -> DisplayReg.Reset;
+    CONNECT CLK -> DisplayReg.CLK;
+    CONNECT DisplayReg.Q -> Display;
+    FOR i IN 0..16 {
+        CONNECT Lanes.Out[i] -> Uart.WData[i];
+    }
+    CONNECT Dec.O[3] -> Uart.WriteData;
+    CONNECT Dec.O[6] -> Uart.WriteDiv;
+    CONNECT Reset -> Uart.Reset;
+    CONNECT CLK -> Uart.CLK;
+    CONNECT Uart.Tx -> Tx;
+    CONNECT Rx -> UartRx.Rx;
+    CONNECT Uart.Div -> UartRx.Div;
+    CONNECT AckAnd.out -> UartRx.Read;
+    CONNECT Reset -> UartRx.Reset;
+    CONNECT CLK -> UartRx.CLK;
+    CONNECT Lanes.Out[0] -> RxIrqEn.Data[0];
+    CONNECT Dec.O[5] -> RxIrqEn.Load;
+    CONNECT Reset -> RxIrqEn.Reset;
+    CONNECT CLK -> RxIrqEn.CLK;
+    CONNECT UartRx.Ready -> RxIrqAnd.in1;
+    CONNECT RxIrqEn.Q[0] -> RxIrqAnd.in2;
+    CONNECT RxIrqAnd.out -> MEIP;
+
+    // mtime counts every clock unless written; mtimecmp only on writes
+    CONNECT MtimeLo.Q -> IncLo.A;
+    CONNECT C_TRUE.out -> IncLo.Cin;
+    CONNECT MtimeHi.Q -> IncHi.A;
+    CONNECT IncLo.Cout -> IncHi.Cin;
+    CONNECT IncLo.S -> TimeLoMux.A;
+    CONNECT Lanes.Out -> TimeLoMux.B;
+    CONNECT Dec.O[8] -> TimeLoMux.S;
+    CONNECT IncHi.S -> TimeHiMux.A;
+    CONNECT Lanes.Out -> TimeHiMux.B;
+    CONNECT Dec.O[9] -> TimeHiMux.S;
+    CONNECT TimeLoMux.Out -> MtimeLo.Data;
+    CONNECT C_TRUE.out -> MtimeLo.Load;
+    CONNECT Reset -> MtimeLo.Reset;
+    CONNECT CLK -> MtimeLo.CLK;
+    CONNECT TimeHiMux.Out -> MtimeHi.Data;
+    CONNECT C_TRUE.out -> MtimeHi.Load;
+    CONNECT Reset -> MtimeHi.Reset;
+    CONNECT CLK -> MtimeHi.CLK;
+    CONNECT Lanes.Out -> CmpLo.Data;
+    CONNECT Dec.O[10] -> CmpLo.Load;
+    CONNECT Reset -> CmpLo.Reset;
+    CONNECT CLK -> CmpLo.CLK;
+    CONNECT Lanes.Out -> CmpHi.Data;
+    CONNECT Dec.O[11] -> CmpHi.Load;
+    CONNECT Reset -> CmpHi.Reset;
+    CONNECT CLK -> CmpHi.CLK;
+    CONNECT CmpLo.Q -> NotCmpLo.A;
+    CONNECT CmpHi.Q -> NotCmpHi.A;
+    CONNECT MtimeLo.Q -> GeLo.A;
+    CONNECT NotCmpLo.Out -> GeLo.B;
+    CONNECT C_TRUE.out -> GeLo.Cin;
+    CONNECT MtimeHi.Q -> GeHi.A;
+    CONNECT NotCmpHi.Out -> GeHi.B;
+    CONNECT GeLo.Cout -> GeHi.Cin;
+    CONNECT GeHi.Cout -> MTIP;
+
+    // Reads: OR of the selected sources, bit by bit
+    FOR i IN 0..32 {
+        PART Rd[i]: OR_WIDE<3>;
+        CONNECT Rd[i].Out -> RData[i];
+    }
+    PART RGpio: AND_BUS<32>;
+    PART RGpioIn: AND_BUS<32>;
+    PART RDisplay: AND_BUS<32>;
+    PART RTimeLo: AND_BUS<32>;
+    PART RTimeHi: AND_BUS<32>;
+    PART RCmpLo: AND_BUS<32>;
+    PART RCmpHi: AND_BUS<32>;
+    PART RRx: AND_BUS<8>;
+    PART RDiv: AND_BUS<16>;
+    PART RBusy: AND;
+    PART RReady: AND;
+    PART RIrqEn: AND;
+    CONNECT ReadDec.O[0] -> RGpio.A;
+    CONNECT GpioReg.Q -> RGpio.B;
+    CONNECT ReadDec.O[1] -> RGpioIn.A;
+    CONNECT GpioIn -> RGpioIn.B;
+    CONNECT ReadDec.O[2] -> RDisplay.A;
+    CONNECT DisplayReg.Q -> RDisplay.B;
+    CONNECT ReadDec.O[8] -> RTimeLo.A;
+    CONNECT MtimeLo.Q -> RTimeLo.B;
+    CONNECT ReadDec.O[9] -> RTimeHi.A;
+    CONNECT MtimeHi.Q -> RTimeHi.B;
+    CONNECT ReadDec.O[10] -> RCmpLo.A;
+    CONNECT CmpLo.Q -> RCmpLo.B;
+    CONNECT ReadDec.O[11] -> RCmpHi.A;
+    CONNECT CmpHi.Q -> RCmpHi.B;
+    CONNECT ReadDec.O[3] -> RRx.A;
+    CONNECT UartRx.Data -> RRx.B;
+    CONNECT ReadDec.O[6] -> RDiv.A;
+    CONNECT Uart.Div -> RDiv.B;
+    CONNECT ReadDec.O[4] -> RBusy.in1;
+    CONNECT Uart.Busy -> RBusy.in2;
+    CONNECT ReadDec.O[4] -> RReady.in1;
+    CONNECT UartRx.Ready -> RReady.in2;
+    CONNECT ReadDec.O[5] -> RIrqEn.in1;
+    CONNECT RxIrqEn.Q[0] -> RIrqEn.in2;
+    FOR i IN 0..32 {
+        CONNECT RGpio.Out[i] -> Rd[i].In[0];
+        CONNECT RGpioIn.Out[i] -> Rd[i].In[1];
+        CONNECT RDisplay.Out[i] -> Rd[i].In[2];
+        CONNECT RTimeLo.Out[i] -> Rd[i].In[3];
+        CONNECT RTimeHi.Out[i] -> Rd[i].In[4];
+        CONNECT RCmpLo.Out[i] -> Rd[i].In[5];
+        CONNECT RCmpHi.Out[i] -> Rd[i].In[6];
+    }
+    FOR i IN 0..8 {
+        CONNECT RRx.Out[i] -> Rd[i].In[7];
+    }
+    FOR i IN 0..16 {
+        CONNECT RDiv.Out[i] -> Rd[i].In[8];
+    }
+    CONNECT RBusy.out -> Rd[0].In[9];
+    CONNECT RReady.out -> Rd[1].In[9];
+    CONNECT RIrqEn.out -> Rd[0].In[10];
+}

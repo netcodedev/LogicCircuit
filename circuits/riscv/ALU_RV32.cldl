@@ -1,0 +1,99 @@
+CIRCUIT ALU_RV32 {
+    // 32-bit ALU of CPU_RV32. F is the RISC-V funct3 of OP/OP-IMM:
+    //
+    //   F   000 ADD/SUB  001 SLL  010 SLT  011 SLTU
+    //       100 XOR      101 SRL/SRA       110 OR   111 AND
+    //
+    // Sub = 1 makes the adder compute A - B (SUB, and needed by SLT, SLTU
+    // and the branch comparisons); Arith = 1 makes 101 an SRA. Loads,
+    // stores, JAL/JALR (PC + 4), LUI (0 + imm) and AUIPC use F = 000.
+    //
+    // Comparison outputs for branches (valid with Sub = 1):
+    //   Eq  = A == B (from A XOR B, not from the adder)
+    //   Lt  = A < B signed:   A[31] if the signs differ, else the sign of A - B
+    //   Ltu = A < B unsigned: no carry out of A + ~B + 1
+    INPUT A[32];
+    INPUT B[32];
+    INPUT F[3];
+    INPUT Sub;
+    INPUT Arith;
+
+    OUTPUT Result[32];
+    OUTPUT Eq;
+    OUTPUT Lt;
+    OUTPUT Ltu;
+
+    PART BInvert: XOR_BUS<32>;     // B XOR Sub
+    PART Adder: ADDER_KS5<32>;
+    PART Shifter: SHIFTER_RV32;
+    PART LogicXOR: XOR_BUS<32>;
+    PART LogicOR: OR_BUS<32>;
+    PART LogicAND: AND_BUS<32>;
+    PART NeqOr: OR_WIDE<8>;        // any bit of A XOR B
+    PART EqNot: NOT;
+    PART SignDiff: XOR;            // A[31] XOR B[31]
+    PART LtMux: MUX_2_1;           // signs equal: Sum[31]; differ: A[31]
+    PART LtuNot: NOT;
+    PART ShiftLeft: NOT;           // F = 001 is the left shift (F[2] = 0)
+    PART ArithAnd: AND;            // SRA only for F = 101
+
+    // Result = mux by F: Sum, Shift, Lt, Ltu, Xor, Shift, Or, And
+    PART Mux: MUX_4_1_BUS<32>;     // F[1:0] within F[2] = 0: Sum, Shift, Lt, Ltu
+    PART MuxHi: MUX_4_1_BUS<32>;   // F[2] = 1: Xor, Shift, Or, And
+    PART Last: MUX_2_1_BUS<32>;
+
+    CONNECT B -> BInvert.A;
+    CONNECT Sub -> BInvert.B;
+    CONNECT A -> Adder.A;
+    CONNECT BInvert.Out -> Adder.B;
+    CONNECT Sub -> Adder.Cin;
+
+    CONNECT A -> Shifter.A;
+    FOR i IN 0..5 {
+        CONNECT B[i] -> Shifter.Amt[i];
+    }
+    CONNECT F[2] -> ShiftLeft.in;
+    CONNECT ShiftLeft.out -> Shifter.Left;
+    CONNECT Arith -> ArithAnd.in1;
+    CONNECT F[2] -> ArithAnd.in2;
+    CONNECT ArithAnd.out -> Shifter.Arith;
+
+    CONNECT A -> LogicXOR.A;
+    CONNECT B -> LogicXOR.B;
+    CONNECT A -> LogicOR.A;
+    CONNECT B -> LogicOR.B;
+    CONNECT A -> LogicAND.A;
+    CONNECT B -> LogicAND.B;
+
+    CONNECT LogicXOR.Out -> NeqOr.In;
+    CONNECT NeqOr.Out -> EqNot.in;
+    CONNECT EqNot.out -> Eq;
+    CONNECT A[31] -> SignDiff.in1;
+    CONNECT B[31] -> SignDiff.in2;
+    CONNECT Adder.S[31] -> LtMux.A;
+    CONNECT A[31] -> LtMux.B;
+    CONNECT SignDiff.out -> LtMux.S;
+    CONNECT LtMux.Out -> Lt;
+    CONNECT Adder.Cout -> LtuNot.in;
+    CONNECT LtuNot.out -> Ltu;
+
+    FOR i IN 0..32 {
+        CONNECT Adder.S[i] -> Mux.In[i];
+        CONNECT Shifter.Out[i] -> Mux.In[32+i];
+        CONNECT LogicXOR.Out[i] -> MuxHi.In[i];
+        CONNECT Shifter.Out[i] -> MuxHi.In[32+i];
+        CONNECT LogicOR.Out[i] -> MuxHi.In[64+i];
+        CONNECT LogicAND.Out[i] -> MuxHi.In[96+i];
+    }
+    // SLT/SLTU: bit 0 only, the rest 0 (unconnected)
+    CONNECT LtMux.Out -> Mux.In[64];
+    CONNECT LtuNot.out -> Mux.In[96];
+    CONNECT F[0] -> Mux.S[0];
+    CONNECT F[1] -> Mux.S[1];
+    CONNECT F[0] -> MuxHi.S[0];
+    CONNECT F[1] -> MuxHi.S[1];
+    CONNECT Mux.Out -> Last.A;
+    CONNECT MuxHi.Out -> Last.B;
+    CONNECT F[2] -> Last.S;
+    CONNECT Last.Out -> Result;
+}

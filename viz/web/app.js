@@ -1582,8 +1582,11 @@ function loadExamples() {
   }
 }
 
-// Address digits in the listing and status: 2 for CPU_8B, 4 for CPU_16B.
+// Address digits in the listing and status: 2 for CPU_8B, 4 for CPU_16B,
+// 8 for RISC-V; words have 4 hex digits, 8 on RISC-V. RISC-V addresses
+// count bytes, so the listing row of PC is PC / 4 there (pc_step).
 const pcDigits = () => Math.max(2, Math.ceil(sim.pc_width() / 4));
+const wordDigits = () => (sim.isa() === 32 ? 8 : 4);
 
 $('examples').addEventListener('change', (e) => {
   const ex = examples.find((x) => x.name === e.target.value);
@@ -1603,7 +1606,7 @@ function loadProgram() {
   program = { ...r, isa: sim.isa() };
   sim.build(stack[0].type);          // fresh registers, PC = 0
   resetStats();
-  sim.set_rom(Uint16Array.from(r.words));
+  sim.set_rom(Uint32Array.from(r.words));
   renderListing();
   refresh();
   updateProgramView();
@@ -1618,7 +1621,7 @@ function renderListing() {
     row.className = 'lrow';
     row.title = src[program.lines[addr] - 1]?.trim() ?? '';
     const hex = (n, d) => n.toString(16).toUpperCase().padStart(d, '0');
-    row.innerHTML = `<span class="addr">${hex(addr, pcDigits())}</span><span class="word">${hex(w, 4)}</span><span></span>`;
+    row.innerHTML = `<span class="addr">${hex(addr * sim.pc_step(), pcDigits())}</span><span class="word">${hex(w >>> 0, wordDigits())}</span><span></span>`;
     row.lastChild.textContent = program.listing[addr];
     list.appendChild(row);
   });
@@ -1627,15 +1630,16 @@ function renderListing() {
 function updateProgramView() {
   if (!sim.is_runnable()) return;
   updateUart();
-  const pc = sim.pc();
+  const pc = sim.pc() >>> 0;
+  const row = Math.floor(pc / sim.pc_step());
   const halted = sim.halted();
   const rows = $('listing').children;
-  for (let i = 0; i < rows.length; i++) rows[i].classList.toggle('cur', i === pc);
-  rows[pc]?.scrollIntoView({ block: 'nearest' });
+  for (let i = 0; i < rows.length; i++) rows[i].classList.toggle('cur', i === row);
+  rows[row]?.scrollIntoView({ block: 'nearest' });
   const pcHex = pc.toString(16).toUpperCase().padStart(pcDigits(), '0');
   $('prog-status').textContent = halted
     ? `Angehalten (HALT) bei PC 0x${pcHex}`
-    : `PC 0x${pcHex} · nächster Befehl: ${program ? (program.listing[pc] ?? 'HALT') : '—'}`;
+    : `PC 0x${pcHex} · nächster Befehl: ${program ? (program.listing[row] ?? 'HALT') : '—'}`;
   $('step').disabled = halted;
   $('run').disabled = halted;
 }

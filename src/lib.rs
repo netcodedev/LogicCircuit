@@ -7,4 +7,5 @@ pub mod isa;
 pub mod layout;
 pub mod machine;
 pub mod pnr;
+pub mod riscv;
 pub mod stalls;

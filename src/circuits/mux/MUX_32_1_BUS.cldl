@@ -1,0 +1,25 @@
+CIRCUIT MUX_32_1_BUS<W> {
+    // 32-to-1 multiplexer for W-bit buses: two MUX_16_1_BUS selected by
+    // S[3:0], then a 2:1 mux by S[4]. Input k is In[k*W .. k*W+W-1].
+    INPUT In[32*W];
+    INPUT S[5];
+
+    OUTPUT Out[W];
+
+    PART Low: MUX_16_1_BUS<W>;
+    PART High: MUX_16_1_BUS<W>;
+    PART Last: MUX_2_1_BUS<W>;
+
+    FOR i IN 0..16*W {
+        CONNECT In[i] -> Low.In[i];
+        CONNECT In[16*W+i] -> High.In[i];
+    }
+    FOR b IN 0..4 {
+        CONNECT S[b] -> Low.S[b];
+        CONNECT S[b] -> High.S[b];
+    }
+    CONNECT Low.Out -> Last.A;
+    CONNECT High.Out -> Last.B;
+    CONNECT S[4] -> Last.S;
+    CONNECT Last.Out -> Out;
+}

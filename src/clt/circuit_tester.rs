@@ -72,36 +72,71 @@ fn parse_clt_pin_value(pair: Pair<Rule>) -> CltPinValue {
     CltPinValue { pin_ref, value }
 }
 
+/// Parses an assignment (`pin_value` or `bus_value`) into one CltPinValue
+/// per bit. A bus value `A[hi:lo] v` sets A[lo] to bit 0 of v, and so on.
+fn parse_clt_assignment(pair: Pair<Rule>) -> Vec<CltPinValue> {
+    if pair.as_rule() == Rule::pin_value {
+        return vec![parse_clt_pin_value(pair)];
+    }
+    assert_eq!(pair.as_rule(), Rule::bus_value);
+    let mut inner = pair.into_inner();
+    let pin = inner.next().unwrap().as_str();
+    let number = inner.next().unwrap().as_str().replace('_', "");
+    let open = pin.rfind('[').unwrap();
+    let (base, range) = (&pin[..open], &pin[open + 1..pin.len() - 1]);
+    let (hi, lo) = range.split_once(':').unwrap();
+    let (hi, lo): (usize, usize) = (hi.trim().parse().unwrap(), lo.trim().parse().unwrap());
+    assert!(hi >= lo && hi - lo < 128, "CLT: bad bus range in {pin} (at most 128 bits)");
+    let width = hi - lo + 1;
+    let bad = |e: String| -> ! { panic!("CLT: bad value {number} for {pin}: {e}") };
+    let radix = |digits: &str, r: u32| u128::from_str_radix(digits, r).unwrap_or_else(|e| bad(e.to_string()));
+    // The value as bits (two's complement for negative numbers).
+    let bits: u128 = if let Some(h) = number.strip_prefix("0x").or_else(|| number.strip_prefix("0X")) {
+        radix(h, 16)
+    } else if let Some(b) = number.strip_prefix("0b").or_else(|| number.strip_prefix("0B")) {
+        radix(b, 2)
+    } else if let Some(d) = number.strip_prefix('-') {
+        let m = radix(d, 10);
+        if m > 1u128 << (width - 1) {
+            bad(format!("does not fit {width} bits"));
+        }
+        m.wrapping_neg()
+    } else {
+        radix(&number, 10)
+    };
+    let unsigned_fits = width == 128 || bits >> width == 0;
+    let negative = number.starts_with('-');
+    if !negative && !unsigned_fits {
+        bad(format!("does not fit {width} bits"));
+    }
+    (0..width)
+        .map(|k| CltPinValue {
+            pin_ref: CltPinRef { base_name: base.to_string(), index: Some(lo + k) },
+            value: if bits >> k & 1 == 1 { CltValue::One } else { CltValue::Zero },
+        })
+        .collect()
+}
+
 /// Parses a pest 'seq_step' rule from CLT grammar into CltSeqStep
 fn parse_clt_seq_step(pair: Pair<Rule>) -> CltSeqStep {
     assert_eq!(pair.as_rule(), Rule::seq_step);
-    let assignments = pair.into_inner().map(parse_clt_pin_value).collect();
+    let assignments = pair.into_inner().flat_map(parse_clt_assignment).collect();
     CltSeqStep { assignments }
 }
 
-/// Parses a pest 'test_command' rule into a CltCommand enum variant
-fn parse_clt_command(pair: Pair<Rule>) -> CltCommand {
+/// Parses a pest 'test_command' rule into CltCommand variants (an ASSERT of
+/// a bus becomes one ASSERT per bit).
+fn parse_clt_command(pair: Pair<Rule>) -> Vec<CltCommand> {
     assert_eq!(pair.as_rule(), Rule::test_command);
     let command_pair = pair.into_inner().next().unwrap(); // Get the specific command (set, eval, etc.)
     match command_pair.as_rule() {
         Rule::set_command => {
-            let assignments = command_pair
-                .into_inner()
-                .filter(|p| p.as_rule() == Rule::pin_value)
-                .map(parse_clt_pin_value)
-                .collect();
-            CltCommand::Set(assignments)
+            let assignments = command_pair.into_inner().flat_map(parse_clt_assignment).collect();
+            vec![CltCommand::Set(assignments)]
         }
-        Rule::eval_command => CltCommand::Eval,
+        Rule::eval_command => vec![CltCommand::Eval],
         Rule::assert_command => {
-            // assert_command = "ASSERT" ~ pin_value ~ ";"
-            let pin_value = parse_clt_pin_value(
-                command_pair
-                    .into_inner()
-                    .find(|p| p.as_rule() == Rule::pin_value)
-                    .unwrap(),
-            );
-            CltCommand::Assert(pin_value)
+            command_pair.into_inner().flat_map(parse_clt_assignment).map(CltCommand::Assert).collect()
         }
         Rule::seq_command => {
             let steps = command_pair
@@ -109,7 +144,7 @@ fn parse_clt_command(pair: Pair<Rule>) -> CltCommand {
                 .filter(|p| p.as_rule() == Rule::seq_step)
                 .map(parse_clt_seq_step)
                 .collect();
-            CltCommand::Seq(steps)
+            vec![CltCommand::Seq(steps)]
         }
         _ => unreachable!(
             "Unexpected rule inside test_command: {:?}",
@@ -128,7 +163,7 @@ fn parse_clt_test_case(pair: Pair<Rule>) -> CltTestCase {
     let name = name_str_literal[1..name_str_literal.len() - 1].to_string();
     let body_pair = inner.next().unwrap();
     assert_eq!(body_pair.as_rule(), Rule::test_body);
-    let body = body_pair.into_inner().map(parse_clt_command).collect();
+    let body = body_pair.into_inner().flat_map(parse_clt_command).collect();
     CltTestCase { name, body }
 }
 

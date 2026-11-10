@@ -1,0 +1,113 @@
+CIRCUIT SOC_RV32 {
+    // System on chip: CPU_RV32, the memory-mapped peripherals (IO_RV32:
+    // GPIO, display register, UART, mtime/mtimecmp) and the 8-digit hex
+    // display. The memory bus pins (Addr, DataIn, DataOut, ByteEn, Write,
+    // Read, Fetch, Wait) go to the external memory (RAM from address 0);
+    // accesses to the I/O region 0x1000_0000 are answered inside (they
+    // never wait, and Write/Read stay 0 outside for them).
+    //
+    // Reset, GpioIn and Rx come from outside the clock domain and pass
+    // two-flip-flop synchronizers (SYNC): they act two clocks late, and
+    // Reset must be held for at least three clocks. The memory bus (DataIn,
+    // Wait) is not synchronized: the external memory (controller) must run
+    // on CLK.
+
+    INPUT DataIn[32];   // external memory word at Addr AND NOT 3
+    INPUT Wait;         // external memory not done yet
+    INPUT GpioIn[32];   // asynchronous
+    INPUT Rx;           // UART receive line (idles at 1), asynchronous
+    INPUT CLK;
+    INPUT Reset;        // asynchronous, active-high, hold >= 3 clocks
+
+    OUTPUT Addr[32];
+    OUTPUT DataOut[32];
+    OUTPUT ByteEn[4];   // lanes to write
+    OUTPUT Write;       // write to the external memory
+    OUTPUT Read;        // load from the external memory
+    OUTPUT Fetch;
+    OUTPUT PC[32];
+    OUTPUT Halted;
+    OUTPUT GpioOut[32];
+    OUTPUT Tx;          // UART
+    OUTPUT Seg7[7];     // DISPLAY[31..28], segments a..g
+    OUTPUT Seg6[7];
+    OUTPUT Seg5[7];
+    OUTPUT Seg4[7];
+    OUTPUT Seg3[7];
+    OUTPUT Seg2[7];
+    OUTPUT Seg1[7];
+    OUTPUT Seg0[7];     // DISPLAY[3..0]
+
+    // Synchronizers and Io before Cpu: the INIT clock pulses of parts built
+    // after the CPU would run it; Io's registers only load on CPU writes,
+    // which read 0 while the CPU is being built.
+    PART ResetSync: SYNC<1>;
+    PART GpioSync: SYNC<32>;
+    PART RxSync: SYNC<1>;
+    PART Io: IO_RV32;
+    PART Cpu: CPU_RV32;
+    PART DisplayHi: HEX_DISPLAY_16B;
+    PART DisplayLo: HEX_DISPLAY_16B;
+    PART DataMux: MUX_2_1_BUS<32>; // external memory, I/O
+    PART NotSel: NOT;
+    PART WaitAnd: AND;             // Wait only for external accesses
+    PART WriteAnd: AND;            // Write only for external accesses
+    PART ReadAnd: AND;
+
+    CONNECT Cpu.Addr -> Io.Addr;
+    CONNECT Cpu.DataOut -> Io.WData;
+    CONNECT Cpu.ByteEn -> Io.ByteEn;
+    CONNECT Cpu.Write -> Io.Write;
+    CONNECT Cpu.Read -> Io.DataRead;
+    CONNECT GpioIn -> GpioSync.D;
+    CONNECT CLK -> GpioSync.CLK;
+    CONNECT GpioSync.Q -> Io.GpioIn;
+    CONNECT Rx -> RxSync.D[0];
+    CONNECT CLK -> RxSync.CLK;
+    CONNECT RxSync.Q[0] -> Io.Rx;
+    CONNECT CLK -> Io.CLK;
+    CONNECT Reset -> ResetSync.D[0];
+    CONNECT CLK -> ResetSync.CLK;
+    CONNECT ResetSync.Q[0] -> Io.Reset;
+
+    CONNECT DataIn -> DataMux.A;
+    CONNECT Io.RData -> DataMux.B;
+    CONNECT Io.Sel -> DataMux.S;
+    CONNECT DataMux.Out -> Cpu.DataIn;
+    CONNECT Io.Sel -> NotSel.in;
+    CONNECT Wait -> WaitAnd.in1;
+    CONNECT NotSel.out -> WaitAnd.in2;
+    CONNECT WaitAnd.out -> Cpu.Wait;
+    CONNECT Io.MTIP -> Cpu.MTIP;
+    CONNECT Io.MEIP -> Cpu.MEIP;
+    CONNECT CLK -> Cpu.CLK;
+    CONNECT ResetSync.Q[0] -> Cpu.Reset;
+
+    CONNECT Cpu.Addr -> Addr;
+    CONNECT Cpu.DataOut -> DataOut;
+    CONNECT Cpu.ByteEn -> ByteEn;
+    CONNECT Cpu.Write -> WriteAnd.in1;
+    CONNECT NotSel.out -> WriteAnd.in2;
+    CONNECT WriteAnd.out -> Write;
+    CONNECT Cpu.Read -> ReadAnd.in1;
+    CONNECT NotSel.out -> ReadAnd.in2;
+    CONNECT ReadAnd.out -> Read;
+    CONNECT Cpu.Fetch -> Fetch;
+    CONNECT Cpu.PC -> PC;
+    CONNECT Cpu.Halted -> Halted;
+    CONNECT Io.GpioOut -> GpioOut;
+    CONNECT Io.Tx -> Tx;
+
+    FOR i IN 0..16 {
+        CONNECT Io.Display[i] -> DisplayLo.Value[i];
+        CONNECT Io.Display[16+i] -> DisplayHi.Value[i];
+    }
+    CONNECT DisplayHi.Seg3 -> Seg7;
+    CONNECT DisplayHi.Seg2 -> Seg6;
+    CONNECT DisplayHi.Seg1 -> Seg5;
+    CONNECT DisplayHi.Seg0 -> Seg4;
+    CONNECT DisplayLo.Seg3 -> Seg3;
+    CONNECT DisplayLo.Seg2 -> Seg2;
+    CONNECT DisplayLo.Seg1 -> Seg1;
+    CONNECT DisplayLo.Seg0 -> Seg0;
+}

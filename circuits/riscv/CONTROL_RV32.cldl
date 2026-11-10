@@ -1,0 +1,342 @@
+CIRCUIT CONTROL_RV32 {
+    // Decoder of CPU_RV32: the instruction class, the ALU and operand
+    // controls, the immediate format and whether the instruction is legal.
+    //
+    // Opcode = Ir[6:2] (Ir[1:0] must be 11):
+    //   0 LOAD  3 MISC-MEM  4 OP-IMM  5 AUIPC  8 STORE  12 OP  13 LUI
+    //   24 BRANCH  25 JALR  27 JAL  28 SYSTEM
+    //
+    // ALU operands: A = rs1, PC (AUIPC, JAL, JALR) or 0 (LUI);
+    // B = rs2 (OP, BRANCH), the immediate (loads, stores, OP-IMM, LUI,
+    // AUIPC) or 4 (JAL, JALR: rd = PC + 4). AluF = funct3 for OP/OP-IMM,
+    // else 000 (add).
+    //
+    // Illegal: unknown opcode, or a funct3/funct7 not defined for it
+    // (RV32IM + Zicsr; fence only with funct3 = 0). SYSTEM with funct3 = 0
+    // must be exactly ecall, ebreak, mret or wfi. Whether a CSR exists is
+    // decided by CSR_RV32, from the decoded address (CsrHi/CsrMid/CsrLo:
+    // Ir[31:28], Ir[27:24], Ir[23:20], one-hot).
+    INPUT Ir[32];
+
+    OUTPUT IsLoad, IsStore, IsBranch, IsJal, IsJalr, IsLui, IsAuipc, IsOpImm, IsOp;
+    OUTPUT IsCsr, CsrImm, Ecall, Ebreak, Mret, IsMulDiv;
+    OUTPUT Illegal;
+    OUTPUT RegWrite;
+    OUTPUT FmtI, FmtS, FmtB, FmtU, FmtJ;
+    OUTPUT ASelPc, ASelZero, BSelImm, BSelFour;
+    OUTPUT AluF[3];
+    OUTPUT AluSub, AluArith;
+    OUTPUT UsesRs1, UsesRs2;
+    OUTPUT CsrHi[16], CsrMid[16], CsrLo[16];
+
+    PART Quad: AND;                // Ir[1:0] = 11
+    PART Opc: DECODER_5_32;
+    PART F3: DECODER_3_8;
+    PART C_TRUE: NOR;              // Constant 1 (VCC), NOR(0,0) = 1
+    PART DecHi: DECODER_4_16;
+    PART DecMid: DECODER_4_16;
+    PART DecLo: DECODER_4_16;
+
+    CONNECT Ir[0] -> Quad.in1;
+    CONNECT Ir[1] -> Quad.in2;
+    FOR i IN 0..5 {
+        CONNECT Ir[2+i] -> Opc.A[i];
+    }
+    CONNECT Quad.out -> Opc.Enable;
+    FOR i IN 0..3 {
+        CONNECT Ir[12+i] -> F3.A[i];
+    }
+    CONNECT C_TRUE.out -> F3.Enable;
+    FOR i IN 0..4 {
+        CONNECT Ir[28+i] -> DecHi.A[i];
+        CONNECT Ir[24+i] -> DecMid.A[i];
+        CONNECT Ir[20+i] -> DecLo.A[i];
+    }
+    CONNECT C_TRUE.out -> DecHi.Enable;
+    CONNECT C_TRUE.out -> DecMid.Enable;
+    CONNECT C_TRUE.out -> DecLo.Enable;
+    CONNECT DecHi.O -> CsrHi;
+    CONNECT DecMid.O -> CsrMid;
+    CONNECT DecLo.O -> CsrLo;
+
+    CONNECT Opc.O[0] -> IsLoad;
+    CONNECT Opc.O[8] -> IsStore;
+    CONNECT Opc.O[24] -> IsBranch;
+    CONNECT Opc.O[27] -> IsJal;
+    CONNECT Opc.O[25] -> IsJalr;
+    CONNECT Opc.O[13] -> IsLui;
+    CONNECT Opc.O[5] -> IsAuipc;
+    CONNECT Opc.O[4] -> IsOpImm;
+    CONNECT Opc.O[12] -> IsOp;
+
+    // --- funct7 classes: 0000000, 0100000 (alt), 0000001 (M) ---
+    PART F7Rest: NOR4;             // Ir[29:26] = 0
+    PART F7Top: NOR;               // Ir[31] = 0 (with F7Rest)
+    PART F7Base: AND;              // Ir[31,29:26] = 0
+    PART Not30: NOT;
+    PART Not25: NOT;
+    PART F7Zero: AND3;             // base, !30, !25
+    PART F7Alt: AND3;              // base, 30, !25
+    PART F7M: AND3;                // base, !30, 25
+    CONNECT Ir[26] -> F7Rest.A;
+    CONNECT Ir[27] -> F7Rest.B;
+    CONNECT Ir[28] -> F7Rest.C;
+    CONNECT Ir[29] -> F7Rest.D;
+    CONNECT Ir[31] -> F7Top.in1;
+    CONNECT Ir[31] -> F7Top.in2;
+    CONNECT F7Rest.Out -> F7Base.in1;
+    CONNECT F7Top.out -> F7Base.in2;
+    CONNECT Ir[30] -> Not30.in;
+    CONNECT Ir[25] -> Not25.in;
+    CONNECT F7Base.out -> F7Zero.A;
+    CONNECT Not30.out -> F7Zero.B;
+    CONNECT Not25.out -> F7Zero.C;
+    CONNECT F7Base.out -> F7Alt.A;
+    CONNECT Ir[30] -> F7Alt.B;
+    CONNECT Not25.out -> F7Alt.C;
+    CONNECT F7Base.out -> F7M.A;
+    CONNECT Not30.out -> F7M.B;
+    CONNECT Ir[25] -> F7M.C;
+
+    // --- Legality per opcode ---
+    // LOAD: funct3 0, 1, 2, 4, 5
+    PART LoadF3: OR_WIDE<2>;
+    PART LoadOk: AND;
+    CONNECT F3.O[0] -> LoadF3.In[0];
+    CONNECT F3.O[1] -> LoadF3.In[1];
+    CONNECT F3.O[2] -> LoadF3.In[2];
+    CONNECT F3.O[4] -> LoadF3.In[3];
+    CONNECT F3.O[5] -> LoadF3.In[4];
+    CONNECT LoadF3.Out -> LoadOk.in1;
+    CONNECT Opc.O[0] -> LoadOk.in2;
+    // STORE: funct3 0, 1, 2
+    PART StoreF3: OR_WIDE<1>;
+    PART StoreOk: AND;
+    CONNECT F3.O[0] -> StoreF3.In[0];
+    CONNECT F3.O[1] -> StoreF3.In[1];
+    CONNECT F3.O[2] -> StoreF3.In[2];
+    CONNECT StoreF3.Out -> StoreOk.in1;
+    CONNECT Opc.O[8] -> StoreOk.in2;
+    // OP-IMM: SLLI needs funct7 0, SRLI/SRAI funct7 0 or alt
+    PART ShAltOr: OR;              // funct7 0 or alt
+    PART BadSlli: AND;             // funct3 1 and not funct7 0
+    PART BadSr: AND;               // funct3 5 and not (0 or alt)
+    PART NotF7Zero: NOT;
+    PART NotShAlt: NOT;
+    PART BadImm: NOR;              // neither bad case
+    PART OpImmOk: AND;
+    CONNECT F7Zero.Out -> ShAltOr.in1;
+    CONNECT F7Alt.Out -> ShAltOr.in2;
+    CONNECT F7Zero.Out -> NotF7Zero.in;
+    CONNECT ShAltOr.out -> NotShAlt.in;
+    CONNECT F3.O[1] -> BadSlli.in1;
+    CONNECT NotF7Zero.out -> BadSlli.in2;
+    CONNECT F3.O[5] -> BadSr.in1;
+    CONNECT NotShAlt.out -> BadSr.in2;
+    CONNECT BadSlli.out -> BadImm.in1;
+    CONNECT BadSr.out -> BadImm.in2;
+    CONNECT BadImm.out -> OpImmOk.in1;
+    CONNECT Opc.O[4] -> OpImmOk.in2;
+    // OP: funct7 0 (all), M (all), alt with funct3 0 or 5
+    PART AltF3: OR;
+    PART AltOk: AND;
+    PART OpF7: OR_WIDE<1>;
+    PART OpOk: AND;
+    CONNECT F3.O[0] -> AltF3.in1;
+    CONNECT F3.O[5] -> AltF3.in2;
+    CONNECT AltF3.out -> AltOk.in1;
+    CONNECT F7Alt.Out -> AltOk.in2;
+    CONNECT F7Zero.Out -> OpF7.In[0];
+    CONNECT F7M.Out -> OpF7.In[1];
+    CONNECT AltOk.out -> OpF7.In[2];
+    CONNECT OpF7.Out -> OpOk.in1;
+    CONNECT Opc.O[12] -> OpOk.in2;
+    // BRANCH: not funct3 2, 3
+    PART BrBad: OR;
+    PART BrGood: NOT;
+    PART BranchOk: AND;
+    CONNECT F3.O[2] -> BrBad.in1;
+    CONNECT F3.O[3] -> BrBad.in2;
+    CONNECT BrBad.out -> BrGood.in;
+    CONNECT BrGood.out -> BranchOk.in1;
+    CONNECT Opc.O[24] -> BranchOk.in2;
+    // JALR, MISC-MEM (fence): funct3 0
+    PART JalrOk: AND;
+    PART FenceOk: AND;
+    CONNECT F3.O[0] -> JalrOk.in1;
+    CONNECT Opc.O[25] -> JalrOk.in2;
+    CONNECT F3.O[0] -> FenceOk.in1;
+    CONNECT Opc.O[3] -> FenceOk.in2;
+
+    // SYSTEM: funct3 0 with rd = rs1 = 0 and Ir[31:20] = 000, 001, 302, 105;
+    // CSR instructions: funct3 1, 2, 3, 5, 6, 7
+    PART RdZero: OR_WIDE<3>;       // rd, rs1 fields (any bit set)
+    PART RegsZero: NOT;
+    PART Sys0: AND3;               // SYSTEM, funct3 0, rd = rs1 = 0
+    FOR i IN 0..5 {
+        CONNECT Ir[7+i] -> RdZero.In[i];
+        CONNECT Ir[15+i] -> RdZero.In[5+i];
+    }
+    CONNECT RdZero.Out -> RegsZero.in;
+    CONNECT Opc.O[28] -> Sys0.A;
+    CONNECT F3.O[0] -> Sys0.B;
+    CONNECT RegsZero.out -> Sys0.C;
+    PART EcallW: AND3;             // 0x000
+    PART EbreakW: AND3;            // 0x001
+    PART MretW: AND3;              // 0x302
+    PART WfiW: AND3;               // 0x105
+    CONNECT DecHi.O[0] -> EcallW.A;
+    CONNECT DecMid.O[0] -> EcallW.B;
+    CONNECT DecLo.O[0] -> EcallW.C;
+    CONNECT DecHi.O[0] -> EbreakW.A;
+    CONNECT DecMid.O[0] -> EbreakW.B;
+    CONNECT DecLo.O[1] -> EbreakW.C;
+    CONNECT DecHi.O[3] -> MretW.A;
+    CONNECT DecMid.O[0] -> MretW.B;
+    CONNECT DecLo.O[2] -> MretW.C;
+    CONNECT DecHi.O[1] -> WfiW.A;
+    CONNECT DecMid.O[0] -> WfiW.B;
+    CONNECT DecLo.O[5] -> WfiW.C;
+    PART EcallAnd: AND;
+    PART EbreakAnd: AND;
+    PART MretAnd: AND;
+    PART WfiAnd: AND;
+    CONNECT Sys0.Out -> EcallAnd.in1;
+    CONNECT EcallW.Out -> EcallAnd.in2;
+    CONNECT Sys0.Out -> EbreakAnd.in1;
+    CONNECT EbreakW.Out -> EbreakAnd.in2;
+    CONNECT Sys0.Out -> MretAnd.in1;
+    CONNECT MretW.Out -> MretAnd.in2;
+    CONNECT Sys0.Out -> WfiAnd.in1;
+    CONNECT WfiW.Out -> WfiAnd.in2;
+    CONNECT EcallAnd.out -> Ecall;
+    CONNECT EbreakAnd.out -> Ebreak;
+    CONNECT MretAnd.out -> Mret;
+    PART CsrF3: OR_WIDE<2>;        // funct3 1, 2, 3, 5, 6, 7
+    PART CsrAnd: AND;
+    CONNECT F3.O[1] -> CsrF3.In[0];
+    CONNECT F3.O[2] -> CsrF3.In[1];
+    CONNECT F3.O[3] -> CsrF3.In[2];
+    CONNECT F3.O[5] -> CsrF3.In[3];
+    CONNECT F3.O[6] -> CsrF3.In[4];
+    CONNECT F3.O[7] -> CsrF3.In[5];
+    CONNECT CsrF3.Out -> CsrAnd.in1;
+    CONNECT Opc.O[28] -> CsrAnd.in2;
+    CONNECT CsrAnd.out -> IsCsr;
+    CONNECT Ir[14] -> CsrImm;
+
+    // Legal = one of the cases above
+    PART LegalOr: OR_WIDE<4>;
+    PART NotLegal: NOT;
+    CONNECT LoadOk.out -> LegalOr.In[0];
+    CONNECT StoreOk.out -> LegalOr.In[1];
+    CONNECT OpImmOk.out -> LegalOr.In[2];
+    CONNECT OpOk.out -> LegalOr.In[3];
+    CONNECT BranchOk.out -> LegalOr.In[4];
+    CONNECT JalrOk.out -> LegalOr.In[5];
+    CONNECT FenceOk.out -> LegalOr.In[6];
+    CONNECT Opc.O[13] -> LegalOr.In[7];   // LUI
+    CONNECT Opc.O[5] -> LegalOr.In[8];    // AUIPC
+    CONNECT Opc.O[27] -> LegalOr.In[9];   // JAL
+    CONNECT EcallAnd.out -> LegalOr.In[10];
+    CONNECT EbreakAnd.out -> LegalOr.In[11];
+    CONNECT MretAnd.out -> LegalOr.In[12];
+    CONNECT WfiAnd.out -> LegalOr.In[13];
+    CONNECT CsrAnd.out -> LegalOr.In[14];
+    CONNECT LegalOr.Out -> NotLegal.in;
+    CONNECT NotLegal.out -> Illegal;
+
+    PART MulDivAnd: AND;
+    CONNECT Opc.O[12] -> MulDivAnd.in1;
+    CONNECT F7M.Out -> MulDivAnd.in2;
+    CONNECT MulDivAnd.out -> IsMulDiv;
+
+    // --- Register write, formats ---
+    PART RegWriteOr: OR_WIDE<2>;
+    CONNECT Opc.O[13] -> RegWriteOr.In[0];
+    CONNECT Opc.O[5] -> RegWriteOr.In[1];
+    CONNECT Opc.O[27] -> RegWriteOr.In[2];
+    CONNECT Opc.O[25] -> RegWriteOr.In[3];
+    CONNECT Opc.O[0] -> RegWriteOr.In[4];
+    CONNECT Opc.O[4] -> RegWriteOr.In[5];
+    CONNECT Opc.O[12] -> RegWriteOr.In[6];
+    CONNECT CsrAnd.out -> RegWriteOr.In[7];
+    CONNECT RegWriteOr.Out -> RegWrite;
+
+    PART FmtIOr: OR_WIDE<1>;
+    CONNECT Opc.O[0] -> FmtIOr.In[0];
+    CONNECT Opc.O[4] -> FmtIOr.In[1];
+    CONNECT Opc.O[25] -> FmtIOr.In[2];
+    CONNECT FmtIOr.Out -> FmtI;
+    CONNECT Opc.O[8] -> FmtS;
+    CONNECT Opc.O[24] -> FmtB;
+    PART FmtUOr: OR;
+    CONNECT Opc.O[13] -> FmtUOr.in1;
+    CONNECT Opc.O[5] -> FmtUOr.in2;
+    CONNECT FmtUOr.out -> FmtU;
+    CONNECT Opc.O[27] -> FmtJ;
+
+    // --- ALU operands and function ---
+    PART PcOr: OR_WIDE<1>;         // AUIPC, JAL, JALR
+    CONNECT Opc.O[5] -> PcOr.In[0];
+    CONNECT Opc.O[27] -> PcOr.In[1];
+    CONNECT Opc.O[25] -> PcOr.In[2];
+    CONNECT PcOr.Out -> ASelPc;
+    CONNECT Opc.O[13] -> ASelZero;
+    PART ImmOr: OR_WIDE<2>;        // loads, stores, OP-IMM, LUI, AUIPC
+    CONNECT Opc.O[0] -> ImmOr.In[0];
+    CONNECT Opc.O[8] -> ImmOr.In[1];
+    CONNECT Opc.O[4] -> ImmOr.In[2];
+    CONNECT Opc.O[13] -> ImmOr.In[3];
+    CONNECT Opc.O[5] -> ImmOr.In[4];
+    CONNECT ImmOr.Out -> BSelImm;
+    PART FourOr: OR;               // JAL, JALR
+    CONNECT Opc.O[27] -> FourOr.in1;
+    CONNECT Opc.O[25] -> FourOr.in2;
+    CONNECT FourOr.out -> BSelFour;
+
+    PART AluOp: OR;                // OP or OP-IMM: F = funct3
+    CONNECT Opc.O[4] -> AluOp.in1;
+    CONNECT Opc.O[12] -> AluOp.in2;
+    FOR i IN 0..3 {
+        PART FAnd[i]: AND;
+        CONNECT AluOp.out -> FAnd[i].in1;
+        CONNECT Ir[12+i] -> FAnd[i].in2;
+        CONNECT FAnd[i].out -> AluF[i];
+    }
+    // Sub: branches, SUB (OP, funct3 0, Ir[30]), SLT/SLTU (funct3 2, 3)
+    PART SubOp: AND3;              // OP, funct3 0, Ir[30]
+    PART SltF3: OR;
+    PART SltAnd: AND;
+    PART SubOr: OR_WIDE<1>;
+    CONNECT Opc.O[12] -> SubOp.A;
+    CONNECT F3.O[0] -> SubOp.B;
+    CONNECT Ir[30] -> SubOp.C;
+    CONNECT F3.O[2] -> SltF3.in1;
+    CONNECT F3.O[3] -> SltF3.in2;
+    CONNECT SltF3.out -> SltAnd.in1;
+    CONNECT AluOp.out -> SltAnd.in2;
+    CONNECT Opc.O[24] -> SubOr.In[0];
+    CONNECT SubOp.Out -> SubOr.In[1];
+    CONNECT SltAnd.out -> SubOr.In[2];
+    CONNECT SubOr.Out -> AluSub;
+    CONNECT Ir[30] -> AluArith;
+
+    // --- Register operands used (for the load-use stall) ---
+    PART NoRs1: OR_WIDE<1>;        // LUI, AUIPC, JAL, CSR immediate
+    PART CsrImmAnd: AND;
+    PART Rs1Not: NOT;
+    CONNECT CsrAnd.out -> CsrImmAnd.in1;
+    CONNECT Ir[14] -> CsrImmAnd.in2;
+    CONNECT Opc.O[13] -> NoRs1.In[0];
+    CONNECT Opc.O[5] -> NoRs1.In[1];
+    CONNECT Opc.O[27] -> NoRs1.In[2];
+    CONNECT CsrImmAnd.out -> NoRs1.In[3];
+    CONNECT NoRs1.Out -> Rs1Not.in;
+    CONNECT Rs1Not.out -> UsesRs1;
+    PART Rs2Or: OR_WIDE<1>;        // BRANCH, STORE, OP
+    CONNECT Opc.O[24] -> Rs2Or.In[0];
+    CONNECT Opc.O[8] -> Rs2Or.In[1];
+    CONNECT Opc.O[12] -> Rs2Or.In[2];
+    CONNECT Rs2Or.Out -> UsesRs2;
+}
