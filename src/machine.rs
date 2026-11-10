@@ -667,6 +667,10 @@ mod tests {
             // I/O writes stay inside the chip.
             assert_eq!(machine.ram[0xF002], 0);
         }
+        // OUT also writes the display, so the programs of programs/16 show
+        // their result on SOC_16B too.
+        let (circuit, _) = run16("SOC_16B", include_str!("../programs/16/fibonacci.asm"), 0);
+        assert_eq!(read_bus(&circuit, "Io.Display", 16), 46368);
     }
 
     /// The instruction-level simulator (isa::sim16) is the reference for the

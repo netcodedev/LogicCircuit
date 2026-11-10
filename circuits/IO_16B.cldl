@@ -4,7 +4,8 @@ CIRCUIT IO_16B {
     //
     //   0xF000  GPIO_OUT     read/write  drives GpioOut
     //   0xF001  GPIO_IN      read        the GpioIn pins
-    //   0xF002  DISPLAY      read/write  value of the 4-digit hex display
+    //   0xF002  DISPLAY      read/write  value of the 4-digit hex display;
+    //                                    the OUT instruction writes it too
     //   0xF003  UART_DATA    write       send WData[7..0] (reads 0)
     //   0xF004  UART_STATUS  read        bit 0 = 1 while sending, bit 1 = 1
     //                                    when a received byte is waiting
@@ -28,6 +29,8 @@ CIRCUIT IO_16B {
     INPUT WData[16];
     INPUT Write;
     INPUT DataRead;
+    INPUT OutWrite;      // the CPU executes OUT: DISPLAY <- OutData
+    INPUT OutData[16];
     INPUT GpioIn[16];
     INPUT Rx;            // UART receive line, synchronized to CLK
     INPUT CLK;
@@ -62,6 +65,9 @@ CIRCUIT IO_16B {
     PART ReadMux: MUX_2_1_BUS<16>; // by Addr[2]
     PART ReadTop: MUX_2_1_BUS<16>; // by Addr[3]
     PART RxIrqAnd: AND;
+    PART DisplayMux: MUX_2_1_BUS<16>; // WData, OutData (OUT wins: it is the
+                                      // younger instruction)
+    PART DisplayLoad: OR;             // write to 0xF002 OR OUT
     PART IrqOr: OR;
 
     // Address decoding
@@ -94,8 +100,13 @@ CIRCUIT IO_16B {
     CONNECT Reset -> GpioReg.Reset;
     CONNECT CLK -> GpioReg.CLK;
     CONNECT GpioReg.Q -> GpioOut;
-    CONNECT WData -> DisplayReg.Data;
-    CONNECT Dec.O[2] -> DisplayReg.Load;
+    CONNECT WData -> DisplayMux.A;
+    CONNECT OutData -> DisplayMux.B;
+    CONNECT OutWrite -> DisplayMux.S;
+    CONNECT DisplayMux.Out -> DisplayReg.Data;
+    CONNECT Dec.O[2] -> DisplayLoad.in1;
+    CONNECT OutWrite -> DisplayLoad.in2;
+    CONNECT DisplayLoad.out -> DisplayReg.Load;
     CONNECT Reset -> DisplayReg.Reset;
     CONNECT CLK -> DisplayReg.CLK;
     CONNECT DisplayReg.Q -> Display;

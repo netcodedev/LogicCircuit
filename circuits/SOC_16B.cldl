@@ -5,6 +5,9 @@ CIRCUIT SOC_16B {
     // memory; accesses to the I/O page 0xF0xx are answered inside (they
     // never wait, and Write stays 0 outside for them).
     //
+    // The display shows the DISPLAY register of IO_16B, which OUT writes as
+    // well, so programs that report their result with OUT show it too.
+    //
     // The stack grows down from 0xFFFF and must stay above 0xF0FF.
     //
     // Reset, GpioIn, In and Rx come from outside the clock domain (a button,
@@ -65,6 +68,8 @@ CIRCUIT SOC_16B {
     CONNECT Cpu.Fetch -> DataReadNor.in1;
     CONNECT Cpu.Write -> DataReadNor.in2;
     CONNECT DataReadNor.out -> Io.DataRead;
+    CONNECT Cpu.OutWrite -> Io.OutWrite;
+    CONNECT Cpu.OutData -> Io.OutData;
     CONNECT CLK -> Io.CLK;
     CONNECT Reset -> ResetSync.D[0];
     CONNECT CLK -> ResetSync.CLK;

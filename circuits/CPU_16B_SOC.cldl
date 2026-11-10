@@ -70,6 +70,8 @@ CIRCUIT CPU_16B_SOC {
     OUTPUT Fetch;              // 1 = instruction fetch, 0 = memory stage
     OUTPUT PC[16];
     OUTPUT Out[16];            // output register (OUT)
+    OUTPUT OutWrite;           // 1 = OUT executes now (Out <- OutData on the edge)
+    OUTPUT OutData[16];        // value OUT writes
     OUTPUT Halted;             // 1 once HALT executes and memory is done
     OUTPUT FlagZ, FlagN, FlagC, FlagV;
     OUTPUT SP[16];
@@ -839,6 +841,8 @@ CIRCUIT CPU_16B_SOC {
     // 14. Output register (OUT Rd)
     CONNECT FwdMuxA.Out -> OutReg.Data;
     CONNECT OutG.out -> OutReg.Load;
+    CONNECT OutG.out -> OutWrite;
+    CONNECT FwdMuxA.Out -> OutData;
     CONNECT Reset -> OutReg.Reset;
     CONNECT CLK -> OutReg.CLK;
     CONNECT OutReg.Q -> Out;

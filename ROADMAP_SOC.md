@@ -77,7 +77,7 @@ noch keine Hardware.
   |---|---|---|
   | 0xF000 | GPIO_OUT | lesen/schreiben, treibt `GpioOut` |
   | 0xF001 | GPIO_IN | lesen (`GpioIn`-Pins) |
-  | 0xF002 | DISPLAY | lesen/schreiben, Wert der 4-stelligen Anzeige |
+  | 0xF002 | DISPLAY | lesen/schreiben, Wert der 4-stelligen Anzeige; der Befehl `OUT` schreibt es ebenfalls |
   | 0xF003 | UART_DATA | schreiben: Byte senden |
   | 0xF004 | UART_STATUS | lesen: Bit 0 = sendet noch, Bit 1 = Byte empfangen |
   | 0xF005 | UART_DIV | lesen/schreiben: Takte pro Bit − 1 |
