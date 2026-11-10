@@ -6,7 +6,7 @@
 //!
 //! API (JSON unless noted):
 //! - `GET  /api/health`                  -> {"ok":true}
-//! - `GET  /api/chip/runs?name=N`        -> runs of design N (metrics, layout present?)
+//! - `GET  /api/chip/runs?name=N`        -> runs of design N (metrics, layout present?, build time)
 //! - `GET  /api/chip/layout?name=N&run=R` -> layout.bin of a run (extracted on demand)
 //! - `POST /api/chip/build?name=N&max_layer=met5&level=basic&util=40&optimize=0&keep_latches=0&clock=10&mem_delay=0`
 //!   starts `chip build` + `chip extract` in the background (one job at a time)
@@ -132,7 +132,16 @@ fn runs_json(server: &Server, name: &str) -> Value {
                 .ok()
                 .and_then(|m| serde_json::from_str::<Value>(&chip::to_json(name, &[m])).ok())
                 .and_then(|v| v["runs"].get(0).cloned());
-            out.push(json!({ "run": run, "layout": has_layout, "own": run.starts_with("own-"), "metrics": metrics }));
+            // When the run was built: its metrics (written at the end of the
+            // build), else its layout or the directory (unix seconds).
+            let built = ["metrics.txt", "layout.bin"]
+                .iter()
+                .map(|f| d.join(f))
+                .chain([d.clone()])
+                .find_map(|p| fs::metadata(p).and_then(|m| m.modified()).ok())
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|t| t.as_secs());
+            out.push(json!({ "run": run, "layout": has_layout, "own": run.starts_with("own-"), "built": built, "metrics": metrics }));
         }
     }
     json!({ "name": name, "runs": out })

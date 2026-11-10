@@ -1011,6 +1011,8 @@ async function refreshBuildRuns() {
     box.innerHTML = '<div class="muted">Noch keine.</div>';
     return;
   }
+  // Newest first.
+  runs.sort((a, b) => (b.built ?? 0) - (a.built ?? 0));
   for (const r of runs) {
     const m = r.metrics;
     const row = document.createElement('div');
@@ -1025,6 +1027,14 @@ async function refreshBuildRuns() {
       ? [m.fmax_mhz ? `${m.fmax_mhz.toFixed(0)} MHz` : null, `${m.die_um[0].toFixed(0)} µm`, `${fmtCount(m.logic_cells)} Zellen`,
          m.drc_violations ? `${m.drc_violations} DRC` : null].filter(Boolean).join(' · ')
       : 'ohne Kennzahlen';
+    if (r.built) {
+      const when = new Date(r.built * 1000);
+      const date = document.createElement('span');
+      date.className = 'rdate';
+      date.textContent = when.toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+      date.title = `Gebaut am ${when.toLocaleString('de-DE', { dateStyle: 'full', timeStyle: 'medium' })}`;
+      info.prepend(date);
+    }
     const show = document.createElement('button');
     show.textContent = 'Anzeigen';
     show.addEventListener('click', () => showRun(name, r.run));
