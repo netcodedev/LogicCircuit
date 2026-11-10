@@ -6,13 +6,19 @@ CIRCUIT SOC_16B {
     // never wait, and Write stays 0 outside for them).
     //
     // The stack grows down from 0xFFFF and must stay above 0xF0FF.
+    //
+    // Reset, GpioIn and In come from outside the clock domain (a button,
+    // switches, a reset circuit) and pass two-flip-flop synchronizers (SYNC):
+    // they act two clocks late, and Reset must be held for at least three
+    // clocks. The memory bus (DataIn, Wait) is not synchronized: the external
+    // memory (controller) must run on CLK.
 
     INPUT DataIn[16];   // external memory word at Addr
     INPUT Wait;         // external memory not done yet
-    INPUT GpioIn[16];
-    INPUT In[16];       // input port of the IN instruction
+    INPUT GpioIn[16];   // asynchronous
+    INPUT In[16];       // input port of the IN instruction, asynchronous
     INPUT CLK;
-    INPUT Reset;
+    INPUT Reset;        // asynchronous, active-high, hold >= 3 clocks
 
     OUTPUT Addr[16];
     OUTPUT DataOut[16];
@@ -28,9 +34,12 @@ CIRCUIT SOC_16B {
     OUTPUT Seg1[7];
     OUTPUT Seg0[7];     // DISPLAY[3..0]
 
-    // Io before Cpu: the INIT clock pulses of parts built after the CPU
-    // would run it (see CPU_8B); Io's registers only load on CPU writes,
-    // which read 0 while the CPU is being built.
+    // Synchronizers and Io before Cpu: the INIT clock pulses of parts built
+    // after the CPU would run it (see CPU_8B); Io's registers only load on
+    // CPU writes, which read 0 while the CPU is being built.
+    PART ResetSync: SYNC<1>;
+    PART GpioSync: SYNC<16>;
+    PART InSync: SYNC<16>;
     PART Io: IO_16B;
     PART Cpu: CPU_16B_SOC;
     PART Display: HEX_DISPLAY_16B;
@@ -42,9 +51,13 @@ CIRCUIT SOC_16B {
     CONNECT Cpu.Addr -> Io.Addr;
     CONNECT Cpu.DataOut -> Io.WData;
     CONNECT Cpu.Write -> Io.Write;
-    CONNECT GpioIn -> Io.GpioIn;
+    CONNECT GpioIn -> GpioSync.D;
+    CONNECT CLK -> GpioSync.CLK;
+    CONNECT GpioSync.Q -> Io.GpioIn;
     CONNECT CLK -> Io.CLK;
-    CONNECT Reset -> Io.Reset;
+    CONNECT Reset -> ResetSync.D[0];
+    CONNECT CLK -> ResetSync.CLK;
+    CONNECT ResetSync.Q[0] -> Io.Reset;
 
     CONNECT DataIn -> DataMux.A;
     CONNECT Io.RData -> DataMux.B;
@@ -54,9 +67,11 @@ CIRCUIT SOC_16B {
     CONNECT Wait -> WaitAnd.in1;
     CONNECT NotSel.out -> WaitAnd.in2;
     CONNECT WaitAnd.out -> Cpu.Wait;
-    CONNECT In -> Cpu.In;
+    CONNECT In -> InSync.D;
+    CONNECT CLK -> InSync.CLK;
+    CONNECT InSync.Q -> Cpu.In;
     CONNECT CLK -> Cpu.CLK;
-    CONNECT Reset -> Cpu.Reset;
+    CONNECT ResetSync.Q[0] -> Cpu.Reset;
 
     CONNECT Cpu.Addr -> Addr;
     CONNECT Cpu.DataOut -> DataOut;

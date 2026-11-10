@@ -1,0 +1,38 @@
+// Tests for the two-flip-flop synchronizer (each test continues from the previous one)
+
+TESTS FOR SYNC<2> {
+    TEST "Starts at 0" {
+        EVAL;
+        ASSERT Q[0] 0; ASSERT Q[1] 0;
+    }
+
+    TEST "D = 01: Q unchanged after one clock" {
+        SET D[0] 1, D[1] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Q[0] 0; ASSERT Q[1] 0;
+    }
+
+    TEST "Q = 01 after two clocks" {
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Q[0] 1; ASSERT Q[1] 0;
+    }
+
+    TEST "D = 10: two clocks late again" {
+        SET D[0] 0, D[1] 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Q[0] 1; ASSERT Q[1] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Q[0] 0; ASSERT Q[1] 1;
+    }
+
+    TEST "One-clock pulse comes through, delayed" {
+        SET D[0] 1, D[1] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET D[0] 0;
+        ASSERT Q[0] 0; ASSERT Q[1] 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Q[0] 1; ASSERT Q[1] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Q[0] 0; ASSERT Q[1] 0;
+    }
+}

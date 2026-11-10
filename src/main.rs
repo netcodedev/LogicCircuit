@@ -129,6 +129,11 @@ enum Commands {
         level: Level,
         #[arg(long)]
         keep_latches: bool,
+        /// Start every cell unknown (x), as after power-on, instead of at the
+        /// simulator's state after building: passes only for suites whose
+        /// tests reset first (e.g. SOC_16B, CPU_16B_SOC, CPU_16B_PIPE3).
+        #[arg(long)]
+        x_init: bool,
     },
 }
 #[derive(clap::Subcommand, Debug)]
@@ -499,9 +504,9 @@ fn main() {
                 }
             }
         },
-        Some(Commands::VerifyVerilog { component_name, level, keep_latches }) => {
+        Some(Commands::VerifyVerilog { component_name, level, keep_latches, x_init }) => {
             let opts = VerilogOptions { level: level.into(), cells: CellLib::Generic, keep_latches };
-            verify_verilog(&builder, component_name.as_deref(), opts);
+            verify_verilog(&builder, component_name.as_deref(), opts, x_init);
         }
         Some(Commands::Nands { component_name, depth }) => match component_name {
             Some(name) => print_nand_breakdown(&builder, &name, depth),
@@ -555,6 +560,7 @@ fn run_program(
     machine.rom = program.words;
     machine.input = Some(input);
     machine.latency = latency;
+    machine.reset(&circuit);
     // Hex digits of the PC and of Out.
     let pc_digits = machine.pc_width().div_ceil(4);
     let out_width = machine::bus_width(&circuit, machine::OUT);
@@ -710,7 +716,7 @@ fn collect_suites(dirs: &[&Path]) -> Vec<clt::CltTestSuite> {
     out
 }
 
-fn verify_verilog(builder: &CircuitBuilder, only: Option<&str>, opts: VerilogOptions) {
+fn verify_verilog(builder: &CircuitBuilder, only: Option<&str>, opts: VerilogOptions, x_init: bool) {
     let suites: Vec<_> = collect_suites(&[Path::new("./src/circuits"), Path::new("./circuits")])
         .into_iter()
         .filter(|s| only.is_none_or(|n| s.circuit_name == n))
@@ -724,7 +730,7 @@ fn verify_verilog(builder: &CircuitBuilder, only: Option<&str>, opts: VerilogOpt
     println!("  {:<20} {:>7} {:>9} {:>8}", "Circuit", "Checks", "Failures", "Skipped");
     let mut failed = 0;
     for suite in &suites {
-        match verify_with_iverilog(builder, suite, opts, &work) {
+        match verify_with_iverilog(builder, suite, opts, x_init, &work) {
             Ok(r) => {
                 let mark = if r.failures.is_empty() { "✅" } else { "❌" };
                 println!(

@@ -50,6 +50,10 @@ pub const INPUT: &str = "In";
 pub const GPIO_IN: &str = "GpioIn";
 pub const OUT: &str = "Out";
 pub const CLK: &str = "CLK";
+pub const RESET: &str = "Reset";
+/// Clocks [`Machine::reset`] holds `Reset`: SOC_16B synchronizes it (two
+/// clocks late) and resets on the next edge.
+const RESET_CLOCKS: usize = 3;
 pub const HALTED: &str = "Halted";
 
 const INSTRUCTION_WIDTH: usize = 16;
@@ -399,6 +403,25 @@ impl Machine {
         true
     }
 
+    /// Power-on reset, as a reset circuit on a board does it: holds `Reset`
+    /// for a few clocks with the inputs applied, then releases it. Nothing
+    /// is written to memory meanwhile. Does nothing without a `Reset` input.
+    pub fn reset(&mut self, circuit: &Circuit) {
+        if !circuit.get_wire_map().contains_key(RESET) {
+            return;
+        }
+        circuit.set_input(RESET, true);
+        for _ in 0..RESET_CLOCKS {
+            self.fetch(circuit);
+            for clk in [true, false] {
+                circuit.set_input(CLK, clk);
+                circuit.evaluate_stable();
+            }
+        }
+        circuit.set_input(RESET, false);
+        self.fetch(circuit);
+    }
+
     /// Runs until HALT or `max_steps`; returns the number of executed steps.
     pub fn run(&mut self, circuit: &Circuit, max_steps: usize) -> usize {
         let mut steps = 0;
@@ -469,6 +492,7 @@ mod tests {
         machine.rom = machine.isa().assemble(src).unwrap().words;
         machine.input = Some(input);
         machine.latency = latency;
+        machine.reset(&circuit);
         let clocks = machine.run(&circuit, 1_000_000);
         assert!(halted(&circuit), "no HALT");
         (circuit, machine, clocks)

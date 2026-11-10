@@ -25,14 +25,27 @@ pub struct VerifyResult {
 /// Exports `suite.circuit_name` with the generic cells, generates a testbench
 /// from the suite, and runs both with Icarus Verilog (`iverilog` + `vvp` must
 /// be on PATH). Files are written to `work_dir`.
+///
+/// With `x_init` every cell starts unknown (`x`) instead of at the state our
+/// simulator has after building, as flip-flops do after power-on: a suite
+/// then only passes if its tests reset the circuit into a known state
+/// first. Needs flip-flop cells (not `keep_latches`): latches built from
+/// gates would stay unknown.
 pub fn verify_with_iverilog(
     builder: &CircuitBuilder,
     suite: &CltTestSuite,
     opts: VerilogOptions,
+    x_init: bool,
     work_dir: &Path,
 ) -> Result<VerifyResult, String> {
+    if x_init && opts.keep_latches {
+        return Err("x-init needs flip-flop cells (without keep-latches)".into());
+    }
     let opts = VerilogOptions { cells: CellLib::Generic, ..opts };
-    let netlist = export_verilog(builder, &suite.circuit_name, &opts)?;
+    let mut netlist = export_verilog(builder, &suite.circuit_name, &opts)?;
+    if x_init {
+        netlist.text = netlist.text.replace(".INIT(1'b0)", ".INIT(1'bx)").replace(".INIT(1'b1)", ".INIT(1'bx)");
+    }
     let tb = testbench::testbench(&netlist, suite);
 
     std::fs::create_dir_all(work_dir).map_err(|e| e.to_string())?;
@@ -146,7 +159,7 @@ mod tests {
             for suite in parse_clt(&src).unwrap().suites {
                 let opts = VerilogOptions { level, cells: CellLib::Generic, keep_latches };
                 let work = std::env::temp_dir().join(format!("logiccircuit-test-{}", std::process::id()));
-                let r = verify_with_iverilog(&b, &suite, opts, &work).unwrap();
+                let r = verify_with_iverilog(&b, &suite, opts, false, &work).unwrap();
                 assert!(r.checks > 0, "{file}");
                 assert!(r.failures.is_empty(), "{file}: {:?}", r.failures);
             }

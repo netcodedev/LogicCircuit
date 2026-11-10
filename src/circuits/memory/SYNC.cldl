@@ -1,0 +1,24 @@
+CIRCUIT SYNC<W> {
+    // Two-flip-flop synchronizer for W signals that come from outside the
+    // clock domain (buttons, GPIO pins, a reset line). A signal that changes
+    // right at a clock edge can leave the first flip-flop undecided for a
+    // moment (metastability); the second one only samples it a full clock
+    // later, when it has settled. Q follows D two clocks late.
+    INPUT D[W];
+    INPUT CLK;
+
+    OUTPUT Q[W];
+
+    FOR i IN 0..W {
+        PART First[i]: DFLIP_FLOP;
+        PART Second[i]: DFLIP_FLOP;
+    }
+
+    FOR i IN 0..W {
+        CONNECT CLK -> First[i].CLK;
+        CONNECT CLK -> Second[i].CLK;
+        CONNECT D[i] -> First[i].D;
+        CONNECT First[i].Q -> Second[i].D;
+        CONNECT Second[i].Q -> Q[i];
+    }
+}

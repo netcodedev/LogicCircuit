@@ -103,6 +103,31 @@ noch keine Hardware.
       mit `GpioOut`/Anzeige/`Tx` nach jedem Takt, auch mit 2 Wartetakten);
       Rust-Test `soc_peripherals`, alle Programmtests auch auf `SOC_16B`
 
+### Zwischenschritt – Würde der Chip funktionieren? (2026-11-10)
+- [x] Prüfung am Layout `SOC_16B/basic-met5-u70-opt` (OpenSTA, typische
+      Ecke tt_025C_1v80): mit aus dem Layout extrahierten Parasiten
+      (OpenRCX) −0,18 ns bei 10 ns, also ≈ 98 MHz (der Flow meldet 100 MHz mit
+      geschätzten Parasiten). Hold zwischen Registern erfüllt (+0,53 ns);
+      Hold-Verletzungen nur vom `Reset`-Pin (Eingangsverzögerung 0 ns
+      angenommen). ~190 knappe Flanken-/Lastverletzungen an den Lese-Muxen
+      von `IO_16B`. Langsame/schnelle Ecken nicht geprüft: das Docker-Image
+      enthält nur die typische Bibliothek
+- [x] `SYNC<W>` (`src/circuits/memory`): Zwei-Flipflop-Synchronisierer.
+      `SOC_16B` synchronisiert `Reset`, `GpioIn` und `In` (zwei Takte Verzug,
+      Reset mindestens drei Takte halten); der Speicherbus bleibt synchron zu
+      `CLK`. 32.070 NANDs
+- [x] Runner: `Machine::reset` (Einschalt-Reset: drei Takte `Reset` mit
+      angelegten Eingängen, ohne Speicherschreiben), `run` und die Tests rufen
+      ihn auf
+- [x] `verify-verilog --x-init`: jede Zelle startet „unbekannt“ wie nach dem
+      Einschalten; eine Suite besteht nur, wenn ihre Tests zuerst
+      zurücksetzen. `SOC_16B`, `COMPUTER_16B_SOC`, `CPU_16B_SOC`,
+      `CPU_16B_PIPE3`, `UART_TX` bestehen: nach dem Reset ist alles definiert
+- [ ] Parasiten-Extraktion und Hold-Bericht fest in `chip/flow/pnr.tcl`
+- [ ] Langsame/schnelle Ecken (Bibliotheken ss/ff aus dem sky130-PDK)
+- [ ] Signoff (DRC mit Magic/KLayout, LVS, Antennen) – übernimmt bei einer
+      Einreichung der TinyTapeout-Flow
+
 ### Phase 4 – Speicher-Controller
 - [ ] QSPI-Controller (Flash lesen, PSRAM lesen/schreiben), Modell im Runner
 - [ ] später ggf. SDRAM-Controller (Init, Refresh, Bänke, CAS-Latenz)
