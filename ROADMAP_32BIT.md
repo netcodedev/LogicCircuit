@@ -129,7 +129,11 @@ Halbwort-Store schreibt seine Bytes in ihre Spuren und 0 in die übrigen.
 - [x] Simulation: SOC_RV32 läuft nativ mit etwa 6–18 kHz, im Browser
       mit etwa 1 kHz
 - [ ] Chip-Flow (sky130) und Vergleich mit `SOC_16B`
-- [ ] `.clt`-Tests für die RISC-V-Bausteine (für `verify-verilog`)
+- [x] `.clt`-Tests für alle RISC-V-Bausteine, `CPU_RV32` und `SOC_RV32`
+      (für `verify-verilog`), aus dem Simulator erzeugt mit
+      `cargo test --release --lib riscv::clt_gen -- --ignored`; CLT kann
+      dafür ganze Busse setzen und prüfen (`SET A[31:0] 0x1234_5678`,
+      `ASSERT S[31:0] -5`, `F[2:0] 0b101`)
 
 ### Später
 - [ ] Befehls-Cache, Sprungvorhersage

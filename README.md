@@ -35,7 +35,7 @@ the browser's Chip 3D view with an exploded layer stack.*
   simulated and every wire can be read. `SOC_16B` runs at about 10 kHz
   (before: about 100 Hz).
 - **Test language (CLT)** – every circuit ships with a test suite (`SET`,
-  `EVAL`, `ASSERT`).
+  `EVAL`, `ASSERT`, `SEQ`; whole buses at once: `SET A[31:0] 0xFFFF_0000`).
 - **A complete 8-bit computer** – `COMPUTER_8B` = `CPU_8B` (ALU, 16 × 8
   register file, control unit, program counter) plus a two-digit hex
   7-segment display, 8,064 NANDs in total.

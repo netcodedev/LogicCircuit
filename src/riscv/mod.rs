@@ -8,6 +8,8 @@ pub mod isa;
 pub mod machine;
 pub mod sim;
 #[cfg(test)]
+mod clt_gen;
+#[cfg(test)]
 mod cpu_tests;
 #[cfg(test)]
 mod tests;

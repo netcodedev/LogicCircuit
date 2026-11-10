@@ -17,18 +17,31 @@ string_literal = @{ "\"" ~ (!("\"") ~ ANY)* ~ "\"" }
 // Pin assignment: "D 0" or "BusA[0] 1"
 pin_value = { pin ~ value }
 
+// Bus assignment: bits hi..lo of a bus at once, e.g. "A[31:0] 0x1234_5678",
+// "Imm[11:0] -5" (two's complement) or "F[2:0] 0b101". Stands for one
+// pin_value per bit; the value must fit the width.
+bus_range = { "[" ~ number ~ ":" ~ number ~ "]" }
+bus_pin = ${ ident ~ ("." ~ ident)* ~ bus_range }
+bus_number = @{
+    ("0x" | "0X") ~ (ASCII_HEX_DIGIT | "_")+
+  | ("0b" | "0B") ~ ("0" | "1" | "_")+
+  | "-"? ~ ASCII_DIGIT ~ (ASCII_DIGIT | "_")*
+}
+bus_value = { bus_pin ~ bus_number }
+assignment = _{ bus_value | pin_value }
+
 // SET D 0, CLK 0;
-set_command = { "SET" ~ pin_value ~ ("," ~ pin_value)* ~ ";" }
+set_command = { "SET" ~ assignment ~ ("," ~ assignment)* ~ ";" }
 
 // EVAL;
 eval_command = { "EVAL" ~ ";" }
 
-// ASSERT Q[0] 1; (Only single bit for now)
-assert_command = { "ASSERT" ~ pin_value ~ ";" }
+// ASSERT Q[0] 1; or a whole bus: ASSERT S[31:0] 0xFFFF_FFFF;
+assert_command = { "ASSERT" ~ assignment ~ ";" }
 
 // A step in a SEQ: one or more pin assignments
 // e.g., "D 0, CLK 0" or just "CLK 1"
-seq_step = { pin_value ~ ("," ~ pin_value)* }
+seq_step = { assignment ~ ("," ~ assignment)* }
 // SEQ D 0, CLK 0 -> CLK 1 -> CLK 0;
 seq_command = { "SEQ" ~ seq_step ~ ("->" ~ seq_step)* ~ ";" }
 
