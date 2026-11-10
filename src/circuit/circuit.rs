@@ -78,8 +78,13 @@ impl Circuit {
     }
 
     pub fn evaluate_all(&self) -> bool {
+        self.evaluate_gates_from(0)
+    }
+
+    /// Evaluates the gates from index `first` on (in build order) once.
+    fn evaluate_gates_from(&self, first: usize) -> bool {
         let mut changed = false;
-        for gate in &self.gates {
+        for gate in &self.gates[first.min(self.gates.len())..] {
             if gate.evaluate() {
                 changed = true;
             }
@@ -88,10 +93,16 @@ impl Circuit {
     }
 
     pub fn evaluate_stable(&self) {
+        self.evaluate_stable_from(0);
+    }
+
+    /// Like `evaluate_stable`, but only for the gates from index `first` on
+    /// (during the build: the gates of the part being initialised).
+    pub fn evaluate_stable_from(&self, first: usize) {
         let mut iterations = 0;
         const MAX_ITERATIONS: u32 = 1000;
 
-        while self.evaluate_all() {
+        while self.evaluate_gates_from(first) {
             iterations += 1;
             if iterations > MAX_ITERATIONS {
                 eprintln!(

@@ -290,8 +290,8 @@ impl CircuitBuilder {
                         out: wire_map[out].clone(),
                     });
                 }
-                BuildEvent::Init { prefix, commands } => {
-                    execute_initialization(&circuit, &wire_map, commands, prefix);
+                BuildEvent::Init { prefix, commands, first_gate } => {
+                    execute_initialization(&circuit, &wire_map, commands, prefix, *first_gate);
                 }
             }
         }
@@ -324,6 +324,7 @@ impl CircuitBuilder {
             plan.events.push(BuildEvent::Init {
                 prefix: String::new(),
                 commands: top_def.initialization.clone(),
+                first_gate: 0,
             });
         }
         plan
@@ -477,7 +478,10 @@ impl CircuitBuilder {
                 inputs,
                 out,
             });
+            plan.gates += 1;
         } else if let Some(def) = self.def(part_type) {
+            // This part's gates are the ones planned from here on.
+            let first_gate = plan.gates;
             // Make this part's IO pins resolvable even when unconnected.
             self.register_io_keys(&def, instance_name, plan);
             // Internal connections of the sub-circuit.
@@ -491,11 +495,13 @@ impl CircuitBuilder {
                     native,
                 );
             }
-            // Record initialization AFTER its children (post-order).
+            // Record initialization AFTER its children (post-order). It only
+            // evaluates this part's own gates (see `BuildEvent::Init`).
             if !def.initialization.is_empty() {
                 plan.events.push(BuildEvent::Init {
                     prefix: instance_name.to_string(),
                     commands: def.initialization.clone(),
+                    first_gate,
                 });
             }
         } else {
@@ -883,6 +889,7 @@ fn execute_initialization(
     wire_map: &HashMap<String, Wire>,
     commands: &[InitCommand],
     instance_prefix: &str,
+    first_gate: usize,
 ) {
     let component_name = if instance_prefix.is_empty() {
         circuit.get_name()
@@ -912,7 +919,7 @@ fn execute_initialization(
                 }
             }
             InitCommand::Eval => {
-                circuit.evaluate_stable();
+                circuit.evaluate_stable_from(first_gate);
             }
             InitCommand::Seq(steps) => {
                 for step in steps.iter() {
@@ -932,7 +939,7 @@ fn execute_initialization(
                             );
                         }
                     }
-                    circuit.evaluate_stable();
+                    circuit.evaluate_stable_from(first_gate);
                 }
             }
         }
@@ -1015,10 +1022,15 @@ enum BuildEvent {
         inputs: Vec<String>,
         out: String,
     },
-    /// Run an initialization block for the part at `prefix`.
+    /// Run an initialization block for the part at `prefix`. Its `EVAL`s
+    /// and `SEQ` steps evaluate only the part's own gates (`first_gate` up
+    /// to the gates built so far, its subtree in DFS order): an init sets
+    /// up its own part, and evaluating every gate built before it made the
+    /// build quadratic in the number of flip-flops.
     Init {
         prefix: String,
         commands: Vec<InitCommand>,
+        first_gate: usize,
     },
 }
 
@@ -1030,6 +1042,8 @@ struct BuildPlan {
     union: WireUnion,
     /// Gate-add and init steps, in the exact order they must be replayed.
     events: Vec<BuildEvent>,
+    /// Gate events planned so far.
+    gates: usize,
 }
 
 impl BuildPlan {

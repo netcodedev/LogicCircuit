@@ -1091,23 +1091,23 @@ $('viewmode').value = viewMode;
 $('viewmode').addEventListener('change', (e) => {
   viewMode = e.target.value;
   try { localStorage.setItem(MODE_KEY, viewMode); } catch {}
-  render();
+  rerender();
 });
 
 $('stripes').checked = stripes;
 $('stripes').addEventListener('change', (e) => {
   stripes = e.target.checked;
   try { localStorage.setItem(STRIPES_KEY, stripes ? '1' : '0'); } catch {}
-  render();
+  rerender();
 });
 
-$('reset').addEventListener('click', () => {
+$('reset').addEventListener('click', () => withLoading(isBig(stack[0].type, BIG_BUILD), `Baue ${stack[0].type}…`, () => {
   stopRun();
   sim.build(stack[0].type);
   resetStats();
   refresh();
   updateProgramView();
-});
+}));
 
 function buildSidebar() {
   const v = view(stack[0].type);
@@ -1441,7 +1441,52 @@ function enter(instance, type) {
 
 function go() {
   location.hash = stack.map((s, i) => (i === 0 ? s.type : s.instance)).join('/');
-  render();
+  return rerender();
+}
+
+// ---------------------------------------------------------------- loading overlay
+
+// Shown while a big circuit is built or a big view is laid out. The spinner
+// is a CSS transform animation, so it keeps turning while the build blocks
+// the main thread; the overlay also keeps clicks away meanwhile.
+const BIG_BUILD = 3000;   // basic blocks: building takes a noticeable moment
+const BIG_VIEW = 1000;    // ... flattened views (basic, NAND, CMOS, chip)
+let loadingDepth = 0;
+
+// Resolves once the browser has painted (so the overlay is visible before
+// blocking work starts); the timeout covers hidden tabs without frames.
+const nextPaint = () => new Promise((resolve) => {
+  requestAnimationFrame(() => setTimeout(resolve, 0));
+  setTimeout(resolve, 100);
+});
+
+async function withLoading(show, text, fn) {
+  if (!show) return fn();
+  loadingDepth++;
+  $('loading-text').textContent = text;
+  $('loading').hidden = false;
+  try {
+    await nextPaint();
+    return await fn();
+  } finally {
+    if (--loadingDepth === 0) $('loading').hidden = true;
+  }
+}
+
+const isBig = (type, limit) => (blockCounts[type] ?? 0) > limit;
+
+// Renders the current level, with the overlay for big flattened views.
+function rerender() {
+  const type = stack[stack.length - 1]?.type;
+  return withLoading(viewMode !== 'parts' && isBig(type, BIG_VIEW), `Lade Ansicht ${type}…`, render);
+}
+
+// Builds `type` and shows it, with the overlay for big circuits.
+function selectAndGo(type) {
+  return withLoading(isBig(type, BIG_BUILD), `Baue ${type}…`, () => {
+    select(type);
+    return go();
+  });
 }
 
 function select(type) {
@@ -1478,14 +1523,17 @@ function select(type) {
 function fromHash() {
   const parts = decodeURIComponent(location.hash.slice(1)).split('/').filter(Boolean);
   const top = names.includes(parts[0]) ? parts[0] : (names.includes('COMPUTER_8B') ? 'COMPUTER_8B' : names[0]);
-  if (!stack.length || stack[0].type !== top) select(top);
-  stack = [stack[0]];
-  for (const inst of parts.slice(1)) {
-    const part = view(stack[stack.length - 1].type).parts.find((p) => p.name === inst);
-    if (!part || !part.expandable) break;
-    stack.push({ instance: inst, type: part.type });
-  }
-  render();
+  const build = !stack.length || stack[0].type !== top;
+  return withLoading(build && isBig(top, BIG_BUILD), `Baue ${top}…`, () => {
+    if (build) select(top);
+    stack = [stack[0]];
+    for (const inst of parts.slice(1)) {
+      const part = view(stack[stack.length - 1].type).parts.find((p) => p.name === inst);
+      if (!part || !part.expandable) break;
+      stack.push({ instance: inst, type: part.type });
+    }
+    return rerender();
+  });
 }
 
 // Circuit list, in collapsible groups. Building blocks are grouped by their
@@ -1565,7 +1613,7 @@ function renderList() {
           d.appendChild(c);
         }
         if (stack[0] && stack[0].type === n) d.classList.add('sel');
-        d.addEventListener('click', () => { select(n); go(); });
+        d.addEventListener('click', () => selectAndGo(n));
         group.appendChild(d);
       }
     }
@@ -1677,6 +1725,7 @@ makeSplitter($('prog-split'), 'y', (e) => {
 
 // ---------------------------------------------------------------- start
 
-fromHash();
+renderList();
+await fromHash();
 renderList();
 if (stack[0]) revealInList(stack[0].type);
