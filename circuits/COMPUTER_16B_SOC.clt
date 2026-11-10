@@ -22,6 +22,10 @@ TESTS FOR COMPUTER_16B_SOC {
         EVAL;
         ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
         ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 0; ASSERT Out[10] 0; ASSERT Out[11] 0; ASSERT Out[12] 0; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 0;
+        ASSERT Seg3[0] 1; ASSERT Seg3[1] 1; ASSERT Seg3[2] 1; ASSERT Seg3[3] 1; ASSERT Seg3[4] 1; ASSERT Seg3[5] 1; ASSERT Seg3[6] 0;
+        ASSERT Seg2[0] 1; ASSERT Seg2[1] 1; ASSERT Seg2[2] 1; ASSERT Seg2[3] 1; ASSERT Seg2[4] 1; ASSERT Seg2[5] 1; ASSERT Seg2[6] 0;
+        ASSERT Seg1[0] 1; ASSERT Seg1[1] 1; ASSERT Seg1[2] 1; ASSERT Seg1[3] 1; ASSERT Seg1[4] 1; ASSERT Seg1[5] 1; ASSERT Seg1[6] 0;
+        ASSERT Seg0[0] 1; ASSERT Seg0[1] 1; ASSERT Seg0[2] 1; ASSERT Seg0[3] 1; ASSERT Seg0[4] 1; ASSERT Seg0[5] 1; ASSERT Seg0[6] 0;
         SET In[0] 1, In[1] 1, In[2] 1, In[3] 1, In[4] 1, In[5] 1, In[6] 1, In[7] 1, In[8] 1, In[9] 1, In[10] 1, In[11] 1, In[12] 0, In[13] 0, In[14] 0, In[15] 0;
         // 0x0000: 0x0108 (fetch)
         SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 1, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
@@ -64,6 +68,7 @@ TESTS FOR COMPUTER_16B_SOC {
         SEQ CLK 0 -> CLK 1 -> CLK 0;
         ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
         ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 0; ASSERT Out[10] 0; ASSERT Out[11] 0; ASSERT Out[12] 1; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 0;
+        ASSERT Seg3[0] 0; ASSERT Seg3[1] 1; ASSERT Seg3[2] 1; ASSERT Seg3[3] 0; ASSERT Seg3[4] 0; ASSERT Seg3[5] 0; ASSERT Seg3[6] 0;
         // 0x0005: 0x0000 (fetch)
         SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
         SET Wait 0;
@@ -87,6 +92,10 @@ TESTS FOR COMPUTER_16B_SOC {
         EVAL;
         ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
         ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 0; ASSERT Out[10] 0; ASSERT Out[11] 0; ASSERT Out[12] 0; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 0;
+        ASSERT Seg3[0] 1; ASSERT Seg3[1] 1; ASSERT Seg3[2] 1; ASSERT Seg3[3] 1; ASSERT Seg3[4] 1; ASSERT Seg3[5] 1; ASSERT Seg3[6] 0;
+        ASSERT Seg2[0] 1; ASSERT Seg2[1] 1; ASSERT Seg2[2] 1; ASSERT Seg2[3] 1; ASSERT Seg2[4] 1; ASSERT Seg2[5] 1; ASSERT Seg2[6] 0;
+        ASSERT Seg1[0] 1; ASSERT Seg1[1] 1; ASSERT Seg1[2] 1; ASSERT Seg1[3] 1; ASSERT Seg1[4] 1; ASSERT Seg1[5] 1; ASSERT Seg1[6] 0;
+        ASSERT Seg0[0] 1; ASSERT Seg0[1] 1; ASSERT Seg0[2] 1; ASSERT Seg0[3] 1; ASSERT Seg0[4] 1; ASSERT Seg0[5] 1; ASSERT Seg0[6] 0;
         SET In[0] 1, In[1] 1, In[2] 1, In[3] 1, In[4] 1, In[5] 1, In[6] 1, In[7] 1, In[8] 1, In[9] 1, In[10] 1, In[11] 1, In[12] 0, In[13] 0, In[14] 0, In[15] 0;
         // 0x0000: 0x0108 (fetch)
         SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 1, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
@@ -193,6 +202,7 @@ TESTS FOR COMPUTER_16B_SOC {
         SEQ CLK 0 -> CLK 1 -> CLK 0;
         ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
         ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 0; ASSERT Out[10] 0; ASSERT Out[11] 0; ASSERT Out[12] 1; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 0;
+        ASSERT Seg3[0] 0; ASSERT Seg3[1] 1; ASSERT Seg3[2] 1; ASSERT Seg3[3] 0; ASSERT Seg3[4] 0; ASSERT Seg3[5] 0; ASSERT Seg3[6] 0;
         // 0x0004: 0x0000 (fetch)
         SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
         SET Wait 1;

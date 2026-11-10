@@ -15,16 +15,30 @@ CIRCUIT CPU_16B_SOC {
     //
     // Two-word instructions (LI, JMP, CALL): there is no InstructionNext any
     // more. When such an instruction reaches execute, it waits one clock
-    // (NeedNext: the control unit sees a NOP) while the fetch reads its
+    // (NeedNext: its effects are blocked) while the fetch reads its
     // second word into IrNext; then it executes. The PC then points behind
     // the second word, so the return address of CALL is the PC, as for
     // CALLR, and relative branches stay PC + Offset (see PC_FETCH_16B).
     //
     // Multiply/divide (op 7: MULL, MULH, DIVU, MODU, Rd = Rd op Rs) runs on
     // MULDIV_16B: the instruction starts the unit when it reaches execute,
-    // waits there for 16 clocks (MdWait: PC and Ir hold, the control unit
-    // sees a NOP) and then writes its result like an ALU instruction, with
-    // Z/N from it.
+    // waits there for 16 clocks (MdWait: PC and Ir hold, its effects are
+    // blocked) and then writes its result like an ALU instruction, with Z/N
+    // from it.
+    //
+    // While execute waits (load-use stall, Wait, NeedNext, MdWait = HoldE),
+    // the control unit still decodes Ir, but every effect (register and
+    // memory writes, flags, SP, Out, jumps and branches) is ANDed with NOT
+    // HoldE. So the hazard logic does not sit in front of the decode -> ALU
+    // path.
+    //
+    // Branch prediction: when the fetched word is a Bcc with a negative
+    // offset (a loop) or BRA, the fetch continues at its target right away
+    // (PredAdder: PC + 1 + offset) and remembers the fall-through (AltPc)
+    // and that it predicted (PredBit). In execute, a predicted branch that
+    // is taken costs nothing; one that is not taken loads AltPc and drops
+    // the fetched word (Misp), as does a taken branch that was not
+    // predicted (PC + offset).
     //
     // Reset (synchronous, on a CLK edge) clears PC, SP, the flags, Out and
     // the pipeline and blocks register and memory writes. The register file
@@ -57,6 +71,8 @@ CIRCUIT CPU_16B_SOC {
     PART Ir: IR_WORD_16B;
     PART IrNext: REGISTER_R<16>;    // second word of LI/JMP/CALL
     PART NextValid: REGISTER_R<1>;  // IrNext holds the second word
+    PART PredBit: REGISTER_R<1>;    // Ir is a branch predicted taken
+    PART AltPc: REGISTER_R<16>;     // ... and this is its fall-through
     PART SpUnit: SP_16B;
     PART Flags: FLAGS_16B;
     PART OutReg: REGISTER_R<16>;
@@ -88,11 +104,42 @@ CIRCUIT CPU_16B_SOC {
     PART NotNeed: NOT;
     PART GotNext: AND;               // NeedNext AND FetchOk: second word now
     PART NextLoad: AND;              // ... and the pipeline moves
-    PART HoldEOr: OR;                // Hold OR NeedNext: execute sees a NOP
+    PART HoldEOr: OR;                // Hold OR NeedNext: execute does nothing
     PART NotHoldE: NOT;
-    PART OpGate: AND_BUS<4>;         // Op AND NOT HoldE
-    PART FnGate: AND_BUS<3>;         // Fn[3..1] AND NOT HoldE
-    PART Fn0Or: OR;                  // Fn[0] OR HoldE: decodes as NOP
+    PART RegWriteG: AND;             // effects of the execute stage, each
+    PART MemWriteG: AND;             //   AND NOT HoldE (the control unit
+    PART JumpG: AND;                 //   decodes Ir directly, so the hazard
+    PART ZnG: AND;                   //   logic is not in front of the long
+    PART CvG: AND;                   //   decode -> ALU path)
+    PART SpIncG: AND;
+    PART SpDecG: AND;
+    PART OutG: AND;
+
+    // Branch prediction in fetch: a fetched Bcc going backward (or BRA) is
+    // predicted taken
+    PART C_TRUE: NOR;                // Constant 1 (VCC), NOR(0,0) = 1
+    PART Pre14Not: NOT;
+    PART Pre12Not: NOT;
+    PART PreBcc: NOR4;               // fetched word has opcode 5
+    PART PreHi3: AND3;               // cond[3..1] = 111: AL or NV
+    PART Pre8Not: NOT;
+    PART PreAl: AND;                 // cond = 14 (AL)
+    PART PreNv: AND;                 // cond = 15 (NV)
+    PART PreNotNv: NOT;
+    PART PreBack: OR;                // offset < 0 or AL
+    PART PreTake: AND3;
+    PART PredAdder: ADDER_CLA_16B;   // PC + 1 + offset: predicted target
+    PART PredOk: AND3;               // PreTake AND FetchOk AND Ir loads
+    PART NoRedirect: NOT;            // no jump/branch/RET from execute
+    PART PredJump: AND;
+    PART NotTake: NOT;
+    PART BrTaken: AND3;              // branch taken in execute ...
+    PART BrNotTaken: AND3;           // ... or not
+    PART Misp: AND;                  // predicted taken but not: fall-through
+    PART EmJump: OR;                 // jump from execute/memory or Misp
+    PART AnyJump: OR;                // EmJump OR PredJump
+    PART MispMux: MUX_2_1_BUS<16>;   // execute/RET target, fall-through
+    PART TargetSelMux: MUX_2_1_BUS<16>; // predicted target, MispMux
     PART Md14Not: NOT;               // Ir opcode 7: multiply/divide
     PART Md13Not: NOT;
     PART Md12Not: NOT;
@@ -129,12 +176,12 @@ CIRCUIT CPU_16B_SOC {
 
     PART CinAnd: AND;   // CinCarry AND C
     PART CinOr: OR;     // CinOne OR (CinCarry AND C)
-    PART BranchAnd: AND;
+    PART BranchAnd: AND;    // taken and not predicted: PC + offset
     PART NotReset: NOT;
     PART WriteAnd: AND3; // RegWriteM AND NOT Reset AND NOT Freeze
     PART MemAnd: AND;   // MemWriteM AND NOT Reset
     PART NotWb0: NOT;
-    PART LoadAnd: AND;  // WbSel = 2: load
+    PART LoadAnd: AND3; // WbSel = 2: load (AND NOT HoldE)
     PART NotTs0: NOT;
     PART RetAnd: AND3;  // Jump AND TargetSel = 2: RET
     PART NotRet: NOT;
@@ -219,18 +266,25 @@ CIRCUIT CPU_16B_SOC {
     CONNECT MdWait.out -> HoldEOr2.in2;
     CONNECT HoldEOr2.out -> NotHoldE.in;
     FOR i IN 0..4 {
-        CONNECT Ir.Q[12+i] -> OpGate.A[i];
+        CONNECT Ir.Q[12+i] -> Control.Op[i];
+        CONNECT Ir.Q[i] -> Control.Fn[i];
     }
-    CONNECT NotHoldE.out -> OpGate.B;
-    CONNECT OpGate.Out -> Control.Op;
-    FOR i IN 0..3 {
-        CONNECT Ir.Q[1+i] -> FnGate.A[i];
-        CONNECT FnGate.Out[i] -> Control.Fn[1+i];
-    }
-    CONNECT NotHoldE.out -> FnGate.B;
-    CONNECT Ir.Q[0] -> Fn0Or.in1;
-    CONNECT HoldEOr2.out -> Fn0Or.in2;
-    CONNECT Fn0Or.out -> Control.Fn[0];
+    CONNECT Control.RegWrite -> RegWriteG.in1;
+    CONNECT NotHoldE.out -> RegWriteG.in2;
+    CONNECT Control.MemWrite -> MemWriteG.in1;
+    CONNECT NotHoldE.out -> MemWriteG.in2;
+    CONNECT Control.Jump -> JumpG.in1;
+    CONNECT NotHoldE.out -> JumpG.in2;
+    CONNECT Control.LoadZN -> ZnG.in1;
+    CONNECT NotHoldE.out -> ZnG.in2;
+    CONNECT Control.LoadCV -> CvG.in1;
+    CONNECT NotHoldE.out -> CvG.in2;
+    CONNECT Control.SpInc -> SpIncG.in1;
+    CONNECT NotHoldE.out -> SpIncG.in2;
+    CONNECT Control.SpDec -> SpDecG.in1;
+    CONNECT NotHoldE.out -> SpDecG.in2;
+    CONNECT Control.OutEnable -> OutG.in1;
+    CONNECT NotHoldE.out -> OutG.in2;
 
     // 3. Register file: read Rd [11..8] and Rs [7..4] in execute (with
     //    forwarding), write RdM in memory
@@ -353,10 +407,10 @@ CIRCUIT CPU_16B_SOC {
     CONNECT WbMux.Out[15] -> Flags.NIn;
     CONNECT Alu.Cout -> Flags.CIn;
     CONNECT Alu.V -> Flags.VIn;
-    CONNECT Control.LoadZN -> LoadZnOr.in1;
+    CONNECT ZnG.out -> LoadZnOr.in1;
     CONNECT MdExec.Out -> LoadZnOr.in2;
     CONNECT LoadZnOr.out -> Flags.LoadZN;
-    CONNECT Control.LoadCV -> Flags.LoadCV;
+    CONNECT CvG.out -> Flags.LoadCV;
     CONNECT Reset -> Flags.Reset;
     CONNECT CLK -> Flags.CLK;
     CONNECT Flags.Z -> FlagZ;
@@ -367,8 +421,8 @@ CIRCUIT CPU_16B_SOC {
     // 9. Stack and memory address/data, registered for the memory stage
     CONNECT CLK -> SpUnit.CLK;
     CONNECT Reset -> SpUnit.Reset;
-    CONNECT Control.SpInc -> SpUnit.Inc;
-    CONNECT Control.SpDec -> SpUnit.Dec;
+    CONNECT SpIncG.out -> SpUnit.Inc;
+    CONNECT SpDecG.out -> SpUnit.Dec;
     CONNECT SpUnit.SP -> SP;
     FOR i IN 0..16 {
         CONNECT Alu.Result[i] -> AddrMux.In[i];
@@ -388,14 +442,15 @@ CIRCUIT CPU_16B_SOC {
     FOR i IN 0..4 {
         CONNECT Ir.Q[8+i] -> CtrlM.Data[i];
     }
-    CONNECT Control.RegWrite -> RegWriteOr.in1;
+    CONNECT RegWriteG.out -> RegWriteOr.in1;
     CONNECT MdExec.Out -> RegWriteOr.in2;
     CONNECT RegWriteOr.out -> CtrlM.Data[4];
-    CONNECT Control.MemWrite -> CtrlM.Data[5];
+    CONNECT MemWriteG.out -> CtrlM.Data[5];
     CONNECT Control.WbSel[0] -> NotWb0.in;
-    CONNECT Control.WbSel[1] -> LoadAnd.in1;
-    CONNECT NotWb0.out -> LoadAnd.in2;
-    CONNECT LoadAnd.out -> CtrlM.Data[6];
+    CONNECT Control.WbSel[1] -> LoadAnd.A;
+    CONNECT NotWb0.out -> LoadAnd.B;
+    CONNECT NotHoldE.out -> LoadAnd.C;
+    CONNECT LoadAnd.Out -> CtrlM.Data[6];
     CONNECT RetAnd.Out -> CtrlM.Data[7];
     CONNECT NotFreeze.out -> ResultM.Load;
     CONNECT NotFreeze.out -> AddrM.Load;
@@ -422,20 +477,30 @@ CIRCUIT CPU_16B_SOC {
     CONNECT TargetMux.Out -> RetMux.A;
     CONNECT DataIn -> RetMux.B;
     CONNECT CtrlM.Q[7] -> RetMux.S;
-    CONNECT RetMux.Out -> PcUnit.Target;
+    CONNECT RetMux.Out -> MispMux.A;
+    CONNECT AltPc.Q -> MispMux.B;
+    CONNECT Misp.out -> MispMux.S;
+    CONNECT PredAdder.S -> TargetSelMux.A;
+    CONNECT MispMux.Out -> TargetSelMux.B;
+    CONNECT EmJump.out -> TargetSelMux.S;
+    CONNECT TargetSelMux.Out -> PcUnit.Target;
     // RET in execute: Jump with TargetSel = 2 (memory); only drops the
     // fetched word, the jump itself happens one clock later in memory.
     CONNECT Control.TargetSel[0] -> NotTs0.in;
-    CONNECT Control.Jump -> RetAnd.A;
+    CONNECT JumpG.out -> RetAnd.A;
     CONNECT Control.TargetSel[1] -> RetAnd.B;
     CONNECT NotTs0.out -> RetAnd.C;
     CONNECT RetAnd.Out -> NotRet.in;
-    CONNECT Control.Jump -> JumpAnd.in1;
+    CONNECT JumpG.out -> JumpAnd.in1;
     CONNECT NotRet.out -> JumpAnd.in2;
     CONNECT JumpAnd.out -> PcJump.in1;
     CONNECT CtrlM.Q[7] -> PcJump.in2;
-    CONNECT PcJump.out -> PcUnit.Jump;
-    CONNECT PcJump.out -> FlushOr1.in1;
+    CONNECT PcJump.out -> EmJump.in1;
+    CONNECT Misp.out -> EmJump.in2;
+    CONNECT EmJump.out -> AnyJump.in1;
+    CONNECT PredJump.out -> AnyJump.in2;
+    CONNECT AnyJump.out -> PcUnit.Jump;
+    CONNECT EmJump.out -> FlushOr1.in1;
     CONNECT BranchAnd.out -> FlushOr1.in2;
     CONNECT FlushOr1.out -> FlushOr2.in1;
     CONNECT RetAnd.Out -> FlushOr2.in2;
@@ -455,9 +520,63 @@ CIRCUIT CPU_16B_SOC {
     CONNECT Flags.N -> Cond.N;
     CONNECT Flags.C -> Cond.C;
     CONNECT Flags.V -> Cond.V;
-    CONNECT Control.BranchInstr -> BranchAnd.in1;
-    CONNECT Cond.Take -> BranchAnd.in2;
+    // Branches resolve in execute: taken and not predicted -> PC + offset;
+    // predicted but not taken -> back to the fall-through (Misp); both drop
+    // the fetched word. A predicted branch that is taken costs nothing.
+    CONNECT Control.BranchInstr -> BrTaken.A;
+    CONNECT Cond.Take -> BrTaken.B;
+    CONNECT NotHoldE.out -> BrTaken.C;
+    CONNECT BrTaken.Out -> BranchAnd.in1;
+    CONNECT PredBit.nQ[0] -> BranchAnd.in2;
     CONNECT BranchAnd.out -> PcUnit.Branch;
+    CONNECT Cond.Take -> NotTake.in;
+    CONNECT Control.BranchInstr -> BrNotTaken.A;
+    CONNECT NotTake.out -> BrNotTaken.B;
+    CONNECT NotHoldE.out -> BrNotTaken.C;
+    CONNECT BrNotTaken.Out -> Misp.in1;
+    CONNECT PredBit.Q[0] -> Misp.in2;
+
+    // Prediction: fetched Bcc with a negative offset (or BRA, not BNV), when
+    // the fetched word goes into Ir and execute does not redirect the PC
+    CONNECT DataIn[14] -> Pre14Not.in;
+    CONNECT DataIn[12] -> Pre12Not.in;
+    CONNECT DataIn[15] -> PreBcc.A;
+    CONNECT Pre14Not.out -> PreBcc.B;
+    CONNECT DataIn[13] -> PreBcc.C;
+    CONNECT Pre12Not.out -> PreBcc.D;
+    CONNECT DataIn[11] -> PreHi3.A;
+    CONNECT DataIn[10] -> PreHi3.B;
+    CONNECT DataIn[9] -> PreHi3.C;
+    CONNECT DataIn[8] -> Pre8Not.in;
+    CONNECT PreHi3.Out -> PreAl.in1;
+    CONNECT Pre8Not.out -> PreAl.in2;
+    CONNECT PreHi3.Out -> PreNv.in1;
+    CONNECT DataIn[8] -> PreNv.in2;
+    CONNECT PreNv.out -> PreNotNv.in;
+    CONNECT DataIn[7] -> PreBack.in1;
+    CONNECT PreAl.out -> PreBack.in2;
+    CONNECT PreBcc.Out -> PreTake.A;
+    CONNECT PreNotNv.out -> PreTake.B;
+    CONNECT PreBack.out -> PreTake.C;
+    CONNECT PcUnit.Addr -> PredAdder.A;
+    FOR i IN 0..8 {
+        CONNECT DataIn[i] -> PredAdder.B[i];
+        CONNECT DataIn[7] -> PredAdder.B[8+i];
+    }
+    CONNECT C_TRUE.out -> PredAdder.Cin;
+    CONNECT PreTake.Out -> PredOk.A;
+    CONNECT FetchOk.out -> PredOk.B;
+    CONNECT AdvanceAnd.Out -> PredOk.C;
+    CONNECT FlushOr2.out -> NoRedirect.in;
+    CONNECT PredOk.Out -> PredJump.in1;
+    CONNECT NoRedirect.out -> PredJump.in2;
+    CONNECT PredJump.out -> PredBit.Data[0];
+    CONNECT AdvanceAnd.Out -> PredBit.Load;
+    CONNECT Reset -> PredBit.Reset;
+    CONNECT CLK -> PredBit.CLK;
+    CONNECT PcUnit.Next -> AltPc.Data;
+    CONNECT AdvanceAnd.Out -> AltPc.Load;
+    CONNECT CLK -> AltPc.CLK;
     CONNECT Control.Halt -> HaltNot.in;
     CONNECT HaltNot.out -> BaseAnd.in1;
     CONNECT NotHold.out -> BaseAnd.in2;
@@ -484,7 +603,7 @@ CIRCUIT CPU_16B_SOC {
 
     // 14. Output register (OUT Rd)
     CONNECT FwdMuxA.Out -> OutReg.Data;
-    CONNECT Control.OutEnable -> OutReg.Load;
+    CONNECT OutG.out -> OutReg.Load;
     CONNECT Reset -> OutReg.Reset;
     CONNECT CLK -> OutReg.CLK;
     CONNECT OutReg.Q -> Out;

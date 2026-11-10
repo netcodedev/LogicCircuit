@@ -184,6 +184,36 @@ SoC-Linie (`CPU_16B_SOC`, `SOC_16B`).
       → `mul_hw` 326 Takte (1,5×; kleine Faktoren, Schleife und Ladebefehle
       bleiben). Ein MUL/DIV kostet 18 Takte
 
+**A3 – Sprungvorhersage und kritischer Pfad**
+- [x] Kritischer Pfad: Das Steuerwerk dekodiert das Befehlsregister jetzt
+      direkt; beim Warten (`HoldE` = Load-Use-Stall, `Wait`, `NeedNext`,
+      `MdWait`) werden nur die Wirkungen gesperrt (Register- und
+      Speicherschreiben, Flags, SP, `Out`, Sprünge und Branches, je ein AND
+      mit NOT HoldE). Vorher lag die Hazard- und Warte-Logik vor dem
+      Steuerwerk, vor dem langen Pfad Decoder → ALU → Flags
+- [x] Statische Sprungvorhersage im Fetch: ein geholter Bcc mit negativem
+      Offset (Schleife) oder BRA (nicht BNV) gilt als genommen; der Fetch
+      springt sofort (`PredAdder`: PC + 1 + Offset) und merkt sich die
+      Folgeadresse (`AltPc`) und die Vorhersage (`PredBit`). In Execute:
+      vorhergesagt und genommen kostet nichts, vorhergesagt und nicht
+      genommen lädt `AltPc` (ein Takt), genommen ohne Vorhersage wie bisher.
+      `PC_FETCH_16B` gibt dafür `Next` (PC + 1 + Step2) aus
+- [x] SOC_16B: 37.308 NANDs (+1.361). Tests: Vorhersage-Programm in
+      `CPU_16B_SOC.clt` (Schleifen mit falscher Vorhersage am Ende, BRA,
+      BNV rückwärts, LI am Sprungziel; auch mit 2 Wartetakten), alle
+      SoC-Suiten neu erzeugt; `verify-verilog` 97 Suiten in 4 Varianten
+      und `--x-init` grün
+- [x] Ergebnis SOC_16B (Takte): branch 1.390 → 1.231, memory 1.118 → 980,
+      div 2.592 → 2.396, mul 488 → 455, calls 1.744 → 1.744 (RET/CALL, keine
+      Vorhersage), fibonacci-Test 146 → 124; Software-Benchmarks gesamt
+      7.332 → 6.806 (−7 %)
+- [x] Takt (chip build, basic, met5, 70 %, `--optimize`, `--mem-delay 3`,
+      Zielperiode 7 ns): vorher 110 MHz (Pfad `CtrlM` → Bus → I/O-Decoder →
+      Wait → Freeze → Hold → Steuerwerk-Eingang → ALU → Flags), nachher
+      **138 MHz (+25 %)** (Pfad Befehlsregister → Registerfile → Forwarding →
+      Schieber → Write-back → Z → Flags). Mit den weniger Takten ≈ 1,35× so
+      schnell
+
 ### Phase 4 – Speicher-Controller
 - [ ] QSPI-Controller (Flash lesen, PSRAM lesen/schreiben), Modell im Runner
 - [ ] später ggf. SDRAM-Controller (Init, Refresh, Bänke, CAS-Latenz)

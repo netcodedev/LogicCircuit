@@ -25,6 +25,7 @@ CIRCUIT PC_FETCH_16B {
     INPUT CLK;
 
     OUTPUT Addr[16];    // Fetch address
+    OUTPUT Next[16];    // PC + 1 + Step2 (fall-through of the fetched word)
 
     // PC_Reg is declared first so its INIT runs before the gates that drive
     // its inputs exist.
@@ -41,6 +42,7 @@ CIRCUIT PC_FETCH_16B {
     CONNECT PC_Reg.Q -> Inc.A;
     CONNECT Step2 -> Inc.B[0];
     CONNECT C_TRUE.out -> Inc.Cin;
+    CONNECT Inc.S -> Next;
 
     CONNECT PC_Reg.Q -> BranchAdder.A;
     CONNECT Offset -> BranchAdder.B;
