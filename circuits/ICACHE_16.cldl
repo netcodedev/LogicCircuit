@@ -38,18 +38,25 @@ CIRCUIT ICACHE_16 {
     PART ValidOr: OR;                // Fill OR Inval
     PART ReadA: MUX_16_1_BUS<29>;    // fetch port: word, tag, valid
     PART ReadB: MUX_16_1_BUS<13>;    // bus port: tag, valid
+    // Comparators as trees (NOR4 per nibble, then one AND), not chains:
+    // the fetch tag compare is on the critical path.
     PART TagXorA: XOR_BUS<12>;
-    PART TagDiffA: OR_WIDE<3>;
     PART TagXorB: XOR_BUS<12>;
-    PART TagDiffB: OR_WIDE<3>;
     PART AddrXor: XOR_BUS<16>;       // FetchAddr = BusAddr?
-    PART AddrDiff: OR_WIDE<4>;
-    PART SameNot: NOT;
+    FOR g IN 0..3 {
+        PART TagNibA[g]: NOR4;
+        PART TagNibB[g]: NOR4;
+    }
+    FOR g IN 0..4 {
+        PART AddrNib[g]: NOR4;
+    }
+    PART Same012: AND3;
+    PART Same: AND;
     PART Conflict: AND;              // Write AND same address
     PART NoConflict: NOT;
-    PART MatchA: NOT;
+    PART MatchA: AND3;               // tags equal
     PART HitAnd: AND3;               // valid AND tag matches AND no conflict
-    PART MatchB: NOT;
+    PART MatchB: AND3;
     PART InvalAnd: AND3;             // WriteDone AND valid AND tag matches
 
     // Storage: entries are written at the bus address
@@ -89,21 +96,37 @@ CIRCUIT ICACHE_16 {
     FOR i IN 0..12 {
         CONNECT ReadA.Out[16+i] -> TagXorA.A[i];
         CONNECT FetchAddr[4+i] -> TagXorA.B[i];
-        CONNECT TagXorA.Out[i] -> TagDiffA.In[i];
     }
-    CONNECT TagDiffA.Out -> MatchA.in;
+    FOR g IN 0..3 {
+        CONNECT TagXorA.Out[4*g] -> TagNibA[g].A;
+        CONNECT TagXorA.Out[4*g+1] -> TagNibA[g].B;
+        CONNECT TagXorA.Out[4*g+2] -> TagNibA[g].C;
+        CONNECT TagXorA.Out[4*g+3] -> TagNibA[g].D;
+    }
+    CONNECT TagNibA[0].Out -> MatchA.A;
+    CONNECT TagNibA[1].Out -> MatchA.B;
+    CONNECT TagNibA[2].Out -> MatchA.C;
     FOR i IN 0..16 {
         CONNECT FetchAddr[i] -> AddrXor.A[i];
         CONNECT BusAddr[i] -> AddrXor.B[i];
-        CONNECT AddrXor.Out[i] -> AddrDiff.In[i];
         CONNECT ReadA.Out[i] -> Word[i];
     }
-    CONNECT AddrDiff.Out -> SameNot.in;
+    FOR g IN 0..4 {
+        CONNECT AddrXor.Out[4*g] -> AddrNib[g].A;
+        CONNECT AddrXor.Out[4*g+1] -> AddrNib[g].B;
+        CONNECT AddrXor.Out[4*g+2] -> AddrNib[g].C;
+        CONNECT AddrXor.Out[4*g+3] -> AddrNib[g].D;
+    }
+    CONNECT AddrNib[0].Out -> Same012.A;
+    CONNECT AddrNib[1].Out -> Same012.B;
+    CONNECT AddrNib[2].Out -> Same012.C;
+    CONNECT Same012.Out -> Same.in1;
+    CONNECT AddrNib[3].Out -> Same.in2;
     CONNECT Write -> Conflict.in1;
-    CONNECT SameNot.out -> Conflict.in2;
+    CONNECT Same.out -> Conflict.in2;
     CONNECT Conflict.out -> NoConflict.in;
     CONNECT ReadA.Out[28] -> HitAnd.A;
-    CONNECT MatchA.out -> HitAnd.B;
+    CONNECT MatchA.Out -> HitAnd.B;
     CONNECT NoConflict.out -> HitAnd.C;
     CONNECT HitAnd.Out -> Hit;
 
@@ -120,10 +143,17 @@ CIRCUIT ICACHE_16 {
     FOR i IN 0..12 {
         CONNECT ReadB.Out[i] -> TagXorB.A[i];
         CONNECT BusAddr[4+i] -> TagXorB.B[i];
-        CONNECT TagXorB.Out[i] -> TagDiffB.In[i];
     }
-    CONNECT TagDiffB.Out -> MatchB.in;
+    FOR g IN 0..3 {
+        CONNECT TagXorB.Out[4*g] -> TagNibB[g].A;
+        CONNECT TagXorB.Out[4*g+1] -> TagNibB[g].B;
+        CONNECT TagXorB.Out[4*g+2] -> TagNibB[g].C;
+        CONNECT TagXorB.Out[4*g+3] -> TagNibB[g].D;
+    }
+    CONNECT TagNibB[0].Out -> MatchB.A;
+    CONNECT TagNibB[1].Out -> MatchB.B;
+    CONNECT TagNibB[2].Out -> MatchB.C;
     CONNECT WriteDone -> InvalAnd.A;
     CONNECT ReadB.Out[12] -> InvalAnd.B;
-    CONNECT MatchB.out -> InvalAnd.C;
+    CONNECT MatchB.Out -> InvalAnd.C;
 }

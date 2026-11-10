@@ -74,7 +74,9 @@ proc apply_mem_delay {} {
     set t [env_or MEM_DELAY 0]
     if {$::clk_port eq "" || $t == 0} { return }
     set period [env_or CLOCK_PERIOD 10]
-    foreach {addr data} {PC {Instruction InstructionNext} MemAddr {MemDataIn}} {
+    # Separate instruction and data ports, or one memory bus (CPU_16B_SOC,
+    # SOC_16B: Addr -> DataIn, Wait).
+    foreach {addr data} {PC {Instruction InstructionNext} MemAddr {MemDataIn} Addr {DataIn Wait}} {
         set addr_ports [get_ports -quiet "${addr}\[*\]"]
         if {[llength $addr_ports] == 0} { continue }
         set arrival 0.0

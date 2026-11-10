@@ -437,6 +437,57 @@ Folgerungen:
 - Mit langsamem Speicher (QSPI) dominieren die Wartetakte (27 % bei 2
   Wartetakten): dort zählen Cache-Größe und Burst mehr als Stufen
 
+### Kritische Pfade kürzen, ohne neue Stufen (2026-11-10)
+
+Gleiches Verhalten (alle CLT-Suiten, `verify-verilog --mux-cells` und
+`--x-init` für die SoC-Schaltungen, gleiche Takte in `bench`: 7.297 bzw.
+10.045 mit 2 Wartetakten), nur anders angeordnete Logik:
+
+- [x] Sprünge und Flush hängen nicht mehr an `Wait`: Der Weg CtrlM →
+      Busadresse → I/O-Erkennung → `Wait` → Freeze → HoldX lief durch
+      ~11 Gatter Sprunglogik bis PC und Ir. `JumpG`, `BrTaken`,
+      `BrNotTaken` nehmen jetzt `NotHoldF` (Stall, NeedNext, MdWait), der
+      Interrupt-Weg zum PC `IrqTakeF` (ohne Freeze). Freeze hält PC und Ir
+      ohnehin an (Base = 0); nur `CtrlM` (RET in Memory, `RetMG`) und alle
+      anderen Zustände behalten das volle HoldX
+- [x] `PC_FETCH_16B`: Jump wählt im letzten Mux und gewinnt über Branch
+      (beide waren nie gleichzeitig 1; mit `IrqTakeF` sorgt das für den
+      Vektor)
+- [x] Vorhersage zweimal: aus `DataIn` und aus dem Cache-Wort (Dekodierung
+      und `PredAdder`/`PredAdderC`), `Hit` wählt nur noch aus; das
+      Sprungziel ist so angeordnet, dass der späte `DataIn`-Addierer einen
+      Mux vor dem PC durchläuft (`TargetX`, `TargetSelOr`)
+- [x] `ICACHE_16`: Tag- und Adressvergleich als Baum (NOR4 + AND3) statt
+      `OR_WIDE`-Kette
+- [x] Execute: Der Registerwert läuft durch einen Mux vor der ALU statt
+      drei (Forwarding und Quellen davor: `AOther`, `BMux`, `UseRegA/B`);
+      `ALU_16B` gibt `Sum`/`Logic`/`IsSum` aus, die Summe läuft durch einen
+      Mux in der ALU; das Ergebnis wird nach Ankunftszeit gewählt (Shifter
+      zuletzt, dann Summe, Logik, MUL/DIV und In); `AddrMux` bekommt das
+      ALU-Ergebnis zuletzt und SP − 1 aus eigenem Addierer (`SpMinus1`)
+      statt über die SP-Einheit, deren `Dec` am Hold hängt
+- [x] Messfehler behoben: `--mem-delay` wirkte bei SOC_16B gar nicht
+      (`apply_mem_delay` kannte nur `PC`/`MemAddr`, nicht `Addr` →
+      `DataIn`/`Wait`). Alle bisherigen SoC-Läufe mit „mem3“ im Namen
+      rechneten also mit idealem Speicher; der Vergleich unten ist deshalb
+      ohne `--mem-delay`
+
+| SOC_16B (u70, `--optimize`, Ziel 5 ns) | vorher | nachher |
+|---|---|---|
+| exportierte Zellen | 9.496 | 10.194 (+7 %) |
+| Logikfläche | 98.869 µm² | 102.392 µm² (+3,6 %) |
+| Transistoren | 95.013 | 99.022 |
+| Die | 364 µm | 373 µm |
+| fmax | 156 MHz | **167 MHz (+7 %)** |
+| Laufzeit Benchmarks | 46,8 µs | 43,7 µs |
+
+Längste Pfade danach: Ir → Register → Shifter → Z → Flags 6,0 ns, Ir →
+Steuerwerk (`ImmSel`, `OR_WIDE`-Kette) → Immediate → ALU → AddrM 6,0 ns,
+ResultM 5,7, PC 5,6, Ir 5,3 (vorher PC 6,4, Ir 6,3, Flags 6,3). Die drei
+Stufen sind jetzt ausgeglichen; weiter ginge es nur mit tieferen Umbauten
+(Shifter ohne Umkehr-Muxe, Steuerbits vordekodiert in `Ir`, `OR_WIDE` als
+Baum) oder mit mehr Stufen.
+
 ### Phase 4 – Speicher-Controller
 - [ ] QSPI-Controller (Flash lesen, PSRAM lesen/schreiben), Modell im Runner
 - [ ] später ggf. SDRAM-Controller (Init, Refresh, Bänke, CAS-Latenz)

@@ -7,12 +7,14 @@ CIRCUIT PC_FETCH_16B {
     //   CALL return address    = PC_E + 1 + Step2  = Addr
     // On each rising CLK edge:
     //   Reset = 1              -> PC <- 0
-    //   Enable = 1, Branch = 1 -> PC <- PC + Offset
     //   Enable = 1, Jump = 1   -> PC <- Target
+    //   Enable = 1, Branch = 1 -> PC <- PC + Offset
     //   Enable = 1, otherwise  -> PC <- PC + 1 + Step2
     //   otherwise              -> hold
     // Branch and Jump come from the execute stage, Step2 from a pre-decode
     // of the fetched word (two-word instruction: skip its second word).
+    // Jump wins over Branch and selects in the last mux: in CPU_16B_SOC it
+    // arrives last (it includes the prediction of the fetched word).
     //
     // Enable and Reset are active-high on purpose (see PC_16B).
     INPUT Target[16];   // Absolute jump target (JMP/CALL addr16, JR, RET)
@@ -32,8 +34,8 @@ CIRCUIT PC_FETCH_16B {
     PART PC_Reg: REGISTER_R<16>;
     PART Inc: ADDER_CLA_16B;         // PC + Step2 + 1
     PART BranchAdder: ADDER_CLA_16B; // PC + Offset
-    PART JumpMux: MUX_2_1_BUS<16>;   // S=0 -> Inc, S=1 -> Target
-    PART BranchMux: MUX_2_1_BUS<16>; // S=0 -> JumpMux, S=1 -> BranchAdder
+    PART BranchMux: MUX_2_1_BUS<16>; // S=0 -> Inc, S=1 -> BranchAdder
+    PART JumpMux: MUX_2_1_BUS<16>;   // S=0 -> BranchMux, S=1 -> Target
     PART C_TRUE: NOR;                // Constant 1 (VCC), NOR(0,0) = 1
 
     CONNECT PC_Reg.Q -> Addr;
@@ -47,13 +49,13 @@ CIRCUIT PC_FETCH_16B {
     CONNECT PC_Reg.Q -> BranchAdder.A;
     CONNECT Offset -> BranchAdder.B;
 
-    CONNECT Inc.S -> JumpMux.A;
-    CONNECT Target -> JumpMux.B;
-    CONNECT Jump -> JumpMux.S;
-    CONNECT JumpMux.Out -> BranchMux.A;
+    CONNECT Inc.S -> BranchMux.A;
     CONNECT BranchAdder.S -> BranchMux.B;
     CONNECT Branch -> BranchMux.S;
-    CONNECT BranchMux.Out -> PC_Reg.Data;
+    CONNECT BranchMux.Out -> JumpMux.A;
+    CONNECT Target -> JumpMux.B;
+    CONNECT Jump -> JumpMux.S;
+    CONNECT JumpMux.Out -> PC_Reg.Data;
     CONNECT Enable -> PC_Reg.Load;
     CONNECT Reset -> PC_Reg.Reset;
     CONNECT CLK -> PC_Reg.CLK;

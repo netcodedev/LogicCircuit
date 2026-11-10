@@ -24,6 +24,12 @@ CIRCUIT ALU_16B {
     INPUT S[2];
 
     OUTPUT Result[16];
+    // The two halves of Result, for CPUs that merge the result selection
+    // with their own write-back mux (the sum then passes one mux, not two):
+    // Result = IsSum ? Sum : Logic.
+    OUTPUT Sum[16];
+    OUTPUT Logic[16];
+    OUTPUT IsSum;       // S = 00
     OUTPUT Cout;
     OUTPUT Z;
     OUTPUT N;
@@ -41,7 +47,10 @@ CIRCUIT ALU_16B {
     PART LogicAND: AND_BUS<16>;
     PART LogicOR: OR_BUS<16>;
     PART LogicXOR: XOR_BUS<16>;
-    PART ResultMux: MUX_4_1_BUS<16>;
+    // The adder is the slowest unit: it passes only the last mux.
+    PART LogicMux: MUX_4_1_BUS<16>;  // 1 = AND, 2 = OR, 3 = XOR (0 unused)
+    PART SumSel: NOR;                // S = 00
+    PART ResultMux: MUX_2_1_BUS<16>; // logic, sum
 
     // Flags
     PART Zero: ZERO_16B;
@@ -65,15 +74,22 @@ CIRCUIT ALU_16B {
     CONNECT AGate.Out -> LogicXOR.A;
     CONNECT BInvert.Out -> LogicXOR.B;
 
-    // Result mux: input 0 = ADD, 1 = AND, 2 = OR, 3 = XOR
+    // Result: S = 0 ADD, 1 AND, 2 OR, 3 XOR
     FOR i IN 0..16 {
-        CONNECT Adder.S[i] -> ResultMux.In[i];
-        CONNECT LogicAND.Out[i] -> ResultMux.In[16+i];
-        CONNECT LogicOR.Out[i] -> ResultMux.In[32+i];
-        CONNECT LogicXOR.Out[i] -> ResultMux.In[48+i];
+        CONNECT LogicAND.Out[i] -> LogicMux.In[16+i];
+        CONNECT LogicOR.Out[i] -> LogicMux.In[32+i];
+        CONNECT LogicXOR.Out[i] -> LogicMux.In[48+i];
     }
-    CONNECT S -> ResultMux.S;
+    CONNECT S -> LogicMux.S;
+    CONNECT S[0] -> SumSel.in1;
+    CONNECT S[1] -> SumSel.in2;
+    CONNECT LogicMux.Out -> ResultMux.A;
+    CONNECT Adder.S -> ResultMux.B;
+    CONNECT SumSel.out -> ResultMux.S;
     CONNECT ResultMux.Out -> Result;
+    CONNECT Adder.S -> Sum;
+    CONNECT LogicMux.Out -> Logic;
+    CONNECT SumSel.out -> IsSum;
 
     CONNECT Adder.Cout -> Cout;
     CONNECT ResultMux.Out -> Zero.A;

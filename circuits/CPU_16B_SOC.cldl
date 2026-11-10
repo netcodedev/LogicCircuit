@@ -173,6 +173,38 @@ CIRCUIT CPU_16B_SOC {
     PART MispMux: MUX_2_1_BUS<16>;   // execute/RET target, fall-through
     PART VecMux: MUX_2_1_BUS<16>;    // MispMux, interrupt vector 0x0002
     PART TargetSelMux: MUX_2_1_BUS<16>; // predicted target, VecMux
+    // Prediction of the cached word (the parts above decode DataIn): both
+    // are ready before Hit, which then only selects (PredMux,
+    // PredTargetMux) instead of the decode waiting for WordMux.
+    PART PreC14Not: NOT;
+    PART PreC12Not: NOT;
+    PART PreCBcc: NOR4;
+    PART PreCHi3: AND3;
+    PART PreC8Not: NOT;
+    PART PreCAl: AND;
+    PART PreCNv: AND;
+    PART PreCNotNv: NOT;
+    PART PreCBack: OR;
+    PART PreCTake: AND3;
+    PART PredAdderC: ADDER_CLA_16B;
+    PART PredMux: MUX_2_1;           // PreTake of DataIn, of the cache word
+    // Target = IrqJump ? VecMux : (Hit ? PredAdderC : PredAdder), arranged
+    // so the late PredAdder (DataIn) passes one mux: TargetSelMux selects it
+    // unless Hit or IrqJump, TargetX holds the other two.
+    PART TargetX: MUX_2_1_BUS<16>;   // PredAdderC, VecMux
+    PART TargetSelOr: OR;            // Hit OR IrqJump
+    // Fast hold for the PC and Ir paths: like HoldX without Freeze and the
+    // interrupt. Freeze stops PC and Ir anyway (Base = 0), and an interrupt
+    // overrides the target (VecMux, Jump wins over Branch in PcUnit), so the
+    // redirect logic need not wait for Wait. State that the instruction
+    // changes (CtrlM, SP, flags, ...) keeps the full HoldX.
+    PART HoldFOr1: OR;               // Stall OR NeedNext
+    PART HoldFOr2: OR;               // ... OR MdWait
+    PART NotHoldF: NOT;
+    PART NotStall: NOT;
+    PART IrqCanF: AND3;              // NOT Halt AND NOT Stall AND NOT NeedNext
+    PART IrqTakeF: AND3;             // IrqTake without Freeze
+    PART RetMG: AND;                 // RET goes to memory: RetAnd AND NOT HoldE
 
     // Interrupts: EI = 0x0101, DI = 0x0201 (NOP variants), RETI = 0x0102 (a
     // RET variant), so the control unit needs no change
@@ -251,14 +283,38 @@ CIRCUIT CPU_16B_SOC {
     PART FwdMuxB: MUX_2_1_BUS<16>;   // Rs: register file or ResultM
 
     PART ImmMux: MUX_4_1_BUS<16>;    // imm8, sign-extended imm8, imm8<<8, off4
-    PART AMux: MUX_2_1_BUS<16>;      // Rd, immediate
-    PART BMux: MUX_4_1_BUS<16>;      // Rs, immediate, second word
+    // ALU operands: the register file read is the late input, so it passes
+    // one mux (AMux/BFinal); forwarding and the other sources are selected
+    // before (AOther/BMux), from early signals.
+    PART AOther: MUX_2_1_BUS<16>;    // ResultM (forwarded), immediate
+    PART UseRegA: NOR;               // NOT ASrc AND NOT FwdA
+    PART AMux: MUX_2_1_BUS<16>;      // AOther, Rd from the register file
+    PART BMux: MUX_4_1_BUS<16>;      // ResultM (forwarded Rs), immediate, second word
+    PART BSrcAny: OR;
+    PART UseRegB: NOR;               // BSrc = 0 AND NOT FwdB
+    PART BFinal: MUX_2_1_BUS<16>;    // BMux, Rs from the register file
     PART Alu: ALU_16B;
     PART AmtMux: MUX_2_1_BUS<4>;     // shift amount: Rs[3..0], Rs field
     PART Shifter: SHIFTER_16B;
-    PART WbMux: MUX_4_1_BUS<16>;     // ALU, shifter, (memory: later), In
+    // Result: the latest units pass the fewest muxes: the shifter one
+    // (WbFinal), the adder sum two, the ALU logic result three, MUL/DIV
+    // and In (registers, inputs) four.
+    PART WbMux: MUX_4_1_BUS<16>;     // (ALU, shifter: below), multiply/divide, In
+    PART AluSelNor: NOR;             // WbSel 0: the ALU
+    PART SumSelAnd: AND;             // ... and the ALU adds
+    PART NotWbS1: NOT;
+    PART ShSelAnd: AND;              // WbSel 1: the shifter
+    PART WbLogic: MUX_2_1_BUS<16>;   // WbMux, ALU logic result
+    PART WbSum: MUX_2_1_BUS<16>;     // WbLogic, ALU sum
+    PART WbFinal: MUX_2_1_BUS<16>;   // WbSum, shifter
     PART WbZero: ZERO_16B;
-    PART AddrMux: MUX_4_1_BUS<16>;   // ALU, SP, SP-1
+    PART AddrMux: MUX_4_1_BUS<16>;   // (ALU: below), SP, SP-1
+    PART AddrSelAlu: NOR;            // AddrMux slot 0
+    PART AddrFinal: MUX_2_1_BUS<16>; // AddrMux, ALU result (byte address)
+    // SP - 1 for PUSH/CALL/interrupt addresses straight from the SP
+    // register: SpUnit.Next waits for Dec, which waits for the hold logic.
+    // Both are equal whenever the address is used (the instruction runs).
+    PART SpMinus1: ADDER_CLA_16B;
     PART DataMux: MUX_2_1_BUS<16>;   // Rd, return address
     PART TargetMux: MUX_4_1_BUS<16>; // second word, Rd
     PART RetMux: MUX_2_1_BUS<16>;    // TargetMux, DataIn (RET in memory)
@@ -374,6 +430,12 @@ CIRCUIT CPU_16B_SOC {
     CONNECT HoldEOr2.out -> HoldX.in1;
     CONNECT IrqTake.Out -> HoldX.in2;
     CONNECT HoldX.out -> NotHoldE.in;
+    CONNECT Hazard.Stall -> HoldFOr1.in1;
+    CONNECT NeedAnd.out -> HoldFOr1.in2;
+    CONNECT HoldFOr1.out -> HoldFOr2.in1;
+    CONNECT MdWait.out -> HoldFOr2.in2;
+    CONNECT HoldFOr2.out -> NotHoldF.in;
+    CONNECT Hazard.Stall -> NotStall.in;
     FOR i IN 0..4 {
         CONNECT Ir.Q[12+i] -> Control.Op[i];
         CONNECT Ir.Q[i] -> Control.Fn[i];
@@ -383,7 +445,7 @@ CIRCUIT CPU_16B_SOC {
     CONNECT Control.MemWrite -> MemWriteG.in1;
     CONNECT NotHoldE.out -> MemWriteG.in2;
     CONNECT Control.Jump -> JumpG.in1;
-    CONNECT NotHoldE.out -> JumpG.in2;
+    CONNECT NotHoldF.out -> JumpG.in2;   // PC/Ir paths only, see HoldFOr1
     CONNECT Control.LoadZN -> ZnG.in1;
     CONNECT NotHoldE.out -> ZnG.in2;
     CONNECT Control.LoadCV -> CvG.in1;
@@ -440,19 +502,33 @@ CIRCUIT CPU_16B_SOC {
     CONNECT ImmSel1Or.out -> ImmMux.S[1];
 
     // 5. ALU operands and control
-    CONNECT FwdMuxA.Out -> AMux.A;
-    CONNECT ImmMux.Out -> AMux.B;
+    //    A = ASrc ? immediate : (FwdA ? ResultM : Rd)
+    //    B = BSrc 1: immediate, 2: second word, 0: FwdB ? ResultM : Rs
     CONNECT Control.ASrc -> ASrcOr.in1;
     CONNECT IsByte.out -> ASrcOr.in2;
-    CONNECT ASrcOr.out -> AMux.S;
+    CONNECT ResultM.Q -> AOther.A;
+    CONNECT ImmMux.Out -> AOther.B;
+    CONNECT ASrcOr.out -> AOther.S;
+    CONNECT ASrcOr.out -> UseRegA.in1;
+    CONNECT Hazard.FwdA -> UseRegA.in2;
+    CONNECT AOther.Out -> AMux.A;
+    CONNECT RegFile.DataOutA -> AMux.B;
+    CONNECT UseRegA.out -> AMux.S;
     FOR i IN 0..16 {
-        CONNECT FwdMuxB.Out[i] -> BMux.In[i];
+        CONNECT ResultM.Q[i] -> BMux.In[i];
         CONNECT ImmMux.Out[i] -> BMux.In[16+i];
         CONNECT IrNext.Q[i] -> BMux.In[32+i];
     }
     CONNECT Control.BSrc -> BMux.S;
+    CONNECT Control.BSrc[0] -> BSrcAny.in1;
+    CONNECT Control.BSrc[1] -> BSrcAny.in2;
+    CONNECT BSrcAny.out -> UseRegB.in1;
+    CONNECT Hazard.FwdB -> UseRegB.in2;
+    CONNECT BMux.Out -> BFinal.A;
+    CONNECT RegFile.DataOutB -> BFinal.B;
+    CONNECT UseRegB.out -> BFinal.S;
     CONNECT AMux.Out -> Alu.A;
-    CONNECT BMux.Out -> Alu.B;
+    CONNECT BFinal.Out -> Alu.B;
     CONNECT Control.AluS -> Alu.S;
     CONNECT Control.InvB -> Alu.InvB;
     CONNECT Control.ZeroA -> Alu.ZeroA;
@@ -475,9 +551,9 @@ CIRCUIT CPU_16B_SOC {
     CONNECT Control.ShArith -> Shifter.Arith;
 
     // 7. Result of the execute stage (loads are written in memory)
+    //    WbMux slots 0 and 1 (ALU, shifter) stay unconnected: those results
+    //    join after it (WbLogic, WbSum, WbFinal).
     FOR i IN 0..16 {
-        CONNECT Alu.Result[i] -> WbMux.In[i];
-        CONNECT Shifter.Out[i] -> WbMux.In[16+i];
         CONNECT MdResult.Out[i] -> WbMux.In[32+i];   // multiply/divide
         CONNECT In[i] -> WbMux.In[48+i];
     }
@@ -485,6 +561,22 @@ CIRCUIT CPU_16B_SOC {
     CONNECT Control.WbSel[1] -> WbS1Or.in1;
     CONNECT MdExec.Out -> WbS1Or.in2;
     CONNECT WbS1Or.out -> WbMux.S[1];
+    CONNECT Control.WbSel[0] -> AluSelNor.in1;
+    CONNECT WbS1Or.out -> AluSelNor.in2;
+    CONNECT AluSelNor.out -> SumSelAnd.in1;
+    CONNECT Alu.IsSum -> SumSelAnd.in2;
+    CONNECT WbMux.Out -> WbLogic.A;
+    CONNECT Alu.Logic -> WbLogic.B;
+    CONNECT AluSelNor.out -> WbLogic.S;
+    CONNECT WbLogic.Out -> WbSum.A;
+    CONNECT Alu.Sum -> WbSum.B;
+    CONNECT SumSelAnd.out -> WbSum.S;
+    CONNECT WbS1Or.out -> NotWbS1.in;
+    CONNECT Control.WbSel[0] -> ShSelAnd.in1;
+    CONNECT NotWbS1.out -> ShSelAnd.in2;
+    CONNECT WbSum.Out -> WbFinal.A;
+    CONNECT Shifter.Out -> WbFinal.B;
+    CONNECT ShSelAnd.out -> WbFinal.S;
 
     // 7a. Byte access: decode opcode 15 (fn[3] = 1: SB, else LB)
     CONNECT Ir.Q[15] -> ByteHi3.A;
@@ -543,9 +635,9 @@ CIRCUIT CPU_16B_SOC {
     CONNECT Ir.Q[0] -> MdResult.S;
 
     // 8. Flags: Z/N of the result, C/V of the ALU (loads leave them alone)
-    CONNECT WbMux.Out -> WbZero.A;
+    CONNECT WbFinal.Out -> WbZero.A;
     CONNECT WbZero.Z -> FlagMux.A[0];
-    CONNECT WbMux.Out[15] -> FlagMux.A[1];
+    CONNECT WbFinal.Out[15] -> FlagMux.A[1];
     CONNECT Alu.Cout -> FlagMux.A[2];
     CONNECT Alu.V -> FlagMux.A[3];
     CONNECT FlagSave.Q -> FlagMux.B;     // RETI restores the flags
@@ -577,17 +669,24 @@ CIRCUIT CPU_16B_SOC {
     CONNECT IrqTake.Out -> SpDecOr.in2;
     CONNECT SpDecOr.out -> SpUnit.Dec;
     CONNECT SpUnit.SP -> SP;
+    // AddrMux slot 0 (the ALU) stays unconnected, AddrFinal adds it last.
     FOR i IN 0..16 {
-        CONNECT ByteAddrMux.Out[i] -> AddrMux.In[i];
         CONNECT SpUnit.SP[i] -> AddrMux.In[16+i];
-        CONNECT SpUnit.Next[i] -> AddrMux.In[32+i];
+        CONNECT SpMinus1.S[i] -> AddrMux.In[32+i];
     }
+    CONNECT SpUnit.SP -> SpMinus1.A;
+    CONNECT C_TRUE.out -> SpMinus1.B;    // tee: all ones = -1
     CONNECT Control.MemAddrSel[0] -> AddrS0And.in1;
     CONNECT NotIrq.out -> AddrS0And.in2;
     CONNECT AddrS0And.out -> AddrMux.S[0];
     CONNECT Control.MemAddrSel[1] -> AddrS1Or.in1;
     CONNECT IrqTake.Out -> AddrS1Or.in2;
     CONNECT AddrS1Or.out -> AddrMux.S[1];
+    CONNECT AddrS0And.out -> AddrSelAlu.in1;
+    CONNECT AddrS1Or.out -> AddrSelAlu.in2;
+    CONNECT AddrMux.Out -> AddrFinal.A;
+    CONNECT ByteAddrMux.Out -> AddrFinal.B;
+    CONNECT AddrSelAlu.out -> AddrFinal.S;
     CONNECT FwdMuxA.Out -> DataMux.A;
     CONNECT PcUnit.Addr -> RetAddrMux.A; // return address, see above
     CONNECT PcE.Q -> RetAddrMux.B;       // interrupt: the interrupted one
@@ -599,8 +698,8 @@ CIRCUIT CPU_16B_SOC {
 
     // 10. Pipeline registers execute -> memory (loaded every clock unless
     //     the memory stage waits)
-    CONNECT WbMux.Out -> ResultM.Data;
-    CONNECT AddrMux.Out -> AddrM.Data;
+    CONNECT WbFinal.Out -> ResultM.Data;
+    CONNECT AddrFinal.Out -> AddrM.Data;
     CONNECT DataMux.Out -> StoreMux.A;
     FOR i IN 0..8 {
         CONNECT FwdMuxA.Out[i] -> StoreMux.B[i];
@@ -630,7 +729,9 @@ CIRCUIT CPU_16B_SOC {
     CONNECT LoadOr.out -> CtrlM.Data[6];
     CONNECT ByteAccess.out -> CtrlM.Data[8];
     CONNECT Alu.Result[0] -> CtrlM.Data[9];
-    CONNECT RetAnd.Out -> CtrlM.Data[7];
+    CONNECT RetAnd.Out -> RetMG.in1;
+    CONNECT NotHoldE.out -> RetMG.in2;
+    CONNECT RetMG.out -> CtrlM.Data[7];
     CONNECT NotFreeze.out -> ResultM.Load;
     CONNECT NotFreeze.out -> AddrM.Load;
     CONNECT NotFreeze.out -> DataM.Load;
@@ -678,12 +779,17 @@ CIRCUIT CPU_16B_SOC {
     CONNECT RetMux.Out -> MispMux.A;
     CONNECT AltPc.Q -> MispMux.B;
     CONNECT Misp.out -> MispMux.S;
-    CONNECT PredAdder.S -> TargetSelMux.A;
     CONNECT MispMux.Out -> VecMux.A;
     CONNECT C_TRUE.out -> VecMux.B[1];   // vector 0x0002
-    CONNECT IrqTake.Out -> VecMux.S;
-    CONNECT VecMux.Out -> TargetSelMux.B;
-    CONNECT IrqJump.out -> TargetSelMux.S;
+    CONNECT IrqTakeF.Out -> VecMux.S;
+    CONNECT PredAdderC.S -> TargetX.A;
+    CONNECT VecMux.Out -> TargetX.B;
+    CONNECT IrqJump.out -> TargetX.S;
+    CONNECT ICache.Hit -> TargetSelOr.in1;
+    CONNECT IrqJump.out -> TargetSelOr.in2;
+    CONNECT PredAdder.S -> TargetSelMux.A;
+    CONNECT TargetX.Out -> TargetSelMux.B;
+    CONNECT TargetSelOr.out -> TargetSelMux.S;
     CONNECT TargetSelMux.Out -> PcUnit.Target;
     // RET in execute: Jump with TargetSel = 2 (memory); only drops the
     // fetched word, the jump itself happens one clock later in memory.
@@ -699,7 +805,7 @@ CIRCUIT CPU_16B_SOC {
     CONNECT PcJump.out -> EmJump.in1;
     CONNECT Misp.out -> EmJump.in2;
     CONNECT EmJump.out -> IrqJump.in1;
-    CONNECT IrqTake.Out -> IrqJump.in2;
+    CONNECT IrqTakeF.Out -> IrqJump.in2;
     CONNECT IrqJump.out -> AnyJump.in1;
     CONNECT PredJump.out -> AnyJump.in2;
     CONNECT AnyJump.out -> PcUnit.Jump;
@@ -728,46 +834,77 @@ CIRCUIT CPU_16B_SOC {
     // the fetched word. A predicted branch that is taken costs nothing.
     CONNECT Control.BranchInstr -> BrTaken.A;
     CONNECT Cond.Take -> BrTaken.B;
-    CONNECT NotHoldE.out -> BrTaken.C;
+    CONNECT NotHoldF.out -> BrTaken.C;
     CONNECT BrTaken.Out -> BranchAnd.in1;
     CONNECT PredBit.nQ[0] -> BranchAnd.in2;
     CONNECT BranchAnd.out -> PcUnit.Branch;
     CONNECT Cond.Take -> NotTake.in;
     CONNECT Control.BranchInstr -> BrNotTaken.A;
     CONNECT NotTake.out -> BrNotTaken.B;
-    CONNECT NotHoldE.out -> BrNotTaken.C;
+    CONNECT NotHoldF.out -> BrNotTaken.C;
     CONNECT BrNotTaken.Out -> Misp.in1;
     CONNECT PredBit.Q[0] -> Misp.in2;
 
     // Prediction: fetched Bcc with a negative offset (or BRA, not BNV), when
-    // the fetched word goes into Ir and execute does not redirect the PC
-    CONNECT WordMux.Out[14] -> Pre14Not.in;
-    CONNECT WordMux.Out[12] -> Pre12Not.in;
-    CONNECT WordMux.Out[15] -> PreBcc.A;
+    // the fetched word goes into Ir and execute does not redirect the PC.
+    // Decoded twice, from DataIn (Pre*, PredAdder) and from the cache word
+    // (PreC*, PredAdderC); Hit picks one, as WordMux does for the word.
+    CONNECT DataIn[14] -> Pre14Not.in;
+    CONNECT DataIn[12] -> Pre12Not.in;
+    CONNECT DataIn[15] -> PreBcc.A;
     CONNECT Pre14Not.out -> PreBcc.B;
-    CONNECT WordMux.Out[13] -> PreBcc.C;
+    CONNECT DataIn[13] -> PreBcc.C;
     CONNECT Pre12Not.out -> PreBcc.D;
-    CONNECT WordMux.Out[11] -> PreHi3.A;
-    CONNECT WordMux.Out[10] -> PreHi3.B;
-    CONNECT WordMux.Out[9] -> PreHi3.C;
-    CONNECT WordMux.Out[8] -> Pre8Not.in;
+    CONNECT DataIn[11] -> PreHi3.A;
+    CONNECT DataIn[10] -> PreHi3.B;
+    CONNECT DataIn[9] -> PreHi3.C;
+    CONNECT DataIn[8] -> Pre8Not.in;
     CONNECT PreHi3.Out -> PreAl.in1;
     CONNECT Pre8Not.out -> PreAl.in2;
     CONNECT PreHi3.Out -> PreNv.in1;
-    CONNECT WordMux.Out[8] -> PreNv.in2;
+    CONNECT DataIn[8] -> PreNv.in2;
     CONNECT PreNv.out -> PreNotNv.in;
-    CONNECT WordMux.Out[7] -> PreBack.in1;
+    CONNECT DataIn[7] -> PreBack.in1;
     CONNECT PreAl.out -> PreBack.in2;
     CONNECT PreBcc.Out -> PreTake.A;
     CONNECT PreNotNv.out -> PreTake.B;
     CONNECT PreBack.out -> PreTake.C;
     CONNECT PcUnit.Addr -> PredAdder.A;
     FOR i IN 0..8 {
-        CONNECT WordMux.Out[i] -> PredAdder.B[i];
-        CONNECT WordMux.Out[7] -> PredAdder.B[8+i];
+        CONNECT DataIn[i] -> PredAdder.B[i];
+        CONNECT DataIn[7] -> PredAdder.B[8+i];
     }
     CONNECT C_TRUE.out -> PredAdder.Cin;
-    CONNECT PreTake.Out -> PredOk.A;
+    CONNECT ICache.Word[14] -> PreC14Not.in;
+    CONNECT ICache.Word[12] -> PreC12Not.in;
+    CONNECT ICache.Word[15] -> PreCBcc.A;
+    CONNECT PreC14Not.out -> PreCBcc.B;
+    CONNECT ICache.Word[13] -> PreCBcc.C;
+    CONNECT PreC12Not.out -> PreCBcc.D;
+    CONNECT ICache.Word[11] -> PreCHi3.A;
+    CONNECT ICache.Word[10] -> PreCHi3.B;
+    CONNECT ICache.Word[9] -> PreCHi3.C;
+    CONNECT ICache.Word[8] -> PreC8Not.in;
+    CONNECT PreCHi3.Out -> PreCAl.in1;
+    CONNECT PreC8Not.out -> PreCAl.in2;
+    CONNECT PreCHi3.Out -> PreCNv.in1;
+    CONNECT ICache.Word[8] -> PreCNv.in2;
+    CONNECT PreCNv.out -> PreCNotNv.in;
+    CONNECT ICache.Word[7] -> PreCBack.in1;
+    CONNECT PreCAl.out -> PreCBack.in2;
+    CONNECT PreCBcc.Out -> PreCTake.A;
+    CONNECT PreCNotNv.out -> PreCTake.B;
+    CONNECT PreCBack.out -> PreCTake.C;
+    CONNECT PcUnit.Addr -> PredAdderC.A;
+    FOR i IN 0..8 {
+        CONNECT ICache.Word[i] -> PredAdderC.B[i];
+        CONNECT ICache.Word[7] -> PredAdderC.B[8+i];
+    }
+    CONNECT C_TRUE.out -> PredAdderC.Cin;
+    CONNECT PreTake.Out -> PredMux.A;
+    CONNECT PreCTake.Out -> PredMux.B;
+    CONNECT ICache.Hit -> PredMux.S;
+    CONNECT PredMux.Out -> PredOk.A;
     CONNECT FetchOkOr.out -> PredOk.B;
     CONNECT AdvanceAnd.Out -> PredOk.C;
     CONNECT FlushOr2.out -> NoRedirect.in;
@@ -852,6 +989,12 @@ CIRCUIT CPU_16B_SOC {
     CONNECT IrqCan.Out -> IrqTake.B;
     CONNECT NotIsMd.out -> IrqTake.C;
     CONNECT IrqTake.Out -> NotIrq.in;
+    CONNECT HaltNot.out -> IrqCanF.A;
+    CONNECT NotStall.out -> IrqCanF.B;
+    CONNECT NotNeed.out -> IrqCanF.C;
+    CONNECT IrqReq.Out -> IrqTakeF.A;
+    CONNECT IrqCanF.Out -> IrqTakeF.B;
+    CONNECT NotIsMd.out -> IrqTakeF.C;
     CONNECT Flags.Z -> FlagSave.Data[0];
     CONNECT Flags.N -> FlagSave.Data[1];
     CONNECT Flags.C -> FlagSave.Data[2];
