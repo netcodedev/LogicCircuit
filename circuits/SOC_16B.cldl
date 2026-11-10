@@ -1,0 +1,78 @@
+CIRCUIT SOC_16B {
+    // System on chip: CPU_16B_SOC, memory-mapped peripherals (IO_16B: GPIO,
+    // display register, UART) and the 4-digit hex display. The memory bus
+    // pins (Addr, DataIn, DataOut, Write, Fetch, Wait) go to the external
+    // memory; accesses to the I/O page 0xF0xx are answered inside (they
+    // never wait, and Write stays 0 outside for them).
+    //
+    // The stack grows down from 0xFFFF and must stay above 0xF0FF.
+
+    INPUT DataIn[16];   // external memory word at Addr
+    INPUT Wait;         // external memory not done yet
+    INPUT GpioIn[16];
+    INPUT In[16];       // input port of the IN instruction
+    INPUT CLK;
+    INPUT Reset;
+
+    OUTPUT Addr[16];
+    OUTPUT DataOut[16];
+    OUTPUT Write;       // write to the external memory
+    OUTPUT Fetch;
+    OUTPUT PC[16];
+    OUTPUT Halted;
+    OUTPUT Out[16];     // output register of the OUT instruction
+    OUTPUT GpioOut[16];
+    OUTPUT Tx;          // UART
+    OUTPUT Seg3[7];     // DISPLAY[15..12], segments a..g
+    OUTPUT Seg2[7];
+    OUTPUT Seg1[7];
+    OUTPUT Seg0[7];     // DISPLAY[3..0]
+
+    // Io before Cpu: the INIT clock pulses of parts built after the CPU
+    // would run it (see CPU_8B); Io's registers only load on CPU writes,
+    // which read 0 while the CPU is being built.
+    PART Io: IO_16B;
+    PART Cpu: CPU_16B_SOC;
+    PART Display: HEX_DISPLAY_16B;
+    PART DataMux: MUX_2_1_BUS<16>; // external memory, I/O
+    PART NotSel: NOT;
+    PART WaitAnd: AND;             // Wait only for external accesses
+    PART WriteAnd: AND;            // Write only for external accesses
+
+    CONNECT Cpu.Addr -> Io.Addr;
+    CONNECT Cpu.DataOut -> Io.WData;
+    CONNECT Cpu.Write -> Io.Write;
+    CONNECT GpioIn -> Io.GpioIn;
+    CONNECT CLK -> Io.CLK;
+    CONNECT Reset -> Io.Reset;
+
+    CONNECT DataIn -> DataMux.A;
+    CONNECT Io.RData -> DataMux.B;
+    CONNECT Io.Sel -> DataMux.S;
+    CONNECT DataMux.Out -> Cpu.DataIn;
+    CONNECT Io.Sel -> NotSel.in;
+    CONNECT Wait -> WaitAnd.in1;
+    CONNECT NotSel.out -> WaitAnd.in2;
+    CONNECT WaitAnd.out -> Cpu.Wait;
+    CONNECT In -> Cpu.In;
+    CONNECT CLK -> Cpu.CLK;
+    CONNECT Reset -> Cpu.Reset;
+
+    CONNECT Cpu.Addr -> Addr;
+    CONNECT Cpu.DataOut -> DataOut;
+    CONNECT Cpu.Write -> WriteAnd.in1;
+    CONNECT NotSel.out -> WriteAnd.in2;
+    CONNECT WriteAnd.out -> Write;
+    CONNECT Cpu.Fetch -> Fetch;
+    CONNECT Cpu.PC -> PC;
+    CONNECT Cpu.Halted -> Halted;
+    CONNECT Cpu.Out -> Out;
+    CONNECT Io.GpioOut -> GpioOut;
+    CONNECT Io.Tx -> Tx;
+
+    CONNECT Io.Display -> Display.Value;
+    CONNECT Display.Seg3 -> Seg3;
+    CONNECT Display.Seg2 -> Seg2;
+    CONNECT Display.Seg1 -> Seg1;
+    CONNECT Display.Seg0 -> Seg0;
+}

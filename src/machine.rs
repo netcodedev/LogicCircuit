@@ -7,7 +7,8 @@
 //!   instructions); its presence selects [`Isa::Cpu16`]
 //! - `MemAddr`/`MemDataIn`/`MemDataOut`/`MemWrite`: a data RAM that answers
 //!   combinationally and stores on the rising clock edge
-//! - `In`: an input port, set from [`Machine::input`] if that is `Some`
+//! - `In` and `GpioIn` (SOC_16B): input ports, set from [`Machine::input`] if
+//!   that is `Some`
 //! - `IWait`/`DWait` (with `MemRead`): wait states of slow memories, see
 //!   [`Machine::latency`]
 //!
@@ -40,7 +41,13 @@ pub const DATA_OUT: &str = "DataOut";
 pub const WRITE: &str = "Write";
 pub const FETCH: &str = "Fetch";
 pub const WAIT: &str = "Wait";
+/// UART transmit line of SOC_16B.
+pub const TX: &str = "Tx";
+/// Baud divider of the UART inside SOC_16B (clocks per bit - 1). A real
+/// receiver is told the baud rate; the simulated one reads it here.
+const UART_DIV: &str = "Io.Uart.Div";
 pub const INPUT: &str = "In";
+pub const GPIO_IN: &str = "GpioIn";
 pub const OUT: &str = "Out";
 pub const CLK: &str = "CLK";
 pub const HALTED: &str = "Halted";
@@ -99,11 +106,25 @@ struct Ports {
     mem_addr: usize,
     mem_data: usize,
     input: usize,
+    gpio_in: usize,
     /// `IWait`/`DWait` inputs present.
     i_wait: bool,
     d_wait: bool,
     /// Width of `Addr` of a memory bus (CPU_16B_SOC), 0 = separate ports.
     bus: usize,
+    /// `Tx` output (UART) present.
+    tx: bool,
+}
+
+/// Receiver for the UART line `Tx` (8N1, LSB first), sampled once per
+/// clock in the middle of each bit.
+#[derive(Debug, Clone, Default)]
+struct UartRx {
+    /// Clocks since the start bit began; None while the line is idle.
+    clocks: Option<usize>,
+    /// Clocks per bit of the current frame.
+    period: usize,
+    frame: u16,
 }
 
 /// Wait states of one memory port. An access starts when the circuit
@@ -161,6 +182,9 @@ pub struct Machine {
     data_wait: WaitState,
     /// Bus only: words of `ram` the circuit has written.
     written: Vec<bool>,
+    /// Bytes received on the UART line `Tx`, if the circuit has one.
+    pub uart: Vec<u8>,
+    uart_rx: UartRx,
 }
 
 impl Machine {
@@ -175,9 +199,11 @@ impl Machine {
             mem_addr: bus_width(circuit, MEM_ADDR),
             mem_data: bus_width(circuit, MEM_DATA_IN),
             input: bus_width(circuit, INPUT),
+            gpio_in: bus_width(circuit, GPIO_IN),
             i_wait: circuit.get_wire_map().contains_key(I_WAIT),
             d_wait: circuit.get_wire_map().contains_key(D_WAIT),
             bus: bus_width(circuit, ADDR),
+            tx: circuit.get_wire_map().contains_key(TX),
         };
         let ram_words = match ports {
             Ports { bus: b @ 1.., .. } => 1 << b,
@@ -193,7 +219,40 @@ impl Machine {
             fetch_wait: WaitState::default(),
             data_wait: WaitState::default(),
             written: vec![false; if ports.bus > 0 { ram_words } else { 0 }],
+            uart: Vec::new(),
+            uart_rx: UartRx::default(),
         })
+    }
+
+    /// Samples the UART line after a clock edge (the line only changes on
+    /// edges). A falling edge starts a frame; bit k (0 = start, 1..8 data,
+    /// 9 = stop) is read `period / 2` clocks into its time slot.
+    fn sample_uart(&mut self, circuit: &Circuit) {
+        let tx = read_bit(circuit, TX);
+        let rx = &mut self.uart_rx;
+        let clocks = match rx.clocks {
+            None if tx => return,
+            None => {
+                rx.period = read_bus(circuit, UART_DIV, 16) as usize + 1;
+                rx.frame = 0;
+                0
+            }
+            Some(c) => c + 1,
+        };
+        rx.clocks = Some(clocks);
+        let half = rx.period / 2;
+        if clocks < half || (clocks - half) % rx.period != 0 {
+            return;
+        }
+        match (clocks - half) / rx.period {
+            k @ 1..=8 => rx.frame |= (tx as u16) << (k - 1),
+            9 => {
+                // A missing stop bit (framing error) still delivers the byte.
+                self.uart.push(rx.frame as u8);
+                rx.clocks = None;
+            }
+            _ => {}
+        }
     }
 
     /// The instruction set of the CPU behind the ports.
@@ -246,6 +305,7 @@ impl Machine {
         }
         if let Some(input) = self.input {
             write_bus(circuit, INPUT, self.ports.input, input as u32);
+            write_bus(circuit, GPIO_IN, self.ports.gpio_in, input as u32);
         }
         circuit.evaluate_stable();
         if self.ram.is_empty() {
@@ -271,6 +331,7 @@ impl Machine {
     fn serve_bus(&self, circuit: &Circuit) {
         if let Some(input) = self.input {
             write_bus(circuit, INPUT, self.ports.input, input as u32);
+            write_bus(circuit, GPIO_IN, self.ports.gpio_in, input as u32);
         }
         circuit.evaluate_stable();
         // Addr comes from registers (PC or the memory stage), so this settles
@@ -331,6 +392,9 @@ impl Machine {
         circuit.evaluate_stable();
         self.fetch_wait.clock(false);
         self.data_wait.clock(!fetching);
+        if self.ports.tx {
+            self.sample_uart(circuit);
+        }
         self.fetch(circuit);
         true
     }
@@ -385,8 +449,9 @@ mod tests {
     }
 
     /// The 16-bit computers: single cycle, two- and three-stage pipeline,
-    /// three stages with one shared memory.
-    const COMPUTERS_16: [&str; 4] = ["COMPUTER_16B", "COMPUTER_16B_PIPE", "COMPUTER_16B_PIPE3", "COMPUTER_16B_SOC"];
+    /// three stages with one shared memory, and that with peripherals.
+    const COMPUTERS_16: [&str; 5] =
+        ["COMPUTER_16B", "COMPUTER_16B_PIPE", "COMPUTER_16B_PIPE3", "COMPUTER_16B_SOC", "SOC_16B"];
 
     /// Runs a 16-bit program on `top` to HALT and returns the circuit and
     /// machine.
@@ -495,5 +560,20 @@ mod tests {
         let (circuit, machine) = run16("COMPUTER_16B_SOC", src, 0);
         assert_eq!(machine.word_at(0x0100), 0x8242);
         assert_eq!(read_bus(&circuit, OUT, 16), 0x42);
+    }
+
+    /// SOC_16B peripherals: display, UART (decoded by the machine) and GPIO,
+    /// also with slow memory.
+    #[test]
+    fn soc_peripherals() {
+        for latency in [0, 2] {
+            let (circuit, machine, _) =
+                run16_slow("SOC_16B", include_str!("../programs/soc/hello.asm"), 0xBEEF, latency);
+            assert_eq!(machine.uart, b"Hello!", "latency {latency}");
+            assert_eq!(read_bus(&circuit, "GpioOut", 16), 0xBEEF);
+            assert_eq!(read_bus(&circuit, "Io.Display", 16), 0xC0DE);
+            // I/O writes stay inside the chip.
+            assert_eq!(machine.ram[0xF002], 0);
+        }
     }
 }

@@ -1,0 +1,96 @@
+CIRCUIT IO_16B {
+    // Memory-mapped peripherals of SOC_16B on the I/O page 0xF000..0xF0FF
+    // (Sel = 1 for those addresses; the registers repeat every 8 words):
+    //
+    //   0xF000  GPIO_OUT     read/write  drives GpioOut
+    //   0xF001  GPIO_IN      read        the GpioIn pins
+    //   0xF002  DISPLAY      read/write  value of the 4-digit hex display
+    //   0xF003  UART_DATA    write       send WData[7..0] (reads 0)
+    //   0xF004  UART_STATUS  read        bit 0 = 1 while sending
+    //   0xF005  UART_DIV     read/write  clocks per bit - 1
+    //
+    // Reads are combinational (RData for the current Addr), writes happen
+    // on the rising CLK edge when Write = 1. Never waits.
+    INPUT Addr[16];
+    INPUT WData[16];
+    INPUT Write;
+    INPUT GpioIn[16];
+    INPUT CLK;
+    INPUT Reset;
+
+    OUTPUT Sel;          // Addr is on the I/O page
+    OUTPUT RData[16];
+    OUTPUT GpioOut[16];
+    OUTPUT Display[16];
+    OUTPUT Tx;
+
+    // Registers first: their INITs run before the gates driving them exist.
+    PART GpioReg: REGISTER_R<16>;
+    PART DisplayReg: REGISTER_R<16>;
+    PART Uart: UART_TX;
+
+    PART High3: AND3;        // Addr[15..13] = 111
+    PART High4: AND;         // ... and Addr[12] = 1
+    PART Low4: NOR4;         // Addr[11..8] = 0000
+    PART SelAnd: AND;
+    PART WriteAnd: AND;      // Sel AND Write
+    PART Dec: DECODER_4_16;  // register strobes from Addr[2..0]
+    PART ReadLo: MUX_4_1_BUS<16>;  // registers 0..3
+    PART ReadHi: MUX_4_1_BUS<16>;  // registers 4..7
+    PART ReadMux: MUX_2_1_BUS<16>; // by Addr[2]
+
+    // Address decoding
+    CONNECT Addr[15] -> High3.A;
+    CONNECT Addr[14] -> High3.B;
+    CONNECT Addr[13] -> High3.C;
+    CONNECT High3.Out -> High4.in1;
+    CONNECT Addr[12] -> High4.in2;
+    CONNECT Addr[11] -> Low4.A;
+    CONNECT Addr[10] -> Low4.B;
+    CONNECT Addr[9] -> Low4.C;
+    CONNECT Addr[8] -> Low4.D;
+    CONNECT High4.out -> SelAnd.in1;
+    CONNECT Low4.Out -> SelAnd.in2;
+    CONNECT SelAnd.out -> Sel;
+    CONNECT SelAnd.out -> WriteAnd.in1;
+    CONNECT Write -> WriteAnd.in2;
+    FOR i IN 0..3 {
+        CONNECT Addr[i] -> Dec.A[i];
+    }
+    CONNECT WriteAnd.out -> Dec.Enable;
+
+    // Registers
+    CONNECT WData -> GpioReg.Data;
+    CONNECT Dec.O[0] -> GpioReg.Load;
+    CONNECT Reset -> GpioReg.Reset;
+    CONNECT CLK -> GpioReg.CLK;
+    CONNECT GpioReg.Q -> GpioOut;
+    CONNECT WData -> DisplayReg.Data;
+    CONNECT Dec.O[2] -> DisplayReg.Load;
+    CONNECT Reset -> DisplayReg.Reset;
+    CONNECT CLK -> DisplayReg.CLK;
+    CONNECT DisplayReg.Q -> Display;
+    CONNECT WData -> Uart.WData;
+    CONNECT Dec.O[3] -> Uart.WriteData;
+    CONNECT Dec.O[5] -> Uart.WriteDiv;
+    CONNECT Reset -> Uart.Reset;
+    CONNECT CLK -> Uart.CLK;
+    CONNECT Uart.Tx -> Tx;
+
+    // Reads (unconnected inputs read 0)
+    FOR i IN 0..16 {
+        CONNECT GpioReg.Q[i] -> ReadLo.In[i];
+        CONNECT GpioIn[i] -> ReadLo.In[16+i];
+        CONNECT DisplayReg.Q[i] -> ReadLo.In[32+i];
+        CONNECT Uart.Div[i] -> ReadHi.In[16+i];
+    }
+    CONNECT Uart.Busy -> ReadHi.In[0];
+    CONNECT Addr[0] -> ReadLo.S[0];
+    CONNECT Addr[1] -> ReadLo.S[1];
+    CONNECT Addr[0] -> ReadHi.S[0];
+    CONNECT Addr[1] -> ReadHi.S[1];
+    CONNECT ReadLo.Out -> ReadMux.A;
+    CONNECT ReadHi.Out -> ReadMux.B;
+    CONNECT Addr[2] -> ReadMux.S;
+    CONNECT ReadMux.Out -> RData;
+}

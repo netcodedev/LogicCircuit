@@ -1,0 +1,1284 @@
+// Program-flow tests for SOC_16B (one memory for instructions and data).
+// The harness plays the memory (the program from address 0) and answers every
+// bus access: fetch, data read or write. After each clock it checks PC and
+// every change of Out, SP and the flags; every access is checked by address,
+// writes also by data. Each test starts with a Reset. Generated from the
+// simulator, same programs as CPU_16B.clt; the final Out, SP, flags and all
+// memory writes match COMPUTER_16B. Tests marked "wait states" answer each
+// access with Wait = 1 for that many clocks first.
+
+TESTS FOR SOC_16B {
+    // IN port and NOP
+    //   IN   R1
+    //   NOP
+    //   ADDI R1, 1
+    //   OUT  R1
+    //   HALT
+    TEST "IN port and NOP (5 clocks, Out = 0x1000)" {
+        SET Wait 0;
+        SET Reset 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Reset 0;
+        EVAL;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 0; ASSERT Out[10] 0; ASSERT Out[11] 0; ASSERT Out[12] 0; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 0;
+        ASSERT GpioOut[0] 0; ASSERT GpioOut[1] 0; ASSERT GpioOut[2] 0; ASSERT GpioOut[3] 0; ASSERT GpioOut[4] 0; ASSERT GpioOut[5] 0; ASSERT GpioOut[6] 0; ASSERT GpioOut[7] 0; ASSERT GpioOut[8] 0; ASSERT GpioOut[9] 0; ASSERT GpioOut[10] 0; ASSERT GpioOut[11] 0; ASSERT GpioOut[12] 0; ASSERT GpioOut[13] 0; ASSERT GpioOut[14] 0; ASSERT GpioOut[15] 0;
+        ASSERT Seg3[0] 1; ASSERT Seg3[1] 1; ASSERT Seg3[2] 1; ASSERT Seg3[3] 1; ASSERT Seg3[4] 1; ASSERT Seg3[5] 1; ASSERT Seg3[6] 0;
+        ASSERT Seg2[0] 1; ASSERT Seg2[1] 1; ASSERT Seg2[2] 1; ASSERT Seg2[3] 1; ASSERT Seg2[4] 1; ASSERT Seg2[5] 1; ASSERT Seg2[6] 0;
+        ASSERT Seg1[0] 1; ASSERT Seg1[1] 1; ASSERT Seg1[2] 1; ASSERT Seg1[3] 1; ASSERT Seg1[4] 1; ASSERT Seg1[5] 1; ASSERT Seg1[6] 0;
+        ASSERT Seg0[0] 1; ASSERT Seg0[1] 1; ASSERT Seg0[2] 1; ASSERT Seg0[3] 1; ASSERT Seg0[4] 1; ASSERT Seg0[5] 1; ASSERT Seg0[6] 0;
+        ASSERT Tx 1;
+        SET In[0] 1, In[1] 1, In[2] 1, In[3] 1, In[4] 1, In[5] 1, In[6] 1, In[7] 1, In[8] 1, In[9] 1, In[10] 1, In[11] 1, In[12] 0, In[13] 0, In[14] 0, In[15] 0;
+        SET GpioIn[0] 1, GpioIn[1] 1, GpioIn[2] 1, GpioIn[3] 1, GpioIn[4] 1, GpioIn[5] 1, GpioIn[6] 1, GpioIn[7] 1, GpioIn[8] 1, GpioIn[9] 1, GpioIn[10] 1, GpioIn[11] 1, GpioIn[12] 0, GpioIn[13] 0, GpioIn[14] 0, GpioIn[15] 0;
+        // 0x0000: 0x0108 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 1, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0001: 0x0001 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0002: 0x9101 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 1, DataIn[13] 0, DataIn[14] 0, DataIn[15] 1;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 1; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0003: 0x0107 (fetch)
+        SET DataIn[0] 1, DataIn[1] 1, DataIn[2] 1, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 1; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0004: 0x0000 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 0; ASSERT Out[10] 0; ASSERT Out[11] 0; ASSERT Out[12] 1; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 0;
+        // 0x0005: 0x0000 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 1; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 0; ASSERT Out[10] 0; ASSERT Out[11] 0; ASSERT Out[12] 1; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 0;
+    }
+
+    // I/O: GPIO, display and UART on page 0xF0xx
+    //   LI   R1, 0xF000
+    //   LW   R2, R1, 1      ; GPIO_IN
+    //   SW   R2, R1, 0      ; GPIO_OUT
+    //   LW   R3, R1, 0      ; read back
+    //   ADDI R3, 1
+    //   SW   R3, R1, 2      ; DISPLAY
+    //   MOVI R4, 1
+    //   SW   R4, R1, 5      ; UART_DIV: 2 clocks per bit
+    //   MOVI R4, 0x4B       ; 'K'
+    //   SW   R4, R1, 3      ; UART_DATA
+    //   wait:
+    //   LW   R5, R1, 4      ; UART_STATUS
+    //   ANDI R5, 1
+    //   BNE  wait
+    //   LW   R6, R1, 5      ; UART_DIV
+    //   OUT  R6
+    //   HALT
+    TEST "I/O: GPIO, display and UART on page 0xF0xx (45 clocks, Out = 0x0001)" {
+        SET Wait 0;
+        SET Reset 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Reset 0;
+        EVAL;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 0; ASSERT Out[10] 0; ASSERT Out[11] 0; ASSERT Out[12] 0; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 0;
+        ASSERT GpioOut[0] 0; ASSERT GpioOut[1] 0; ASSERT GpioOut[2] 0; ASSERT GpioOut[3] 0; ASSERT GpioOut[4] 0; ASSERT GpioOut[5] 0; ASSERT GpioOut[6] 0; ASSERT GpioOut[7] 0; ASSERT GpioOut[8] 0; ASSERT GpioOut[9] 0; ASSERT GpioOut[10] 0; ASSERT GpioOut[11] 0; ASSERT GpioOut[12] 0; ASSERT GpioOut[13] 0; ASSERT GpioOut[14] 0; ASSERT GpioOut[15] 0;
+        ASSERT Seg3[0] 1; ASSERT Seg3[1] 1; ASSERT Seg3[2] 1; ASSERT Seg3[3] 1; ASSERT Seg3[4] 1; ASSERT Seg3[5] 1; ASSERT Seg3[6] 0;
+        ASSERT Seg2[0] 1; ASSERT Seg2[1] 1; ASSERT Seg2[2] 1; ASSERT Seg2[3] 1; ASSERT Seg2[4] 1; ASSERT Seg2[5] 1; ASSERT Seg2[6] 0;
+        ASSERT Seg1[0] 1; ASSERT Seg1[1] 1; ASSERT Seg1[2] 1; ASSERT Seg1[3] 1; ASSERT Seg1[4] 1; ASSERT Seg1[5] 1; ASSERT Seg1[6] 0;
+        ASSERT Seg0[0] 1; ASSERT Seg0[1] 1; ASSERT Seg0[2] 1; ASSERT Seg0[3] 1; ASSERT Seg0[4] 1; ASSERT Seg0[5] 1; ASSERT Seg0[6] 0;
+        ASSERT Tx 1;
+        SET In[0] 0, In[1] 0, In[2] 1, In[3] 0, In[4] 1, In[5] 1, In[6] 0, In[7] 0, In[8] 0, In[9] 1, In[10] 0, In[11] 0, In[12] 1, In[13] 0, In[14] 0, In[15] 0;
+        SET GpioIn[0] 0, GpioIn[1] 0, GpioIn[2] 1, GpioIn[3] 0, GpioIn[4] 1, GpioIn[5] 1, GpioIn[6] 0, GpioIn[7] 0, GpioIn[8] 0, GpioIn[9] 1, GpioIn[10] 0, GpioIn[11] 0, GpioIn[12] 1, GpioIn[13] 0, GpioIn[14] 0, GpioIn[15] 0;
+        // 0x0000: 0x6100 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 1, DataIn[14] 1, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0001: 0xF000 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 1, DataIn[15] 1;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0002: 0x3211 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 1, DataIn[10] 0, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 1; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0003: 0x4210 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 1, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 1, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 1; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0xF001: 0x0000 (read)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 0; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 1; ASSERT Addr[13] 1; ASSERT Addr[14] 1; ASSERT Addr[15] 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0004: 0x3310 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 1, DataIn[10] 0, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0xF000: 0x0000 (read)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 0; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 1; ASSERT Addr[13] 1; ASSERT Addr[14] 1; ASSERT Addr[15] 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        ASSERT GpioOut[0] 0; ASSERT GpioOut[1] 0; ASSERT GpioOut[2] 1; ASSERT GpioOut[3] 0; ASSERT GpioOut[4] 1; ASSERT GpioOut[5] 1; ASSERT GpioOut[6] 0; ASSERT GpioOut[7] 0; ASSERT GpioOut[8] 0; ASSERT GpioOut[9] 1; ASSERT GpioOut[10] 0; ASSERT GpioOut[11] 0; ASSERT GpioOut[12] 1; ASSERT GpioOut[13] 0; ASSERT GpioOut[14] 0; ASSERT GpioOut[15] 0;
+        // 0xF000: 0x0000 (read)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 0; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 1; ASSERT Addr[13] 1; ASSERT Addr[14] 1; ASSERT Addr[15] 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0005: 0x9301 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 1, DataIn[10] 0, DataIn[11] 0, DataIn[12] 1, DataIn[13] 0, DataIn[14] 0, DataIn[15] 1;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 1; ASSERT PC[2] 1; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0006: 0x4312 (fetch)
+        SET DataIn[0] 0, DataIn[1] 1, DataIn[2] 0, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 1, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 1, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 1; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 1; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0007: 0x8401 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 1;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 1; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 0; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0xF002: 0x0000 (read)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 0; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 1; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 1; ASSERT Addr[13] 1; ASSERT Addr[14] 1; ASSERT Addr[15] 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 0; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        ASSERT Seg3[0] 0; ASSERT Seg3[1] 1; ASSERT Seg3[2] 1; ASSERT Seg3[3] 0; ASSERT Seg3[4] 0; ASSERT Seg3[5] 0; ASSERT Seg3[6] 0;
+        ASSERT Seg2[0] 1; ASSERT Seg2[1] 1; ASSERT Seg2[2] 0; ASSERT Seg2[3] 1; ASSERT Seg2[4] 1; ASSERT Seg2[5] 0; ASSERT Seg2[6] 1;
+        ASSERT Seg1[0] 1; ASSERT Seg1[1] 1; ASSERT Seg1[2] 1; ASSERT Seg1[3] 1; ASSERT Seg1[4] 0; ASSERT Seg1[5] 0; ASSERT Seg1[6] 1;
+        ASSERT Seg0[0] 1; ASSERT Seg0[1] 0; ASSERT Seg0[2] 1; ASSERT Seg0[3] 1; ASSERT Seg0[4] 0; ASSERT Seg0[5] 1; ASSERT Seg0[6] 1;
+        // 0x0008: 0x4415 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 1, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 1, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 0; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 0; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0009: 0x844B (fetch)
+        SET DataIn[0] 1, DataIn[1] 1, DataIn[2] 0, DataIn[3] 1, DataIn[4] 0, DataIn[5] 0, DataIn[6] 1, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 1;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 0; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0xF005: 0x0000 (read)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 0; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 1; ASSERT Addr[13] 1; ASSERT Addr[14] 1; ASSERT Addr[15] 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000A: 0x4413 (fetch)
+        SET DataIn[0] 1, DataIn[1] 1, DataIn[2] 0, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 1, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 1; ASSERT Addr[2] 0; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000B: 0x3514 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 1, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 1; ASSERT Addr[2] 0; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0xF003: 0x0000 (read)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 0; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 1; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 1; ASSERT Addr[13] 1; ASSERT Addr[14] 1; ASSERT Addr[15] 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        ASSERT Tx 0;
+        // 0xF004: 0x0000 (read)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 0; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 1; ASSERT Addr[13] 1; ASSERT Addr[14] 1; ASSERT Addr[15] 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000C: 0xB501 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 1;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        ASSERT Tx 1;
+        // 0x000D: 0x51FD (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 1, DataIn[3] 1, DataIn[4] 1, DataIn[5] 1, DataIn[6] 1, DataIn[7] 1, DataIn[8] 1, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 1, DataIn[13] 0, DataIn[14] 1, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 1; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000E: 0x3615 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 1, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 1, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 1; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000B: 0x3514 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 1, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 1; ASSERT Addr[2] 0; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000C: 0xB501 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 1;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        ASSERT Tx 0;
+        // 0xF004: 0x0000 (read)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 0; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 1; ASSERT Addr[13] 1; ASSERT Addr[14] 1; ASSERT Addr[15] 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000D: 0x51FD (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 1, DataIn[3] 1, DataIn[4] 1, DataIn[5] 1, DataIn[6] 1, DataIn[7] 1, DataIn[8] 1, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 1, DataIn[13] 0, DataIn[14] 1, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 1; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        ASSERT Tx 1;
+        // 0x000E: 0x3615 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 1, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 1, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 1; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000B: 0x3514 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 1, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 1; ASSERT Addr[2] 0; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        ASSERT Tx 0;
+        // 0x000C: 0xB501 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 1;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0xF004: 0x0000 (read)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 0; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 1; ASSERT Addr[13] 1; ASSERT Addr[14] 1; ASSERT Addr[15] 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000D: 0x51FD (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 1, DataIn[3] 1, DataIn[4] 1, DataIn[5] 1, DataIn[6] 1, DataIn[7] 1, DataIn[8] 1, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 1, DataIn[13] 0, DataIn[14] 1, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 1; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000E: 0x3615 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 1, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 1, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 1; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        ASSERT Tx 1;
+        // 0x000B: 0x3514 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 1, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 1; ASSERT Addr[2] 0; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000C: 0xB501 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 1;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        ASSERT Tx 0;
+        // 0xF004: 0x0000 (read)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 0; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 1; ASSERT Addr[13] 1; ASSERT Addr[14] 1; ASSERT Addr[15] 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000D: 0x51FD (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 1, DataIn[3] 1, DataIn[4] 1, DataIn[5] 1, DataIn[6] 1, DataIn[7] 1, DataIn[8] 1, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 1, DataIn[13] 0, DataIn[14] 1, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 1; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        ASSERT Tx 1;
+        // 0x000E: 0x3615 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 1, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 1, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 1; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000B: 0x3514 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 1, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 1; ASSERT Addr[2] 0; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000C: 0xB501 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 1;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0xF004: 0x0000 (read)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 0; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 1; ASSERT Addr[13] 1; ASSERT Addr[14] 1; ASSERT Addr[15] 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000D: 0x51FD (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 1, DataIn[3] 1, DataIn[4] 1, DataIn[5] 1, DataIn[6] 1, DataIn[7] 1, DataIn[8] 1, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 1, DataIn[13] 0, DataIn[14] 1, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 1; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000E: 0x3615 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 1, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 1, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 1; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000F: 0x0607 (fetch)
+        SET DataIn[0] 1, DataIn[1] 1, DataIn[2] 1, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 1, DataIn[10] 1, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 1; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 1; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0xF005: 0x0000 (read)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 0; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 1; ASSERT Addr[13] 1; ASSERT Addr[14] 1; ASSERT Addr[15] 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 1; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0010: 0x0000 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 1; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 1; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        ASSERT Out[0] 1; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 0; ASSERT Out[10] 0; ASSERT Out[11] 0; ASSERT Out[12] 0; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 0;
+        // 0x0011: 0x0000 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 1; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 1; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        ASSERT Out[0] 1; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 0; ASSERT Out[10] 0; ASSERT Out[11] 0; ASSERT Out[12] 0; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 0;
+    }
+
+    // I/O: GPIO, display and UART on page 0xF0xx
+    //   LI   R1, 0xF000
+    //   LW   R2, R1, 1      ; GPIO_IN
+    //   SW   R2, R1, 0      ; GPIO_OUT
+    //   LW   R3, R1, 0      ; read back
+    //   ADDI R3, 1
+    //   SW   R3, R1, 2      ; DISPLAY
+    //   MOVI R4, 1
+    //   SW   R4, R1, 5      ; UART_DIV: 2 clocks per bit
+    //   MOVI R4, 0x4B       ; 'K'
+    //   SW   R4, R1, 3      ; UART_DATA
+    //   wait:
+    //   LW   R5, R1, 4      ; UART_STATUS
+    //   ANDI R5, 1
+    //   BNE  wait
+    //   LW   R6, R1, 5      ; UART_DIV
+    //   OUT  R6
+    //   HALT
+    TEST "I/O: GPIO, display and UART on page 0xF0xx, 2 wait states per access (91 clocks, Out = 0x0001)" {
+        SET Wait 0;
+        SET Reset 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Reset 0;
+        EVAL;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        ASSERT Out[0] 0; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 0; ASSERT Out[10] 0; ASSERT Out[11] 0; ASSERT Out[12] 0; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 0;
+        ASSERT GpioOut[0] 0; ASSERT GpioOut[1] 0; ASSERT GpioOut[2] 0; ASSERT GpioOut[3] 0; ASSERT GpioOut[4] 0; ASSERT GpioOut[5] 0; ASSERT GpioOut[6] 0; ASSERT GpioOut[7] 0; ASSERT GpioOut[8] 0; ASSERT GpioOut[9] 0; ASSERT GpioOut[10] 0; ASSERT GpioOut[11] 0; ASSERT GpioOut[12] 0; ASSERT GpioOut[13] 0; ASSERT GpioOut[14] 0; ASSERT GpioOut[15] 0;
+        ASSERT Seg3[0] 1; ASSERT Seg3[1] 1; ASSERT Seg3[2] 1; ASSERT Seg3[3] 1; ASSERT Seg3[4] 1; ASSERT Seg3[5] 1; ASSERT Seg3[6] 0;
+        ASSERT Seg2[0] 1; ASSERT Seg2[1] 1; ASSERT Seg2[2] 1; ASSERT Seg2[3] 1; ASSERT Seg2[4] 1; ASSERT Seg2[5] 1; ASSERT Seg2[6] 0;
+        ASSERT Seg1[0] 1; ASSERT Seg1[1] 1; ASSERT Seg1[2] 1; ASSERT Seg1[3] 1; ASSERT Seg1[4] 1; ASSERT Seg1[5] 1; ASSERT Seg1[6] 0;
+        ASSERT Seg0[0] 1; ASSERT Seg0[1] 1; ASSERT Seg0[2] 1; ASSERT Seg0[3] 1; ASSERT Seg0[4] 1; ASSERT Seg0[5] 1; ASSERT Seg0[6] 0;
+        ASSERT Tx 1;
+        SET In[0] 0, In[1] 0, In[2] 1, In[3] 0, In[4] 1, In[5] 1, In[6] 0, In[7] 0, In[8] 0, In[9] 1, In[10] 0, In[11] 0, In[12] 1, In[13] 0, In[14] 0, In[15] 0;
+        SET GpioIn[0] 0, GpioIn[1] 0, GpioIn[2] 1, GpioIn[3] 0, GpioIn[4] 1, GpioIn[5] 1, GpioIn[6] 0, GpioIn[7] 0, GpioIn[8] 0, GpioIn[9] 1, GpioIn[10] 0, GpioIn[11] 0, GpioIn[12] 1, GpioIn[13] 0, GpioIn[14] 0, GpioIn[15] 0;
+        // 0x0000: 0x6100 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 1, DataIn[14] 1, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0000: 0x6100 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 1, DataIn[14] 1, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0000: 0x6100 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 1, DataIn[14] 1, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0001: 0xF000 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 1, DataIn[15] 1;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0001: 0xF000 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 1, DataIn[15] 1;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0001: 0xF000 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 1, DataIn[15] 1;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0002: 0x3211 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 1, DataIn[10] 0, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 1; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0002: 0x3211 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 1, DataIn[10] 0, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 1; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0002: 0x3211 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 1, DataIn[10] 0, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 1; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0003: 0x4210 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 1, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 1, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 1; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0xF001: 0x0000 (read)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 0; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 1; ASSERT Addr[13] 1; ASSERT Addr[14] 1; ASSERT Addr[15] 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0003: 0x4210 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 1, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 1, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 1; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0003: 0x4210 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 1, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 1, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 1; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0003: 0x4210 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 1, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 1, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 1; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0004: 0x3310 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 1, DataIn[10] 0, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0xF000: 0x0000 (read)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 0; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 1; ASSERT Addr[13] 1; ASSERT Addr[14] 1; ASSERT Addr[15] 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        ASSERT GpioOut[0] 0; ASSERT GpioOut[1] 0; ASSERT GpioOut[2] 1; ASSERT GpioOut[3] 0; ASSERT GpioOut[4] 1; ASSERT GpioOut[5] 1; ASSERT GpioOut[6] 0; ASSERT GpioOut[7] 0; ASSERT GpioOut[8] 0; ASSERT GpioOut[9] 1; ASSERT GpioOut[10] 0; ASSERT GpioOut[11] 0; ASSERT GpioOut[12] 1; ASSERT GpioOut[13] 0; ASSERT GpioOut[14] 0; ASSERT GpioOut[15] 0;
+        // 0x0004: 0x3310 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 1, DataIn[10] 0, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0004: 0x3310 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 1, DataIn[10] 0, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0004: 0x3310 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 1, DataIn[10] 0, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0005: 0x9301 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 1, DataIn[10] 0, DataIn[11] 0, DataIn[12] 1, DataIn[13] 0, DataIn[14] 0, DataIn[15] 1;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0xF000: 0x0000 (read)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 0; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 1; ASSERT Addr[13] 1; ASSERT Addr[14] 1; ASSERT Addr[15] 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0005: 0x9301 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 1, DataIn[10] 0, DataIn[11] 0, DataIn[12] 1, DataIn[13] 0, DataIn[14] 0, DataIn[15] 1;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0005: 0x9301 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 1, DataIn[10] 0, DataIn[11] 0, DataIn[12] 1, DataIn[13] 0, DataIn[14] 0, DataIn[15] 1;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0005: 0x9301 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 1, DataIn[10] 0, DataIn[11] 0, DataIn[12] 1, DataIn[13] 0, DataIn[14] 0, DataIn[15] 1;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 1; ASSERT PC[2] 1; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0006: 0x4312 (fetch)
+        SET DataIn[0] 0, DataIn[1] 1, DataIn[2] 0, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 1, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 1, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 1; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 1; ASSERT PC[2] 1; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0006: 0x4312 (fetch)
+        SET DataIn[0] 0, DataIn[1] 1, DataIn[2] 0, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 1, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 1, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 1; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 1; ASSERT PC[2] 1; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0006: 0x4312 (fetch)
+        SET DataIn[0] 0, DataIn[1] 1, DataIn[2] 0, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 1, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 1, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 1; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 1; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0007: 0x8401 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 1;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 1; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 1; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0xF002: 0x0000 (read)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 0; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 1; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 1; ASSERT Addr[13] 1; ASSERT Addr[14] 1; ASSERT Addr[15] 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 1; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        ASSERT Seg3[0] 0; ASSERT Seg3[1] 1; ASSERT Seg3[2] 1; ASSERT Seg3[3] 0; ASSERT Seg3[4] 0; ASSERT Seg3[5] 0; ASSERT Seg3[6] 0;
+        ASSERT Seg2[0] 1; ASSERT Seg2[1] 1; ASSERT Seg2[2] 0; ASSERT Seg2[3] 1; ASSERT Seg2[4] 1; ASSERT Seg2[5] 0; ASSERT Seg2[6] 1;
+        ASSERT Seg1[0] 1; ASSERT Seg1[1] 1; ASSERT Seg1[2] 1; ASSERT Seg1[3] 1; ASSERT Seg1[4] 0; ASSERT Seg1[5] 0; ASSERT Seg1[6] 1;
+        ASSERT Seg0[0] 1; ASSERT Seg0[1] 0; ASSERT Seg0[2] 1; ASSERT Seg0[3] 1; ASSERT Seg0[4] 0; ASSERT Seg0[5] 1; ASSERT Seg0[6] 1;
+        // 0x0007: 0x8401 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 1;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 1; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 1; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0007: 0x8401 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 1;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 1; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 1; ASSERT PC[3] 0; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0007: 0x8401 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 1;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 1; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 0; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0008: 0x4415 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 1, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 1, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 0; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 0; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0008: 0x4415 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 1, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 1, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 0; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 0; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0008: 0x4415 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 1, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 1, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 0; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 0; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0009: 0x844B (fetch)
+        SET DataIn[0] 1, DataIn[1] 1, DataIn[2] 0, DataIn[3] 1, DataIn[4] 0, DataIn[5] 0, DataIn[6] 1, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 1;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 0; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 0; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0xF005: 0x0000 (read)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 0; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 1; ASSERT Addr[13] 1; ASSERT Addr[14] 1; ASSERT Addr[15] 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 0; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0009: 0x844B (fetch)
+        SET DataIn[0] 1, DataIn[1] 1, DataIn[2] 0, DataIn[3] 1, DataIn[4] 0, DataIn[5] 0, DataIn[6] 1, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 1;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 0; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 0; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0009: 0x844B (fetch)
+        SET DataIn[0] 1, DataIn[1] 1, DataIn[2] 0, DataIn[3] 1, DataIn[4] 0, DataIn[5] 0, DataIn[6] 1, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 1;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 0; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 0; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0009: 0x844B (fetch)
+        SET DataIn[0] 1, DataIn[1] 1, DataIn[2] 0, DataIn[3] 1, DataIn[4] 0, DataIn[5] 0, DataIn[6] 1, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 1;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 0; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000A: 0x4413 (fetch)
+        SET DataIn[0] 1, DataIn[1] 1, DataIn[2] 0, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 1, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 1; ASSERT Addr[2] 0; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000A: 0x4413 (fetch)
+        SET DataIn[0] 1, DataIn[1] 1, DataIn[2] 0, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 1, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 1; ASSERT Addr[2] 0; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000A: 0x4413 (fetch)
+        SET DataIn[0] 1, DataIn[1] 1, DataIn[2] 0, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 1, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 1; ASSERT Addr[2] 0; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000B: 0x3514 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 1, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 1; ASSERT Addr[2] 0; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0xF003: 0x0000 (read)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 0; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 1; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 1; ASSERT Addr[13] 1; ASSERT Addr[14] 1; ASSERT Addr[15] 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        ASSERT Tx 0;
+        // 0x000B: 0x3514 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 1, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 1; ASSERT Addr[2] 0; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000B: 0x3514 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 1, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 1; ASSERT Addr[2] 0; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        ASSERT Tx 1;
+        // 0x000B: 0x3514 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 1, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 1; ASSERT Addr[2] 0; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000C: 0xB501 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 1;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0xF004: 0x0000 (read)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 0; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 1; ASSERT Addr[13] 1; ASSERT Addr[14] 1; ASSERT Addr[15] 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000C: 0xB501 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 1;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        ASSERT Tx 0;
+        // 0x000C: 0xB501 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 1;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000C: 0xB501 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 1;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        ASSERT Tx 1;
+        // 0x000D: 0x51FD (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 1, DataIn[3] 1, DataIn[4] 1, DataIn[5] 1, DataIn[6] 1, DataIn[7] 1, DataIn[8] 1, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 1, DataIn[13] 0, DataIn[14] 1, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000D: 0x51FD (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 1, DataIn[3] 1, DataIn[4] 1, DataIn[5] 1, DataIn[6] 1, DataIn[7] 1, DataIn[8] 1, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 1, DataIn[13] 0, DataIn[14] 1, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        ASSERT Tx 0;
+        // 0x000D: 0x51FD (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 1, DataIn[3] 1, DataIn[4] 1, DataIn[5] 1, DataIn[6] 1, DataIn[7] 1, DataIn[8] 1, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 1, DataIn[13] 0, DataIn[14] 1, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 1; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000E: 0x3615 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 1, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 1, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 1; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000B: 0x3514 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 1, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 1; ASSERT Addr[2] 0; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000B: 0x3514 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 1, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 1; ASSERT Addr[2] 0; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        ASSERT Tx 1;
+        // 0x000B: 0x3514 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 1, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 1; ASSERT Addr[2] 0; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000C: 0xB501 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 1;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        ASSERT Tx 0;
+        // 0xF004: 0x0000 (read)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 0; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 1; ASSERT Addr[13] 1; ASSERT Addr[14] 1; ASSERT Addr[15] 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000C: 0xB501 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 1;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        ASSERT Tx 1;
+        // 0x000C: 0xB501 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 1;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000C: 0xB501 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 1;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000D: 0x51FD (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 1, DataIn[3] 1, DataIn[4] 1, DataIn[5] 1, DataIn[6] 1, DataIn[7] 1, DataIn[8] 1, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 1, DataIn[13] 0, DataIn[14] 1, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000D: 0x51FD (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 1, DataIn[3] 1, DataIn[4] 1, DataIn[5] 1, DataIn[6] 1, DataIn[7] 1, DataIn[8] 1, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 1, DataIn[13] 0, DataIn[14] 1, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000D: 0x51FD (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 1, DataIn[3] 1, DataIn[4] 1, DataIn[5] 1, DataIn[6] 1, DataIn[7] 1, DataIn[8] 1, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 1, DataIn[13] 0, DataIn[14] 1, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 1; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000E: 0x3615 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 1, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 1, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 1; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000B: 0x3514 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 1, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 1; ASSERT Addr[2] 0; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000B: 0x3514 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 1, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 1; ASSERT Addr[2] 0; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 0; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000B: 0x3514 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 1, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 1; ASSERT Addr[2] 0; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000C: 0xB501 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 1;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0xF004: 0x0000 (read)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 0; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 1; ASSERT Addr[13] 1; ASSERT Addr[14] 1; ASSERT Addr[15] 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000C: 0xB501 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 1;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000C: 0xB501 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 1;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000C: 0xB501 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 1, DataIn[9] 0, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 1;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000D: 0x51FD (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 1, DataIn[3] 1, DataIn[4] 1, DataIn[5] 1, DataIn[6] 1, DataIn[7] 1, DataIn[8] 1, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 1, DataIn[13] 0, DataIn[14] 1, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000D: 0x51FD (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 1, DataIn[3] 1, DataIn[4] 1, DataIn[5] 1, DataIn[6] 1, DataIn[7] 1, DataIn[8] 1, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 1, DataIn[13] 0, DataIn[14] 1, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000D: 0x51FD (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 1, DataIn[3] 1, DataIn[4] 1, DataIn[5] 1, DataIn[6] 1, DataIn[7] 1, DataIn[8] 1, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 1, DataIn[13] 0, DataIn[14] 1, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 1; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000E: 0x3615 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 1, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 1, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 1; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 1; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000E: 0x3615 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 1, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 1, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 1; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 1; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000E: 0x3615 (fetch)
+        SET DataIn[0] 1, DataIn[1] 0, DataIn[2] 1, DataIn[3] 0, DataIn[4] 1, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 1, DataIn[10] 1, DataIn[11] 0, DataIn[12] 1, DataIn[13] 1, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 1; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000F: 0x0607 (fetch)
+        SET DataIn[0] 1, DataIn[1] 1, DataIn[2] 1, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 1, DataIn[10] 1, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 1; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0xF005: 0x0000 (read)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 0; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 1; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 1; ASSERT Addr[13] 1; ASSERT Addr[14] 1; ASSERT Addr[15] 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000F: 0x0607 (fetch)
+        SET DataIn[0] 1, DataIn[1] 1, DataIn[2] 1, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 1, DataIn[10] 1, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 1; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000F: 0x0607 (fetch)
+        SET DataIn[0] 1, DataIn[1] 1, DataIn[2] 1, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 1, DataIn[10] 1, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 1; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 1; ASSERT PC[2] 1; ASSERT PC[3] 1; ASSERT PC[4] 0; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x000F: 0x0607 (fetch)
+        SET DataIn[0] 1, DataIn[1] 1, DataIn[2] 1, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 1, DataIn[10] 1, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 1; ASSERT Addr[2] 1; ASSERT Addr[3] 1; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 1; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0010: 0x0000 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 1; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 1; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        ASSERT Out[0] 1; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 0; ASSERT Out[10] 0; ASSERT Out[11] 0; ASSERT Out[12] 0; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 0;
+        // 0x0010: 0x0000 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 1; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 0; ASSERT PC[1] 0; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 1; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0010: 0x0000 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 0;
+        EVAL;
+        ASSERT Halted 0; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 1; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT PC[0] 1; ASSERT PC[1] 0; ASSERT PC[2] 0; ASSERT PC[3] 0; ASSERT PC[4] 1; ASSERT PC[5] 0; ASSERT PC[6] 0; ASSERT PC[7] 0; ASSERT PC[8] 0; ASSERT PC[9] 0; ASSERT PC[10] 0; ASSERT PC[11] 0; ASSERT PC[12] 0; ASSERT PC[13] 0; ASSERT PC[14] 0; ASSERT PC[15] 0;
+        // 0x0011: 0x0000 (fetch)
+        SET DataIn[0] 0, DataIn[1] 0, DataIn[2] 0, DataIn[3] 0, DataIn[4] 0, DataIn[5] 0, DataIn[6] 0, DataIn[7] 0, DataIn[8] 0, DataIn[9] 0, DataIn[10] 0, DataIn[11] 0, DataIn[12] 0, DataIn[13] 0, DataIn[14] 0, DataIn[15] 0;
+        SET Wait 1;
+        EVAL;
+        ASSERT Halted 1; ASSERT Fetch 1; ASSERT Write 0;
+        ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 1; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
+        ASSERT Out[0] 1; ASSERT Out[1] 0; ASSERT Out[2] 0; ASSERT Out[3] 0; ASSERT Out[4] 0; ASSERT Out[5] 0; ASSERT Out[6] 0; ASSERT Out[7] 0; ASSERT Out[8] 0; ASSERT Out[9] 0; ASSERT Out[10] 0; ASSERT Out[11] 0; ASSERT Out[12] 0; ASSERT Out[13] 0; ASSERT Out[14] 0; ASSERT Out[15] 0;
+    }
+}

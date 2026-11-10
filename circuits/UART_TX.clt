@@ -1,0 +1,154 @@
+// Tests for the UART transmitter (each test continues from the previous one)
+
+TESTS FOR UART_TX {
+    TEST "Idle after reset: Tx = 1" {
+        SET WriteData 0, WriteDiv 0, Reset 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Reset 0;
+        EVAL;
+        ASSERT Tx 1; ASSERT Busy 0;
+    }
+
+    TEST "Div = 1: two clocks per bit" {
+        SET WData[0] 1, WData[1] 0, WData[2] 0, WData[3] 0, WData[4] 0, WData[5] 0, WData[6] 0, WData[7] 0, WData[8] 0, WData[9] 0, WData[10] 0, WData[11] 0, WData[12] 0, WData[13] 0, WData[14] 0, WData[15] 0;
+        SET WriteDiv 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET WriteDiv 0;
+        EVAL;
+        ASSERT Div[0] 1; ASSERT Div[1] 0; ASSERT Tx 1; ASSERT Busy 0;
+    }
+
+    TEST "Send A" {
+        SET WData[0] 1, WData[1] 0, WData[2] 0, WData[3] 0, WData[4] 0, WData[5] 0, WData[6] 1, WData[7] 0, WData[8] 0, WData[9] 0, WData[10] 0, WData[11] 0, WData[12] 0, WData[13] 0, WData[14] 0, WData[15] 0;
+        SET WriteData 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET WriteData 0;
+        ASSERT Busy 1;
+        ASSERT Tx 0; // bit 0
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 0; ASSERT Busy 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 1; // bit 1
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 1; ASSERT Busy 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 0; // bit 2
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 0; ASSERT Busy 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 0; // bit 3
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 0; ASSERT Busy 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 0; // bit 4
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 0; ASSERT Busy 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 0; // bit 5
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 0; ASSERT Busy 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 0; // bit 6
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 0; ASSERT Busy 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 1; // bit 7
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 1; ASSERT Busy 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 0; // bit 8
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 0; ASSERT Busy 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 1; // bit 9
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 1; ASSERT Busy 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 1; ASSERT Busy 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 1; ASSERT Busy 0;
+    }
+
+    TEST "Send 0xC6" {
+        SET WData[0] 0, WData[1] 1, WData[2] 1, WData[3] 0, WData[4] 0, WData[5] 0, WData[6] 1, WData[7] 1, WData[8] 0, WData[9] 0, WData[10] 0, WData[11] 0, WData[12] 0, WData[13] 0, WData[14] 0, WData[15] 0;
+        SET WriteData 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET WriteData 0;
+        ASSERT Busy 1;
+        ASSERT Tx 0; // bit 0
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 0; ASSERT Busy 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 0; // bit 1
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 0; ASSERT Busy 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 1; // bit 2
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 1; ASSERT Busy 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 1; // bit 3
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 1; ASSERT Busy 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 0; // bit 4
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 0; ASSERT Busy 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 0; // bit 5
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 0; ASSERT Busy 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 0; // bit 6
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 0; ASSERT Busy 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 1; // bit 7
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 1; ASSERT Busy 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 1; // bit 8
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 1; ASSERT Busy 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 1; // bit 9
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 1; ASSERT Busy 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 1; ASSERT Busy 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 1; ASSERT Busy 0;
+    }
+
+    TEST "Div = 0: one clock per bit" {
+        SET WData[0] 0, WData[1] 0, WData[2] 0, WData[3] 0, WData[4] 0, WData[5] 0, WData[6] 0, WData[7] 0, WData[8] 0, WData[9] 0, WData[10] 0, WData[11] 0, WData[12] 0, WData[13] 0, WData[14] 0, WData[15] 0;
+        SET WriteDiv 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET WriteDiv 0;
+        SET WData[0] 1, WData[1] 0, WData[2] 0, WData[3] 0, WData[4] 0, WData[5] 0, WData[6] 0, WData[7] 0, WData[8] 0, WData[9] 0, WData[10] 0, WData[11] 0, WData[12] 0, WData[13] 0, WData[14] 0, WData[15] 0;
+        SET WriteData 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET WriteData 0;
+        ASSERT Tx 0; ASSERT Busy 1; // bit 0
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 1; ASSERT Busy 1; // bit 1
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 0; ASSERT Busy 1; // bit 2
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 0; ASSERT Busy 1; // bit 3
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 0; ASSERT Busy 1; // bit 4
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 0; ASSERT Busy 1; // bit 5
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 0; ASSERT Busy 1; // bit 6
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 0; ASSERT Busy 1; // bit 7
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 0; ASSERT Busy 1; // bit 8
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 1; ASSERT Busy 1; // bit 9
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 1; ASSERT Busy 0;
+    }
+}

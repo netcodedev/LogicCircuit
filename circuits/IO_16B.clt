@@ -1,0 +1,134 @@
+// Tests for the memory-mapped peripherals (each test continues from the previous one)
+
+TESTS FOR IO_16B {
+    TEST "Reset: all registers 0" {
+        SET Write 0, Reset 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Reset 0;
+        SET Addr[0] 0, Addr[1] 0, Addr[2] 0, Addr[3] 0, Addr[4] 0, Addr[5] 0, Addr[6] 0, Addr[7] 0, Addr[8] 0, Addr[9] 0, Addr[10] 0, Addr[11] 0, Addr[12] 1, Addr[13] 1, Addr[14] 1, Addr[15] 1;
+        EVAL;
+        ASSERT Sel 1; ASSERT Tx 1;
+        ASSERT RData[0] 0; ASSERT RData[1] 0; ASSERT RData[2] 0; ASSERT RData[3] 0; ASSERT RData[4] 0; ASSERT RData[5] 0; ASSERT RData[6] 0; ASSERT RData[7] 0; ASSERT RData[8] 0; ASSERT RData[9] 0; ASSERT RData[10] 0; ASSERT RData[11] 0; ASSERT RData[12] 0; ASSERT RData[13] 0; ASSERT RData[14] 0; ASSERT RData[15] 0;
+        ASSERT GpioOut[0] 0; ASSERT GpioOut[1] 0; ASSERT GpioOut[2] 0; ASSERT GpioOut[3] 0; ASSERT GpioOut[4] 0; ASSERT GpioOut[5] 0; ASSERT GpioOut[6] 0; ASSERT GpioOut[7] 0; ASSERT GpioOut[8] 0; ASSERT GpioOut[9] 0; ASSERT GpioOut[10] 0; ASSERT GpioOut[11] 0; ASSERT GpioOut[12] 0; ASSERT GpioOut[13] 0; ASSERT GpioOut[14] 0; ASSERT GpioOut[15] 0;
+    }
+
+    TEST "Sel only on page 0xF0xx" {
+        SET Addr[0] 0, Addr[1] 0, Addr[2] 0, Addr[3] 0, Addr[4] 0, Addr[5] 0, Addr[6] 0, Addr[7] 0, Addr[8] 0, Addr[9] 0, Addr[10] 0, Addr[11] 0, Addr[12] 0, Addr[13] 0, Addr[14] 0, Addr[15] 0;
+        EVAL;
+        ASSERT Sel 0;
+        SET Addr[0] 0, Addr[1] 0, Addr[2] 0, Addr[3] 0, Addr[4] 0, Addr[5] 0, Addr[6] 0, Addr[7] 0, Addr[8] 1, Addr[9] 0, Addr[10] 0, Addr[11] 0, Addr[12] 1, Addr[13] 1, Addr[14] 1, Addr[15] 1;
+        EVAL;
+        ASSERT Sel 0;
+        SET Addr[0] 0, Addr[1] 0, Addr[2] 0, Addr[3] 0, Addr[4] 0, Addr[5] 0, Addr[6] 0, Addr[7] 0, Addr[8] 0, Addr[9] 0, Addr[10] 0, Addr[11] 0, Addr[12] 0, Addr[13] 1, Addr[14] 1, Addr[15] 1;
+        EVAL;
+        ASSERT Sel 0;
+        SET Addr[0] 0, Addr[1] 0, Addr[2] 0, Addr[3] 0, Addr[4] 0, Addr[5] 0, Addr[6] 0, Addr[7] 0, Addr[8] 0, Addr[9] 0, Addr[10] 0, Addr[11] 0, Addr[12] 1, Addr[13] 1, Addr[14] 1, Addr[15] 0;
+        EVAL;
+        ASSERT Sel 0;
+        SET Addr[0] 1, Addr[1] 1, Addr[2] 1, Addr[3] 1, Addr[4] 1, Addr[5] 1, Addr[6] 1, Addr[7] 1, Addr[8] 1, Addr[9] 1, Addr[10] 1, Addr[11] 1, Addr[12] 1, Addr[13] 1, Addr[14] 1, Addr[15] 1;
+        EVAL;
+        ASSERT Sel 0;
+        SET Addr[0] 1, Addr[1] 1, Addr[2] 1, Addr[3] 1, Addr[4] 1, Addr[5] 1, Addr[6] 1, Addr[7] 1, Addr[8] 0, Addr[9] 0, Addr[10] 0, Addr[11] 0, Addr[12] 1, Addr[13] 1, Addr[14] 1, Addr[15] 1;
+        EVAL;
+        ASSERT Sel 1;
+    }
+
+    TEST "Write GPIO_OUT" {
+        SET Addr[0] 0, Addr[1] 0, Addr[2] 0, Addr[3] 0, Addr[4] 0, Addr[5] 0, Addr[6] 0, Addr[7] 0, Addr[8] 0, Addr[9] 0, Addr[10] 0, Addr[11] 0, Addr[12] 1, Addr[13] 1, Addr[14] 1, Addr[15] 1;
+        SET WData[0] 1, WData[1] 1, WData[2] 0, WData[3] 0, WData[4] 0, WData[5] 0, WData[6] 1, WData[7] 1, WData[8] 1, WData[9] 0, WData[10] 1, WData[11] 0, WData[12] 0, WData[13] 1, WData[14] 0, WData[15] 1;
+        SET Write 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Write 0;
+        EVAL;
+        ASSERT GpioOut[0] 1; ASSERT GpioOut[1] 1; ASSERT GpioOut[2] 0; ASSERT GpioOut[3] 0; ASSERT GpioOut[4] 0; ASSERT GpioOut[5] 0; ASSERT GpioOut[6] 1; ASSERT GpioOut[7] 1; ASSERT GpioOut[8] 1; ASSERT GpioOut[9] 0; ASSERT GpioOut[10] 1; ASSERT GpioOut[11] 0; ASSERT GpioOut[12] 0; ASSERT GpioOut[13] 1; ASSERT GpioOut[14] 0; ASSERT GpioOut[15] 1;
+        ASSERT RData[0] 1; ASSERT RData[1] 1; ASSERT RData[2] 0; ASSERT RData[3] 0; ASSERT RData[4] 0; ASSERT RData[5] 0; ASSERT RData[6] 1; ASSERT RData[7] 1; ASSERT RData[8] 1; ASSERT RData[9] 0; ASSERT RData[10] 1; ASSERT RData[11] 0; ASSERT RData[12] 0; ASSERT RData[13] 1; ASSERT RData[14] 0; ASSERT RData[15] 1;
+    }
+
+    TEST "Read GPIO_IN" {
+        SET GpioIn[0] 0, GpioIn[1] 0, GpioIn[2] 1, GpioIn[3] 0, GpioIn[4] 1, GpioIn[5] 1, GpioIn[6] 0, GpioIn[7] 0, GpioIn[8] 0, GpioIn[9] 1, GpioIn[10] 0, GpioIn[11] 0, GpioIn[12] 1, GpioIn[13] 0, GpioIn[14] 0, GpioIn[15] 0;
+        SET Addr[0] 1, Addr[1] 0, Addr[2] 0, Addr[3] 0, Addr[4] 0, Addr[5] 0, Addr[6] 0, Addr[7] 0, Addr[8] 0, Addr[9] 0, Addr[10] 0, Addr[11] 0, Addr[12] 1, Addr[13] 1, Addr[14] 1, Addr[15] 1;
+        EVAL;
+        ASSERT RData[0] 0; ASSERT RData[1] 0; ASSERT RData[2] 1; ASSERT RData[3] 0; ASSERT RData[4] 1; ASSERT RData[5] 1; ASSERT RData[6] 0; ASSERT RData[7] 0; ASSERT RData[8] 0; ASSERT RData[9] 1; ASSERT RData[10] 0; ASSERT RData[11] 0; ASSERT RData[12] 1; ASSERT RData[13] 0; ASSERT RData[14] 0; ASSERT RData[15] 0;
+    }
+
+    TEST "Write DISPLAY" {
+        SET Addr[0] 0, Addr[1] 1, Addr[2] 0, Addr[3] 0, Addr[4] 0, Addr[5] 0, Addr[6] 0, Addr[7] 0, Addr[8] 0, Addr[9] 0, Addr[10] 0, Addr[11] 0, Addr[12] 1, Addr[13] 1, Addr[14] 1, Addr[15] 1;
+        SET WData[0] 0, WData[1] 1, WData[2] 1, WData[3] 1, WData[4] 1, WData[5] 0, WData[6] 1, WData[7] 1, WData[8] 0, WData[9] 0, WData[10] 0, WData[11] 0, WData[12] 0, WData[13] 0, WData[14] 1, WData[15] 1;
+        SET Write 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Write 0;
+        EVAL;
+        ASSERT Display[0] 0; ASSERT Display[1] 1; ASSERT Display[2] 1; ASSERT Display[3] 1; ASSERT Display[4] 1; ASSERT Display[5] 0; ASSERT Display[6] 1; ASSERT Display[7] 1; ASSERT Display[8] 0; ASSERT Display[9] 0; ASSERT Display[10] 0; ASSERT Display[11] 0; ASSERT Display[12] 0; ASSERT Display[13] 0; ASSERT Display[14] 1; ASSERT Display[15] 1;
+        ASSERT RData[0] 0; ASSERT RData[1] 1; ASSERT RData[2] 1; ASSERT RData[3] 1; ASSERT RData[4] 1; ASSERT RData[5] 0; ASSERT RData[6] 1; ASSERT RData[7] 1; ASSERT RData[8] 0; ASSERT RData[9] 0; ASSERT RData[10] 0; ASSERT RData[11] 0; ASSERT RData[12] 0; ASSERT RData[13] 0; ASSERT RData[14] 1; ASSERT RData[15] 1;
+        ASSERT GpioOut[0] 1; ASSERT GpioOut[1] 1; ASSERT GpioOut[2] 0; ASSERT GpioOut[3] 0; ASSERT GpioOut[4] 0; ASSERT GpioOut[5] 0; ASSERT GpioOut[6] 1; ASSERT GpioOut[7] 1; ASSERT GpioOut[8] 1; ASSERT GpioOut[9] 0; ASSERT GpioOut[10] 1; ASSERT GpioOut[11] 0; ASSERT GpioOut[12] 0; ASSERT GpioOut[13] 1; ASSERT GpioOut[14] 0; ASSERT GpioOut[15] 1;
+    }
+
+    TEST "No write outside the page" {
+        SET Addr[0] 0, Addr[1] 1, Addr[2] 0, Addr[3] 0, Addr[4] 0, Addr[5] 0, Addr[6] 0, Addr[7] 0, Addr[8] 0, Addr[9] 0, Addr[10] 0, Addr[11] 0, Addr[12] 0, Addr[13] 0, Addr[14] 0, Addr[15] 0;
+        SET WData[0] 1, WData[1] 0, WData[2] 0, WData[3] 0, WData[4] 1, WData[5] 0, WData[6] 0, WData[7] 0, WData[8] 1, WData[9] 0, WData[10] 0, WData[11] 0, WData[12] 1, WData[13] 0, WData[14] 0, WData[15] 0;
+        SET Write 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Write 0;
+        EVAL;
+        ASSERT Display[0] 0; ASSERT Display[1] 1; ASSERT Display[2] 1; ASSERT Display[3] 1; ASSERT Display[4] 1; ASSERT Display[5] 0; ASSERT Display[6] 1; ASSERT Display[7] 1; ASSERT Display[8] 0; ASSERT Display[9] 0; ASSERT Display[10] 0; ASSERT Display[11] 0; ASSERT Display[12] 0; ASSERT Display[13] 0; ASSERT Display[14] 1; ASSERT Display[15] 1;
+    }
+
+    TEST "UART_DIV = 2, read back" {
+        SET Addr[0] 1, Addr[1] 0, Addr[2] 1, Addr[3] 0, Addr[4] 0, Addr[5] 0, Addr[6] 0, Addr[7] 0, Addr[8] 0, Addr[9] 0, Addr[10] 0, Addr[11] 0, Addr[12] 1, Addr[13] 1, Addr[14] 1, Addr[15] 1;
+        SET WData[0] 0, WData[1] 1, WData[2] 0, WData[3] 0, WData[4] 0, WData[5] 0, WData[6] 0, WData[7] 0, WData[8] 0, WData[9] 0, WData[10] 0, WData[11] 0, WData[12] 0, WData[13] 0, WData[14] 0, WData[15] 0;
+        SET Write 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Write 0;
+        EVAL;
+        ASSERT RData[0] 0; ASSERT RData[1] 1; ASSERT RData[2] 0; ASSERT RData[3] 0; ASSERT RData[4] 0; ASSERT RData[5] 0; ASSERT RData[6] 0; ASSERT RData[7] 0; ASSERT RData[8] 0; ASSERT RData[9] 0; ASSERT RData[10] 0; ASSERT RData[11] 0; ASSERT RData[12] 0; ASSERT RData[13] 0; ASSERT RData[14] 0; ASSERT RData[15] 0;
+    }
+
+    TEST "UART_DATA: status busy, start bit" {
+        SET Addr[0] 1, Addr[1] 1, Addr[2] 0, Addr[3] 0, Addr[4] 0, Addr[5] 0, Addr[6] 0, Addr[7] 0, Addr[8] 0, Addr[9] 0, Addr[10] 0, Addr[11] 0, Addr[12] 1, Addr[13] 1, Addr[14] 1, Addr[15] 1;
+        SET WData[0] 1, WData[1] 0, WData[2] 1, WData[3] 0, WData[4] 1, WData[5] 0, WData[6] 1, WData[7] 0, WData[8] 0, WData[9] 0, WData[10] 0, WData[11] 0, WData[12] 0, WData[13] 0, WData[14] 0, WData[15] 0;
+        SET Write 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Write 0;
+        SET Addr[0] 0, Addr[1] 0, Addr[2] 1, Addr[3] 0, Addr[4] 0, Addr[5] 0, Addr[6] 0, Addr[7] 0, Addr[8] 0, Addr[9] 0, Addr[10] 0, Addr[11] 0, Addr[12] 1, Addr[13] 1, Addr[14] 1, Addr[15] 1;
+        EVAL;
+        ASSERT RData[0] 1; ASSERT RData[1] 0; ASSERT RData[2] 0; ASSERT RData[3] 0; ASSERT RData[4] 0; ASSERT RData[5] 0; ASSERT RData[6] 0; ASSERT RData[7] 0; ASSERT RData[8] 0; ASSERT RData[9] 0; ASSERT RData[10] 0; ASSERT RData[11] 0; ASSERT RData[12] 0; ASSERT RData[13] 0; ASSERT RData[14] 0; ASSERT RData[15] 0;
+        ASSERT Tx 0;
+    }
+
+    TEST "UART done after 30 clocks" {
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Tx 1;
+        ASSERT RData[0] 1; ASSERT RData[1] 0; ASSERT RData[2] 0; ASSERT RData[3] 0; ASSERT RData[4] 0; ASSERT RData[5] 0; ASSERT RData[6] 0; ASSERT RData[7] 0; ASSERT RData[8] 0; ASSERT RData[9] 0; ASSERT RData[10] 0; ASSERT RData[11] 0; ASSERT RData[12] 0; ASSERT RData[13] 0; ASSERT RData[14] 0; ASSERT RData[15] 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT RData[0] 0; ASSERT RData[1] 0; ASSERT RData[2] 0; ASSERT RData[3] 0; ASSERT RData[4] 0; ASSERT RData[5] 0; ASSERT RData[6] 0; ASSERT RData[7] 0; ASSERT RData[8] 0; ASSERT RData[9] 0; ASSERT RData[10] 0; ASSERT RData[11] 0; ASSERT RData[12] 0; ASSERT RData[13] 0; ASSERT RData[14] 0; ASSERT RData[15] 0;
+        ASSERT Tx 1;
+    }
+}

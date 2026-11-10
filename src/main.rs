@@ -65,9 +65,10 @@ enum Commands {
     Run {
         #[arg(value_name = "PROGRAM")]
         program: PathBuf,
-        /// Circuit to run on (needs PC, Instruction and CLK ports). Default:
-        /// COMPUTER_16B for programs in a directory named "16", else
-        /// COMPUTER_8B. The circuit's ports select the instruction set.
+        /// Circuit to run on (needs PC, CLK and Instruction or a memory bus).
+        /// Default: COMPUTER_16B for programs in a directory named "16",
+        /// SOC_16B in one named "soc", else COMPUTER_8B. The circuit's ports
+        /// select the instruction set.
         #[arg(long)]
         top: Option<String>,
         /// Value on the input port `In` (decimal or 0x hex).
@@ -376,8 +377,15 @@ fn main() {
         }
         Some(Commands::Run { program, top, input, max_steps, trace, mem_latency }) => {
             let top = top.unwrap_or_else(|| {
-                let in_16 = program.parent().is_some_and(|dir| dir.ends_with("16"));
-                if in_16 { "COMPUTER_16B" } else { "COMPUTER_8B" }.to_string()
+                let in_dir = |name: &str| program.parent().is_some_and(|dir| dir.ends_with(name));
+                if in_dir("16") {
+                    "COMPUTER_16B"
+                } else if in_dir("soc") {
+                    "SOC_16B"
+                } else {
+                    "COMPUTER_8B"
+                }
+                .to_string()
             });
             run_program(&builder, &program, &top, input, max_steps, trace, mem_latency);
         }
@@ -587,6 +595,12 @@ fn run_program(
         println!("Stopped after {} instructions (no HALT, see --max-steps).", steps);
     }
     println!("Out = 0x{:0w$X} ({})", out, out, w = out_digits);
+    if machine::bus_width(&circuit, "GpioOut") > 0 {
+        println!("GpioOut = 0x{:04X}", machine::read_bus(&circuit, "GpioOut", 16));
+    }
+    if !machine.uart.is_empty() {
+        println!("UART: {:?}", String::from_utf8_lossy(&machine.uart));
+    }
     let secs = elapsed.as_secs_f64();
     let rate = if secs > 0.0 { steps as f64 / secs } else { 0.0 };
     let rate = if rate >= 1000.0 { format!("{:.1} kHz", rate / 1000.0) } else { format!("{:.0} Hz", rate) };

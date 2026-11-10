@@ -68,14 +68,40 @@ noch keine Hardware.
       den Speicher, prüft jeden Buszugriff; Endzustand gleich `CPU_16B`; ein
       Programm zusätzlich mit 2 Wartetakten)
 
-### Phase 3 – Memory-mapped I/O
-- [ ] Adressseite 0xF0xx für Peripherie (Stack wächst von 0xFFFF nach unten,
-      darf also nicht unter 0xF100 wachsen)
-- [ ] GPIO (16 Ausgänge, 16 Eingänge), Anzeige-Register für die
-      4-stellige 7-Segment-Anzeige, UART-Sender mit Baudraten-Teiler
-- [ ] `SOC_16B`: CPU + Adressdecoder + Peripherie, Pins für externen
-      Speicher, GPIO, Anzeige, UART
-- [ ] Runner dekodiert die UART-Leitung und gibt den Text aus
+### Phase 3 – Memory-mapped I/O (2026-11-10)
+- [x] Adressseite 0xF0xx für Peripherie (Stack wächst von 0xFFFF nach unten,
+      darf also nicht unter 0xF100 wachsen); die Register wiederholen sich
+      alle 8 Wörter:
+
+  | Adresse | Register | Zugriff |
+  |---|---|---|
+  | 0xF000 | GPIO_OUT | lesen/schreiben, treibt `GpioOut` |
+  | 0xF001 | GPIO_IN | lesen (`GpioIn`-Pins) |
+  | 0xF002 | DISPLAY | lesen/schreiben, Wert der 4-stelligen Anzeige |
+  | 0xF003 | UART_DATA | schreiben: Byte senden |
+  | 0xF004 | UART_STATUS | lesen: Bit 0 = sendet noch |
+  | 0xF005 | UART_DIV | lesen/schreiben: Takte pro Bit − 1 |
+
+- [x] `UART_TX` (2.330 NANDs): 8N1, Teiler-Register (nach Reset 0 = ein Takt
+      pro Bit; 50 MHz und 433 ergeben 115200 Baud), Zähler, Schieberegister
+- [x] `IO_16B` (4.506 NANDs): Adressdecoder, GPIO- und Anzeige-Register,
+      UART, Lese-Mux. Lesen kombinatorisch, Schreiben mit der Taktflanke,
+      nie Wartezustände
+- [x] `SOC_16B` (30.288 NANDs): `CPU_16B_SOC` + `IO_16B` +
+      `HEX_DISPLAY_16B`. Speicherbus-Pins wie `COMPUTER_16B_SOC`; Zugriffe auf
+      die I/O-Seite beantwortet der Chip selbst (`Write` bleibt außen 0,
+      `Wait` wird ignoriert). `IO_16B` wird vor der CPU gebaut, sonst würden
+      seine INIT-Takte die fertige CPU laufen lassen
+- [x] Runner: liest die `Tx`-Leitung jeden Takt und dekodiert Bytes
+      (`Machine::uart`; den Teiler liest er aus `Io.Uart.Div`, wie ein echter
+      Empfänger die Baudrate kennt), `--input` setzt auch `GpioIn`; `run`
+      zeigt `GpioOut` und den UART-Text. Beispiel `programs/soc/hello.asm`
+      (Standard-Top `SOC_16B` für Programme in `programs/soc/`): zeigt
+      0xC0DE, sendet „Hello!“, spiegelt GPIO
+- [x] Tests: `UART_TX.clt` (Rahmen Bit für Bit, Teiler 0 und 1),
+      `IO_16B.clt` (Decoder, Register, Status), `SOC_16B.clt` (I/O-Programm
+      mit `GpioOut`/Anzeige/`Tx` nach jedem Takt, auch mit 2 Wartetakten);
+      Rust-Test `soc_peripherals`, alle Programmtests auch auf `SOC_16B`
 
 ### Phase 4 – Speicher-Controller
 - [ ] QSPI-Controller (Flash lesen, PSRAM lesen/schreiben), Modell im Runner

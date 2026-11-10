@@ -1,0 +1,110 @@
+CIRCUIT UART_TX {
+    // UART transmitter, 8N1: start bit (0), 8 data bits LSB first, stop
+    // bit (1); the line idles at 1. Every bit lasts Div + 1 clocks, so a
+    // board clock of 50 MHz and Div = 433 give 115200 baud; after reset
+    // Div = 0 (one clock per bit, handy in the simulator).
+    //
+    // On a rising CLK edge with WriteData = 1 the frame for WData[7..0] is
+    // loaded and sending starts (also while busy: software should wait for
+    // Busy = 0). WriteDiv = 1 loads Div from WData.
+    //
+    //   Bits:  bits left to send (10 after loading, 0 = idle); Busy = Bits != 0
+    //   Cnt:   clocks left in the current bit; at 0 (Tick) the next bit
+    //          starts: Shift moves right (filling with 1), Bits counts down,
+    //          Cnt reloads Div
+    //   Shift: the frame, Tx = Shift[0] while busy
+    INPUT WData[16];
+    INPUT WriteData;    // send WData[7..0]
+    INPUT WriteDiv;     // Div <- WData
+    INPUT CLK;
+    INPUT Reset;
+
+    OUTPUT Tx;
+    OUTPUT Busy;
+    OUTPUT Div[16];
+
+    // Registers first: their INITs run before the gates driving them exist.
+    PART DivReg: REGISTER_R<16>;
+    PART Cnt: REGISTER_R<16>;
+    PART Shift: REGISTER_R<10>;
+    PART Bits: REGISTER_R<4>;
+
+    PART C_TRUE: NOR;               // Constant 1 (VCC), NOR(0,0) = 1
+    PART CntDec: ADDER<16>;         // Cnt - 1 (B = all ones)
+    PART CntZero: ZERO_16B;
+    PART CntMux: MUX_2_1_BUS<16>;   // Cnt - 1, Div
+    PART BitsDec: ADDER<4>;         // Bits - 1
+    PART BitsMux: MUX_2_1_BUS<4>;   // Bits - 1, 10
+    PART ShiftMux: MUX_2_1_BUS<10>; // shifted, new frame
+    PART Idle: NOR4;                // Bits = 0
+    PART BusyNot: NOT;
+    PART TickAnd: AND;              // Busy AND Cnt = 0
+    PART Reload: OR;                // WriteData OR Tick: Cnt <- Div
+    PART CntLoad: OR;               // WriteData OR Busy
+    PART TxOr: OR;                  // idle OR Shift[0]
+
+    // Divider
+    CONNECT WData -> DivReg.Data;
+    CONNECT WriteDiv -> DivReg.Load;
+    CONNECT Reset -> DivReg.Reset;
+    CONNECT CLK -> DivReg.CLK;
+    CONNECT DivReg.Q -> Div;
+
+    // Busy and bit timing
+    FOR i IN 0..4 {
+        CONNECT Bits.Q[i] -> BitsDec.A[i];
+    }
+    CONNECT Bits.Q[0] -> Idle.A;
+    CONNECT Bits.Q[1] -> Idle.B;
+    CONNECT Bits.Q[2] -> Idle.C;
+    CONNECT Bits.Q[3] -> Idle.D;
+    CONNECT Idle.Out -> BusyNot.in;
+    CONNECT BusyNot.out -> Busy;
+    CONNECT Cnt.Q -> CntDec.A;
+    CONNECT C_TRUE.out -> CntDec.B;     // tee: all ones = -1
+    CONNECT Cnt.Q -> CntZero.A;
+    CONNECT BusyNot.out -> TickAnd.in1;
+    CONNECT CntZero.Z -> TickAnd.in2;
+    CONNECT WriteData -> Reload.in1;
+    CONNECT TickAnd.out -> Reload.in2;
+
+    CONNECT CntDec.S -> CntMux.A;
+    CONNECT DivReg.Q -> CntMux.B;
+    CONNECT Reload.out -> CntMux.S;
+    CONNECT CntMux.Out -> Cnt.Data;
+    CONNECT WriteData -> CntLoad.in1;
+    CONNECT BusyNot.out -> CntLoad.in2;
+    CONNECT CntLoad.out -> Cnt.Load;
+    CONNECT Reset -> Cnt.Reset;
+    CONNECT CLK -> Cnt.CLK;
+
+    // Bits left: 10 on WriteData, -1 on every Tick
+    CONNECT C_TRUE.out -> BitsDec.B;    // tee: all ones = -1
+    CONNECT BitsDec.S -> BitsMux.A;
+    CONNECT C_TRUE.out -> BitsMux.B[1]; // 10 = 0b1010
+    CONNECT C_TRUE.out -> BitsMux.B[3];
+    CONNECT WriteData -> BitsMux.S;
+    CONNECT BitsMux.Out -> Bits.Data;
+    CONNECT Reload.out -> Bits.Load;
+    CONNECT Reset -> Bits.Reset;
+    CONNECT CLK -> Bits.CLK;
+
+    // Frame: [0] start bit (0, unconnected), [8..1] data, [9] stop bit
+    FOR i IN 0..8 {
+        CONNECT WData[i] -> ShiftMux.B[1+i];
+    }
+    CONNECT C_TRUE.out -> ShiftMux.B[9];
+    FOR i IN 0..9 {
+        CONNECT Shift.Q[1+i] -> ShiftMux.A[i];
+    }
+    CONNECT C_TRUE.out -> ShiftMux.A[9];
+    CONNECT WriteData -> ShiftMux.S;
+    CONNECT ShiftMux.Out -> Shift.Data;
+    CONNECT Reload.out -> Shift.Load;
+    CONNECT Reset -> Shift.Reset;
+    CONNECT CLK -> Shift.CLK;
+
+    CONNECT Idle.Out -> TxOr.in1;
+    CONNECT Shift.Q[0] -> TxOr.in2;
+    CONNECT TxOr.out -> Tx;
+}
