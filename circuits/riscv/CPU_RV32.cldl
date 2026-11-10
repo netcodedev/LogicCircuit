@@ -114,9 +114,7 @@ CIRCUIT CPU_RV32 {
     PART BOp: MUX_2_1_BUS<32>;      // ..., 4
     PART TgtMux: MUX_2_1_BUS<32>;   // PcE, rs1 (jalr)
     PART TgtAdd: ADDER_KS5<32>;     // target = base + Imm (bit 0 always 0)
-    PART LtMux: MUX_2_1;            // Lt, Ltu by funct3[1]
-    PART CondMux: MUX_2_1;          // Eq, LtMux by funct3[2]
-    PART CondX: XOR;                // ... XOR funct3[0]
+    PART Branch: BRANCH_RV32;       // condition from rs1/rs2
     PART Taken: AND;                // IsBranch AND condition
     PART JumpOr: OR_WIDE<1>;        // Taken OR jal OR jalr
     PART ResMux: MUX_2_1_BUS<32>;   // ALU, muldiv
@@ -155,7 +153,8 @@ CIRCUIT CPU_RV32 {
     PART MisLs: OR;
     PART MisLd: AND3;               // IsLoad AND misaligned AND NOT Ill
     PART MisSt: AND3;
-    PART ExcOr: OR_WIDE<2>;
+    PART ExcOr: OR_WIDE<2>;          // all but the late branch exception
+    PART ExcAll: OR;                // ... OR MisB
     PART Code1: OR_WIDE<1>;         // cause bit 1: ecall, illegal, store
     PART Code2: OR;                 // cause bit 2: load, store
     PART NotExt: NOT;
@@ -341,16 +340,13 @@ CIRCUIT CPU_RV32 {
     CONNECT Control.IsJalr -> TgtMux.S;
     CONNECT TgtMux.Out -> TgtAdd.A;
     CONNECT Imm.Imm -> TgtAdd.B;
-    CONNECT Alu.Lt -> LtMux.A;
-    CONNECT Alu.Ltu -> LtMux.B;
-    CONNECT Ir.Q[13] -> LtMux.S;
-    CONNECT Alu.Eq -> CondMux.A;
-    CONNECT LtMux.Out -> CondMux.B;
-    CONNECT Ir.Q[14] -> CondMux.S;
-    CONNECT CondMux.Out -> CondX.in1;
-    CONNECT Ir.Q[12] -> CondX.in2;
+    CONNECT RegA.Out -> Branch.A;
+    CONNECT RegB.Out -> Branch.B;
+    CONNECT Ir.Q[12] -> Branch.F[0];
+    CONNECT Ir.Q[13] -> Branch.F[1];
+    CONNECT Ir.Q[14] -> Branch.F[2];
     CONNECT Control.IsBranch -> Taken.in1;
-    CONNECT CondX.out -> Taken.in2;
+    CONNECT Branch.Cond -> Taken.in2;
     CONNECT Taken.out -> JumpOr.In[0];
     CONNECT Control.IsJal -> JumpOr.In[1];
     CONNECT Control.IsJalr -> JumpOr.In[2];
@@ -426,7 +422,7 @@ CIRCUIT CPU_RV32 {
     CONNECT Imm.Imm[1] -> MisBPre.B;
     CONNECT NotIll.out -> MisBPre.C;
     CONNECT MisBPre.Out -> MisB.in1;
-    CONNECT CondX.out -> MisB.in2;
+    CONNECT Branch.Cond -> MisB.in2;
     CONNECT MisJ.Out -> MisT.in1;
     CONNECT MisB.out -> MisT.in2;
     CONNECT RegA.Out[0] -> AddrLo0.in1;
@@ -454,7 +450,8 @@ CIRCUIT CPU_RV32 {
     CONNECT Ill.out -> ExcOr.In[0];
     CONNECT Control.Ecall -> ExcOr.In[1];
     CONNECT MisJ.Out -> ExcOr.In[2];
-    CONNECT MisB.out -> ExcOr.In[5];
+    CONNECT ExcOr.Out -> ExcAll.in1;
+    CONNECT MisB.out -> ExcAll.in2;
     CONNECT MisLd.Out -> ExcOr.In[3];
     CONNECT MisSt.Out -> ExcOr.In[4];
 
@@ -519,12 +516,12 @@ CIRCUIT CPU_RV32 {
     CONNECT XGo.out -> TakeIrq.in1;
     CONNECT Csr.IrqPending -> TakeIrq.in2;
     CONNECT TakeIrq.out -> NotIrq.in;
-    CONNECT ExcOr.Out -> NotExc.in;
+    CONNECT ExcAll.out -> NotExc.in;
     CONNECT XGo.out -> Commit.A;
     CONNECT NotIrq.out -> Commit.B;
     CONNECT NotExc.out -> Commit.C;
     CONNECT Csr.IrqPending -> TrapAny.in1;
-    CONNECT ExcOr.Out -> TrapAny.in2;
+    CONNECT ExcAll.out -> TrapAny.in2;
     CONNECT XGo.out -> TrapTake.in1;
     CONNECT TrapAny.out -> TrapTake.in2;
 

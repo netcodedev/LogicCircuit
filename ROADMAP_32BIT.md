@@ -135,9 +135,28 @@ Halbwort-Store schreibt seine Bytes in ihre Spuren und 0 in die übrigen.
       dafür ganze Busse setzen und prüfen (`SET A[31:0] 0x1234_5678`,
       `ASSERT S[31:0] -5`, `F[2:0] 0b101`)
 
+### Phase 7 – Kürzerer kritischer Pfad
+Gemessen als Logiktiefe in NAND-Stufen (wie `nands`), also ohne echte
+Gatterlaufzeiten; ein sky130-Build steht noch aus.
+
+| Schritt | Längster Pfad | `SOC_RV32` |
+|---|---:|---:|
+| Ausgangslage | 131 | 123.293 NANDs |
+| Fehlausrichtung aus (rs1 + imm)[1:0], Branch über imm[1], `minstret` lädt bei Retire, CSR-Writes ohne ALU-Wartezeit | 98 | 123.329 |
+| `MUX_2_1` als NAND-NAND (2 statt 4 Stufen, betrifft alle Schaltungen) | 84 | 100.945 |
+| Eigener Vergleicher `BRANCH_RV32` aus rs1/rs2, Immediate-Formate direkt aus den Opcode-Bits, späte Branch-Exception am Ende der Exception-Kette | 69 | 102.206 |
+
+- [x] Ergebnis: 131 → 69 Stufen (−47 %), 17 % weniger NANDs; `SOC_16B`
+      sinkt durch den neuen Mux von 85 auf 64 Stufen
+- [x] Die längsten Pfade sind jetzt ausgeglichen (65–69 Stufen): Decode →
+      Load-Use-Stall → `XGo` → CSR-Schreiben, Branch-Vergleich → Redirect →
+      `PC`, Trap → `mstatus`
+- Shifter (17 Stufen) und Registerdatei-Lesen (14) liegen nicht mehr auf
+  den längsten Pfaden; ein Umbau dort würde NANDs kosten, ohne den Takt zu
+  heben
+
 ### Später
 - [ ] Befehls-Cache, Sprungvorhersage
 - [ ] Schnellerer Multiplizierer (z. B. 4 Bit pro Takt oder Baum)
-- [ ] Kürzerer kritischer Pfad im Execute (Sprungziel und Bedingung)
 - [ ] GF180MCU-Flow (wafer.space)
 - [ ] RV64I

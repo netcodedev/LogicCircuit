@@ -41,7 +41,7 @@ the browser's Chip 3D view with an exploded layer stack.*
   7-segment display, 6,352 NANDs in total.
 - **A 32-bit RISC-V SoC** – `SOC_RV32` = `CPU_RV32` (RV32IM + Zicsr, machine
   mode, three-stage pipeline, traps and interrupts) plus GPIO, an 8-digit hex
-  display, a UART and a CLINT-style timer, 100,945 NANDs, in
+  display, a UART and a CLINT-style timer, 102,206 NANDs, in
   [`circuits/riscv/`](circuits/riscv). It has its own assembler,
   instruction-level simulator and runner in [`src/riscv/`](src/riscv), runs
   assembly and C programs (clang + lld) from [`programs/riscv/`](programs/riscv),
