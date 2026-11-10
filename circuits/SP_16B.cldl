@@ -15,7 +15,9 @@ CIRCUIT SP_16B {
     OUTPUT Next[16];
 
     PART SP_Reg: REGISTER_R<16>;
-    PART Adder: ADDER<16>;   // SP + (Dec ? 0xFFFF : 0) + Inc
+    // Carry-lookahead: SP - 1 feeds MemAddr for PUSH/CALL, a ripple adder
+    // here was the critical path of CPU_16B.
+    PART Adder: ADDER_CLA_16B; // SP + (Dec ? 0xFFFF : 0) + Inc
     PART LoadOr: OR;
 
     CONNECT SP_Reg.Q -> SP;

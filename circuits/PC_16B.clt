@@ -11,7 +11,7 @@ TESTS FOR PC_16B {
         SET Offset[0] 0, Offset[1] 0, Offset[2] 0, Offset[3] 0, Offset[4] 0, Offset[5] 0, Offset[6] 0, Offset[7] 0, Offset[8] 0, Offset[9] 0, Offset[10] 0, Offset[11] 0, Offset[12] 0, Offset[13] 0, Offset[14] 0, Offset[15] 0;
         SET Jump 0, Branch 0, Step2 0, Enable 1, Reset 0;
         EVAL;
-        ASSERT Next[0] 1; ASSERT Next[1] 0; ASSERT Next[2] 0; ASSERT Next[3] 0; ASSERT Next[4] 0; ASSERT Next[5] 0; ASSERT Next[6] 0; ASSERT Next[7] 0; ASSERT Next[8] 0; ASSERT Next[9] 0; ASSERT Next[10] 0; ASSERT Next[11] 0; ASSERT Next[12] 0; ASSERT Next[13] 0; ASSERT Next[14] 0; ASSERT Next[15] 0;
+        ASSERT Return[0] 1; ASSERT Return[1] 0; ASSERT Return[2] 0; ASSERT Return[3] 0; ASSERT Return[4] 0; ASSERT Return[5] 0; ASSERT Return[6] 0; ASSERT Return[7] 0; ASSERT Return[8] 0; ASSERT Return[9] 0; ASSERT Return[10] 0; ASSERT Return[11] 0; ASSERT Return[12] 0; ASSERT Return[13] 0; ASSERT Return[14] 0; ASSERT Return[15] 0;
         SEQ CLK 0 -> CLK 1 -> CLK 0;
         SET Jump 0, Branch 0, Step2 0, Enable 0, Reset 0;
         EVAL;
@@ -23,7 +23,7 @@ TESTS FOR PC_16B {
         SET Offset[0] 0, Offset[1] 0, Offset[2] 0, Offset[3] 0, Offset[4] 0, Offset[5] 0, Offset[6] 0, Offset[7] 0, Offset[8] 0, Offset[9] 0, Offset[10] 0, Offset[11] 0, Offset[12] 0, Offset[13] 0, Offset[14] 0, Offset[15] 0;
         SET Jump 0, Branch 0, Step2 0, Enable 1, Reset 0;
         EVAL;
-        ASSERT Next[0] 0; ASSERT Next[1] 1; ASSERT Next[2] 0; ASSERT Next[3] 0; ASSERT Next[4] 0; ASSERT Next[5] 0; ASSERT Next[6] 0; ASSERT Next[7] 0; ASSERT Next[8] 0; ASSERT Next[9] 0; ASSERT Next[10] 0; ASSERT Next[11] 0; ASSERT Next[12] 0; ASSERT Next[13] 0; ASSERT Next[14] 0; ASSERT Next[15] 0;
+        ASSERT Return[0] 0; ASSERT Return[1] 1; ASSERT Return[2] 0; ASSERT Return[3] 0; ASSERT Return[4] 0; ASSERT Return[5] 0; ASSERT Return[6] 0; ASSERT Return[7] 0; ASSERT Return[8] 0; ASSERT Return[9] 0; ASSERT Return[10] 0; ASSERT Return[11] 0; ASSERT Return[12] 0; ASSERT Return[13] 0; ASSERT Return[14] 0; ASSERT Return[15] 0;
         SEQ CLK 0 -> CLK 1 -> CLK 0;
         SET Jump 0, Branch 0, Step2 0, Enable 0, Reset 0;
         EVAL;
@@ -35,7 +35,7 @@ TESTS FOR PC_16B {
         SET Offset[0] 0, Offset[1] 0, Offset[2] 0, Offset[3] 0, Offset[4] 0, Offset[5] 0, Offset[6] 0, Offset[7] 0, Offset[8] 0, Offset[9] 0, Offset[10] 0, Offset[11] 0, Offset[12] 0, Offset[13] 0, Offset[14] 0, Offset[15] 0;
         SET Jump 0, Branch 0, Step2 1, Enable 1, Reset 0;
         EVAL;
-        ASSERT Next[0] 0; ASSERT Next[1] 0; ASSERT Next[2] 1; ASSERT Next[3] 0; ASSERT Next[4] 0; ASSERT Next[5] 0; ASSERT Next[6] 0; ASSERT Next[7] 0; ASSERT Next[8] 0; ASSERT Next[9] 0; ASSERT Next[10] 0; ASSERT Next[11] 0; ASSERT Next[12] 0; ASSERT Next[13] 0; ASSERT Next[14] 0; ASSERT Next[15] 0;
+        ASSERT Return[0] 0; ASSERT Return[1] 0; ASSERT Return[2] 1; ASSERT Return[3] 0; ASSERT Return[4] 0; ASSERT Return[5] 0; ASSERT Return[6] 0; ASSERT Return[7] 0; ASSERT Return[8] 0; ASSERT Return[9] 0; ASSERT Return[10] 0; ASSERT Return[11] 0; ASSERT Return[12] 0; ASSERT Return[13] 0; ASSERT Return[14] 0; ASSERT Return[15] 0;
         SEQ CLK 0 -> CLK 1 -> CLK 0;
         SET Jump 0, Branch 0, Step2 0, Enable 0, Reset 0;
         EVAL;
@@ -47,7 +47,7 @@ TESTS FOR PC_16B {
         SET Offset[0] 0, Offset[1] 0, Offset[2] 0, Offset[3] 0, Offset[4] 0, Offset[5] 0, Offset[6] 0, Offset[7] 0, Offset[8] 0, Offset[9] 0, Offset[10] 0, Offset[11] 0, Offset[12] 0, Offset[13] 0, Offset[14] 0, Offset[15] 0;
         SET Jump 0, Branch 0, Step2 0, Enable 0, Reset 0;
         EVAL;
-        ASSERT Next[0] 1; ASSERT Next[1] 0; ASSERT Next[2] 1; ASSERT Next[3] 0; ASSERT Next[4] 0; ASSERT Next[5] 0; ASSERT Next[6] 0; ASSERT Next[7] 0; ASSERT Next[8] 0; ASSERT Next[9] 0; ASSERT Next[10] 0; ASSERT Next[11] 0; ASSERT Next[12] 0; ASSERT Next[13] 0; ASSERT Next[14] 0; ASSERT Next[15] 0;
+        ASSERT Return[0] 1; ASSERT Return[1] 0; ASSERT Return[2] 1; ASSERT Return[3] 0; ASSERT Return[4] 0; ASSERT Return[5] 0; ASSERT Return[6] 0; ASSERT Return[7] 0; ASSERT Return[8] 0; ASSERT Return[9] 0; ASSERT Return[10] 0; ASSERT Return[11] 0; ASSERT Return[12] 0; ASSERT Return[13] 0; ASSERT Return[14] 0; ASSERT Return[15] 0;
         SEQ CLK 0 -> CLK 1 -> CLK 0;
         SET Jump 0, Branch 0, Step2 0, Enable 0, Reset 0;
         EVAL;
@@ -59,7 +59,7 @@ TESTS FOR PC_16B {
         SET Offset[0] 0, Offset[1] 0, Offset[2] 0, Offset[3] 0, Offset[4] 0, Offset[5] 0, Offset[6] 0, Offset[7] 0, Offset[8] 0, Offset[9] 0, Offset[10] 0, Offset[11] 0, Offset[12] 0, Offset[13] 0, Offset[14] 0, Offset[15] 0;
         SET Jump 1, Branch 0, Step2 0, Enable 1, Reset 0;
         EVAL;
-        ASSERT Next[0] 1; ASSERT Next[1] 0; ASSERT Next[2] 1; ASSERT Next[3] 0; ASSERT Next[4] 0; ASSERT Next[5] 0; ASSERT Next[6] 0; ASSERT Next[7] 0; ASSERT Next[8] 0; ASSERT Next[9] 0; ASSERT Next[10] 0; ASSERT Next[11] 0; ASSERT Next[12] 0; ASSERT Next[13] 0; ASSERT Next[14] 0; ASSERT Next[15] 0;
+        ASSERT Return[0] 1; ASSERT Return[1] 0; ASSERT Return[2] 1; ASSERT Return[3] 0; ASSERT Return[4] 0; ASSERT Return[5] 0; ASSERT Return[6] 0; ASSERT Return[7] 0; ASSERT Return[8] 0; ASSERT Return[9] 0; ASSERT Return[10] 0; ASSERT Return[11] 0; ASSERT Return[12] 0; ASSERT Return[13] 0; ASSERT Return[14] 0; ASSERT Return[15] 0;
         SEQ CLK 0 -> CLK 1 -> CLK 0;
         SET Jump 0, Branch 0, Step2 0, Enable 0, Reset 0;
         EVAL;
@@ -71,31 +71,31 @@ TESTS FOR PC_16B {
         SET Offset[0] 0, Offset[1] 0, Offset[2] 0, Offset[3] 0, Offset[4] 0, Offset[5] 0, Offset[6] 0, Offset[7] 0, Offset[8] 0, Offset[9] 0, Offset[10] 0, Offset[11] 0, Offset[12] 0, Offset[13] 0, Offset[14] 0, Offset[15] 0;
         SET Jump 0, Branch 0, Step2 1, Enable 1, Reset 0;
         EVAL;
-        ASSERT Next[0] 0; ASSERT Next[1] 0; ASSERT Next[2] 0; ASSERT Next[3] 0; ASSERT Next[4] 0; ASSERT Next[5] 0; ASSERT Next[6] 0; ASSERT Next[7] 0; ASSERT Next[8] 0; ASSERT Next[9] 0; ASSERT Next[10] 0; ASSERT Next[11] 0; ASSERT Next[12] 0; ASSERT Next[13] 0; ASSERT Next[14] 0; ASSERT Next[15] 0;
+        ASSERT Return[0] 0; ASSERT Return[1] 0; ASSERT Return[2] 0; ASSERT Return[3] 0; ASSERT Return[4] 0; ASSERT Return[5] 0; ASSERT Return[6] 0; ASSERT Return[7] 0; ASSERT Return[8] 0; ASSERT Return[9] 0; ASSERT Return[10] 0; ASSERT Return[11] 0; ASSERT Return[12] 0; ASSERT Return[13] 0; ASSERT Return[14] 0; ASSERT Return[15] 0;
         SEQ CLK 0 -> CLK 1 -> CLK 0;
         SET Jump 0, Branch 0, Step2 0, Enable 0, Reset 0;
         EVAL;
         ASSERT Addr[0] 0; ASSERT Addr[1] 0; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 0; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
     }
 
-    TEST "Branch forward +16 -> 0x0011" {
+    TEST "Branch forward +16 -> 0x0011 (return 0x0001)" {
         SET Target[0] 0, Target[1] 0, Target[2] 0, Target[3] 0, Target[4] 0, Target[5] 0, Target[6] 0, Target[7] 0, Target[8] 0, Target[9] 0, Target[10] 0, Target[11] 0, Target[12] 0, Target[13] 0, Target[14] 0, Target[15] 0;
         SET Offset[0] 0, Offset[1] 0, Offset[2] 0, Offset[3] 0, Offset[4] 1, Offset[5] 0, Offset[6] 0, Offset[7] 0, Offset[8] 0, Offset[9] 0, Offset[10] 0, Offset[11] 0, Offset[12] 0, Offset[13] 0, Offset[14] 0, Offset[15] 0;
         SET Jump 0, Branch 1, Step2 0, Enable 1, Reset 0;
         EVAL;
-        ASSERT Next[0] 1; ASSERT Next[1] 0; ASSERT Next[2] 0; ASSERT Next[3] 0; ASSERT Next[4] 1; ASSERT Next[5] 0; ASSERT Next[6] 0; ASSERT Next[7] 0; ASSERT Next[8] 0; ASSERT Next[9] 0; ASSERT Next[10] 0; ASSERT Next[11] 0; ASSERT Next[12] 0; ASSERT Next[13] 0; ASSERT Next[14] 0; ASSERT Next[15] 0;
+        ASSERT Return[0] 1; ASSERT Return[1] 0; ASSERT Return[2] 0; ASSERT Return[3] 0; ASSERT Return[4] 0; ASSERT Return[5] 0; ASSERT Return[6] 0; ASSERT Return[7] 0; ASSERT Return[8] 0; ASSERT Return[9] 0; ASSERT Return[10] 0; ASSERT Return[11] 0; ASSERT Return[12] 0; ASSERT Return[13] 0; ASSERT Return[14] 0; ASSERT Return[15] 0;
         SEQ CLK 0 -> CLK 1 -> CLK 0;
         SET Jump 0, Branch 0, Step2 0, Enable 0, Reset 0;
         EVAL;
         ASSERT Addr[0] 1; ASSERT Addr[1] 0; ASSERT Addr[2] 0; ASSERT Addr[3] 0; ASSERT Addr[4] 1; ASSERT Addr[5] 0; ASSERT Addr[6] 0; ASSERT Addr[7] 0; ASSERT Addr[8] 0; ASSERT Addr[9] 0; ASSERT Addr[10] 0; ASSERT Addr[11] 0; ASSERT Addr[12] 0; ASSERT Addr[13] 0; ASSERT Addr[14] 0; ASSERT Addr[15] 0;
     }
 
-    TEST "Branch backward -5 -> 0x000D" {
+    TEST "Branch backward -5 -> 0x000D (return 0x0012)" {
         SET Target[0] 0, Target[1] 0, Target[2] 0, Target[3] 0, Target[4] 0, Target[5] 0, Target[6] 0, Target[7] 0, Target[8] 0, Target[9] 0, Target[10] 0, Target[11] 0, Target[12] 0, Target[13] 0, Target[14] 0, Target[15] 0;
         SET Offset[0] 1, Offset[1] 1, Offset[2] 0, Offset[3] 1, Offset[4] 1, Offset[5] 1, Offset[6] 1, Offset[7] 1, Offset[8] 1, Offset[9] 1, Offset[10] 1, Offset[11] 1, Offset[12] 1, Offset[13] 1, Offset[14] 1, Offset[15] 1;
         SET Jump 0, Branch 1, Step2 0, Enable 1, Reset 0;
         EVAL;
-        ASSERT Next[0] 1; ASSERT Next[1] 0; ASSERT Next[2] 1; ASSERT Next[3] 1; ASSERT Next[4] 0; ASSERT Next[5] 0; ASSERT Next[6] 0; ASSERT Next[7] 0; ASSERT Next[8] 0; ASSERT Next[9] 0; ASSERT Next[10] 0; ASSERT Next[11] 0; ASSERT Next[12] 0; ASSERT Next[13] 0; ASSERT Next[14] 0; ASSERT Next[15] 0;
+        ASSERT Return[0] 0; ASSERT Return[1] 1; ASSERT Return[2] 0; ASSERT Return[3] 0; ASSERT Return[4] 1; ASSERT Return[5] 0; ASSERT Return[6] 0; ASSERT Return[7] 0; ASSERT Return[8] 0; ASSERT Return[9] 0; ASSERT Return[10] 0; ASSERT Return[11] 0; ASSERT Return[12] 0; ASSERT Return[13] 0; ASSERT Return[14] 0; ASSERT Return[15] 0;
         SEQ CLK 0 -> CLK 1 -> CLK 0;
         SET Jump 0, Branch 0, Step2 0, Enable 0, Reset 0;
         EVAL;
@@ -107,7 +107,7 @@ TESTS FOR PC_16B {
         SET Offset[0] 0, Offset[1] 0, Offset[2] 0, Offset[3] 0, Offset[4] 0, Offset[5] 0, Offset[6] 0, Offset[7] 0, Offset[8] 0, Offset[9] 0, Offset[10] 0, Offset[11] 0, Offset[12] 0, Offset[13] 0, Offset[14] 0, Offset[15] 0;
         SET Jump 1, Branch 0, Step2 0, Enable 1, Reset 0;
         EVAL;
-        ASSERT Next[0] 0; ASSERT Next[1] 1; ASSERT Next[2] 1; ASSERT Next[3] 1; ASSERT Next[4] 0; ASSERT Next[5] 0; ASSERT Next[6] 0; ASSERT Next[7] 0; ASSERT Next[8] 0; ASSERT Next[9] 0; ASSERT Next[10] 0; ASSERT Next[11] 0; ASSERT Next[12] 0; ASSERT Next[13] 0; ASSERT Next[14] 0; ASSERT Next[15] 0;
+        ASSERT Return[0] 0; ASSERT Return[1] 1; ASSERT Return[2] 1; ASSERT Return[3] 1; ASSERT Return[4] 0; ASSERT Return[5] 0; ASSERT Return[6] 0; ASSERT Return[7] 0; ASSERT Return[8] 0; ASSERT Return[9] 0; ASSERT Return[10] 0; ASSERT Return[11] 0; ASSERT Return[12] 0; ASSERT Return[13] 0; ASSERT Return[14] 0; ASSERT Return[15] 0;
         SEQ CLK 0 -> CLK 1 -> CLK 0;
         SET Jump 0, Branch 0, Step2 0, Enable 0, Reset 0;
         EVAL;
@@ -119,7 +119,7 @@ TESTS FOR PC_16B {
         SET Offset[0] 0, Offset[1] 0, Offset[2] 0, Offset[3] 0, Offset[4] 0, Offset[5] 0, Offset[6] 0, Offset[7] 0, Offset[8] 0, Offset[9] 0, Offset[10] 0, Offset[11] 0, Offset[12] 0, Offset[13] 0, Offset[14] 0, Offset[15] 0;
         SET Jump 0, Branch 0, Step2 0, Enable 0, Reset 1;
         EVAL;
-        ASSERT Next[0] 1; ASSERT Next[1] 0; ASSERT Next[2] 0; ASSERT Next[3] 0; ASSERT Next[4] 0; ASSERT Next[5] 0; ASSERT Next[6] 0; ASSERT Next[7] 0; ASSERT Next[8] 0; ASSERT Next[9] 0; ASSERT Next[10] 0; ASSERT Next[11] 0; ASSERT Next[12] 0; ASSERT Next[13] 0; ASSERT Next[14] 0; ASSERT Next[15] 1;
+        ASSERT Return[0] 1; ASSERT Return[1] 0; ASSERT Return[2] 0; ASSERT Return[3] 0; ASSERT Return[4] 0; ASSERT Return[5] 0; ASSERT Return[6] 0; ASSERT Return[7] 0; ASSERT Return[8] 0; ASSERT Return[9] 0; ASSERT Return[10] 0; ASSERT Return[11] 0; ASSERT Return[12] 0; ASSERT Return[13] 0; ASSERT Return[14] 0; ASSERT Return[15] 1;
         SEQ CLK 0 -> CLK 1 -> CLK 0;
         SET Jump 0, Branch 0, Step2 0, Enable 0, Reset 0;
         EVAL;
@@ -131,7 +131,7 @@ TESTS FOR PC_16B {
         SET Offset[0] 0, Offset[1] 0, Offset[2] 0, Offset[3] 0, Offset[4] 0, Offset[5] 0, Offset[6] 0, Offset[7] 0, Offset[8] 0, Offset[9] 0, Offset[10] 0, Offset[11] 0, Offset[12] 0, Offset[13] 0, Offset[14] 0, Offset[15] 0;
         SET Jump 0, Branch 0, Step2 0, Enable 1, Reset 0;
         EVAL;
-        ASSERT Next[0] 1; ASSERT Next[1] 0; ASSERT Next[2] 0; ASSERT Next[3] 0; ASSERT Next[4] 0; ASSERT Next[5] 0; ASSERT Next[6] 0; ASSERT Next[7] 0; ASSERT Next[8] 0; ASSERT Next[9] 0; ASSERT Next[10] 0; ASSERT Next[11] 0; ASSERT Next[12] 0; ASSERT Next[13] 0; ASSERT Next[14] 0; ASSERT Next[15] 0;
+        ASSERT Return[0] 1; ASSERT Return[1] 0; ASSERT Return[2] 0; ASSERT Return[3] 0; ASSERT Return[4] 0; ASSERT Return[5] 0; ASSERT Return[6] 0; ASSERT Return[7] 0; ASSERT Return[8] 0; ASSERT Return[9] 0; ASSERT Return[10] 0; ASSERT Return[11] 0; ASSERT Return[12] 0; ASSERT Return[13] 0; ASSERT Return[14] 0; ASSERT Return[15] 0;
         SEQ CLK 0 -> CLK 1 -> CLK 0;
         SET Jump 0, Branch 0, Step2 0, Enable 0, Reset 0;
         EVAL;

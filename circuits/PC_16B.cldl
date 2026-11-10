@@ -1,13 +1,20 @@
 CIRCUIT PC_16B {
     // 16-bit program counter. On each rising CLK edge:
-    //   Reset = 1            -> PC <- 0
-    //   Enable = 1, Jump = 1 -> PC <- Target
-    //   Enable = 1, Jump = 0 -> PC <- Next
-    //   otherwise            -> hold
-    // with Next = PC + 1 + (Branch ? Offset : Step2), i.e. PC + 1 for
-    // one-word instructions, PC + 2 for two-word instructions (Step2) and
-    // PC + 1 + Offset for relative branches (Offset sign-extended by the
-    // caller). Next is also an output: the return address for CALL.
+    //   Reset = 1              -> PC <- 0
+    //   Enable = 1, Branch = 1 -> PC <- PC + 1 + Offset
+    //   Enable = 1, Jump = 1   -> PC <- Target
+    //   Enable = 1, otherwise  -> PC <- PC + 1 + Step2
+    //   otherwise              -> hold
+    // PC + 1 + Step2 is PC + 1 for one-word instructions and PC + 2 for
+    // two-word instructions (Step2); it is also an output: the return address
+    // for CALL. Offset is sign-extended by the caller. Branch and Jump are
+    // never 1 together.
+    //
+    // Timing: the incrementer and the branch adder are separate carry-
+    // lookahead adders that only depend on the PC register and the
+    // instruction, so they settle while the condition flags are still being
+    // evaluated. Branch (the late signal) only drives the last mux before the
+    // register, and the return address does not depend on it at all.
     //
     // Enable and Reset are active-high on purpose: while a surrounding circuit
     // is still being built they read 0, so INIT clock pulses of parts built
@@ -15,38 +22,43 @@ CIRCUIT PC_16B {
     INPUT Target[16];   // Absolute jump target (JMP/CALL addr16, JR, RET)
     INPUT Offset[16];   // Relative branch offset
     INPUT Jump;         // 1 = load Target
-    INPUT Branch;       // 1 = add Offset instead of Step2
+    INPUT Branch;       // 1 = load PC + 1 + Offset
     INPUT Step2;        // 1 = two-word instruction (PC + 2)
     INPUT Enable;       // 1 = update PC on the clock edge
     INPUT Reset;        // 1 = PC <- 0 on the clock edge
     INPUT CLK;
 
     OUTPUT Addr[16];    // Current PC
-    OUTPUT Next[16];    // PC + 1 + (Branch ? Offset : Step2)
+    OUTPUT Return[16];  // PC + 1 + Step2
 
     // PC_Reg is declared first so its INIT runs before the gates that drive
     // its inputs exist.
     PART PC_Reg: REGISTER_R<16>;
-    PART IncMux: MUX_2_1_BUS<16>;  // S=0 -> Step2 (bit 0), S=1 -> Offset
-    PART Adder: ADDER<16>;
-    PART NextMux: MUX_2_1_BUS<16>; // S=0 -> Next, S=1 -> Target
+    PART Inc: ADDER_CLA_16B;       // PC + Step2 + 1
+    PART BranchAdder: ADDER_CLA_16B; // PC + Offset + 1
+    PART JumpMux: MUX_2_1_BUS<16>; // S=0 -> Inc, S=1 -> Target
+    PART BranchMux: MUX_2_1_BUS<16>; // S=0 -> JumpMux, S=1 -> BranchAdder
     PART C_TRUE: NOR;              // Constant 1 (VCC), NOR(0,0) = 1
 
     CONNECT PC_Reg.Q -> Addr;
 
-    // Next = PC + IncMux + 1; IncMux.A[15..1] stay unconnected (0).
-    CONNECT Step2 -> IncMux.A[0];
-    CONNECT Offset -> IncMux.B;
-    CONNECT Branch -> IncMux.S;
-    CONNECT PC_Reg.Q -> Adder.A;
-    CONNECT IncMux.Out -> Adder.B;
-    CONNECT C_TRUE.out -> Adder.Cin;
-    CONNECT Adder.S -> Next;
+    // Inc.B[15..1] stay unconnected (0).
+    CONNECT PC_Reg.Q -> Inc.A;
+    CONNECT Step2 -> Inc.B[0];
+    CONNECT C_TRUE.out -> Inc.Cin;
+    CONNECT Inc.S -> Return;
 
-    CONNECT Adder.S -> NextMux.A;
-    CONNECT Target -> NextMux.B;
-    CONNECT Jump -> NextMux.S;
-    CONNECT NextMux.Out -> PC_Reg.Data;
+    CONNECT PC_Reg.Q -> BranchAdder.A;
+    CONNECT Offset -> BranchAdder.B;
+    CONNECT C_TRUE.out -> BranchAdder.Cin;
+
+    CONNECT Inc.S -> JumpMux.A;
+    CONNECT Target -> JumpMux.B;
+    CONNECT Jump -> JumpMux.S;
+    CONNECT JumpMux.Out -> BranchMux.A;
+    CONNECT BranchAdder.S -> BranchMux.B;
+    CONNECT Branch -> BranchMux.S;
+    CONNECT BranchMux.Out -> PC_Reg.Data;
     CONNECT Enable -> PC_Reg.Load;
     CONNECT Reset -> PC_Reg.Reset;
     CONNECT CLK -> PC_Reg.CLK;

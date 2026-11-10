@@ -176,7 +176,7 @@ CIRCUIT CPU_16B {
     CONNECT Control.MemAddrSel -> AddrMux.S;
     CONNECT AddrMux.Out -> MemAddr;
     CONNECT RegFile.DataOutA -> DataMux.A;
-    CONNECT PcUnit.Next -> DataMux.B;
+    CONNECT PcUnit.Return -> DataMux.B;
     CONNECT Control.MemDataSel -> DataMux.S;
     CONNECT DataMux.Out -> MemDataOut;
     CONNECT Control.MemWrite -> MemAnd.in1;

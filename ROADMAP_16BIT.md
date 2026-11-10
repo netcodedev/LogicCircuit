@@ -161,8 +161,8 @@ Eingängen/Flipflops und Ausgängen/Flipflops (neu in `cargo run -- nands`).
 | `ALU_16B` (mit CLA) | `alu/` | 1.091 | 34 |
 | `SHIFTER_16B` (Barrel) | `alu/` | 890 | 29 |
 | `HEX_DISPLAY_16B` | `display/` | 664 | |
-| `PC_16B` | `circuits/` | 1.096 | |
-| `SP_16B` | `circuits/` | 839 | |
+| `PC_16B` | `circuits/` | 1.676 | |
+| `SP_16B` | `circuits/` | 1.009 | |
 | `FLAGS_16B` | `circuits/` | 156 | |
 
 - [x] Register 16 Bit (`REGISTER<16>`, `REGISTER_R<16>` mit Reset),
@@ -177,13 +177,16 @@ Eingängen/Flipflops und Ausgängen/Flipflops (neu in `cargo run -- nands`).
       (`chip build`, basic, met5, 5 ns Takt): Ripple 2.750 Transistoren,
       **148 MHz**; Kogge-Stone 3.362 Transistoren (+22 %), **481 MHz**.
       Entscheidung: CLA in der ALU, Ripple in PC und SP (laufen parallel zur
-      ALU und sind nicht der kritische Pfad)
+      ALU und sind nicht der kritische Pfad). *Revidiert 2026-11-10:* PC und SP
+      lagen doch auf dem kritischen Pfad, beide nutzen jetzt `ADDER_CLA_16B`
+      (Phase 7)
 - [x] Barrel-Shifter `SHIFTER_16B` aus vier `SHIFT_STAGE<16, S>` (nur rechts;
       links durch Bitumkehr davor und danach). Kein Carry-Ausgang (Schieben
       setzt nur Z/N)
 - [x] `FLAGS_16B`: Z/N und C/V getrennt ladbar, Reset
-- [x] `PC_16B`: `Next = PC + 1 + (Branch ? Offset : Step2)`, `Jump` lädt `Target`,
-      `Next` ist zugleich Rücksprungadresse für CALL; Reset
+- [x] `PC_16B`: `Return = PC + 1 + Step2` (Rücksprungadresse für CALL), Sprung-
+      ziel `PC + 1 + Offset` aus eigenem Addierer, `Jump` lädt `Target`, `Branch`
+      wählt als letzter Mux vor dem Register; Reset (Stand Phase 7)
 - [x] `SP_16B`: `Next = SP − Dec + Inc`, Reset auf 0
 - [x] `HEX_DISPLAY_16B` (4× `HEX_7SEG`, `Seg3..Seg0`)
 - [ ] Multiplizierer: zurückgestellt (Phase-0-Entscheidung)
@@ -303,6 +306,34 @@ Eingängen/Flipflops und Ausgängen/Flipflops (neu in `cargo run -- nands`).
   (6,4× Fläche): Er musste für die 16-Bit-Busse die Auslastung auf 43 %
   senken; OpenROAD verteilt die Leitung dagegen problemlos auf met1/met2
   (91 %).
-- [ ] Möglicher nächster Schritt: PC-Addierer als Kogge-Stone oder Rücksprung-
-      adresse aus einem eigenen Inkrementierer, dann sollte der Pfad über das
-      Registerfile/ALU bestimmen
+- [x] PC-Addierer als Kogge-Stone und Rücksprungadresse aus eigenem
+      Inkrementierer – erledigt in Phase 7
+
+## Phase 7 – Takt: kritischen Pfad entschärfen (2026-11-10)
+
+Ohne ISA-Änderung, nur Umbau von `PC_16B` und `SP_16B`.
+
+- [x] `PC_16B`: Inkrementierer (`PC + 1 + Step2`) und Sprung-Addierer
+      (`PC + 1 + Offset`) sind getrennte `ADDER_CLA_16B` und hängen nur am
+      PC-Register und am Befehl. `Jump` wählt zuerst zwischen Inkrement und
+      `Target`, das späte `Branch` (Flags → `COND_16B` → `BranchAnd`) steuert
+      nur noch den letzten Mux vor dem Register. Der Ausgang heißt jetzt
+      `Return` (= `PC + 1 + Step2`) und hängt nicht mehr von `Branch` ab
+- [x] `SP_16B`: `ADDER_CLA_16B` statt Ripple (SP − 1 → `MemAddr` bei
+      PUSH/CALL war nach dem PC-Umbau der kritische Pfad)
+- [x] Ergebnis (`chip build COMPUTER_16B`, basic, met5, 40 %, 10-ns-Takt):
+
+  | Stand | NANDs | Tiefe | Transistoren | Die | fmax | kritischer Pfad |
+  |---|---|---|---|---|---|---|
+  | vorher | 20.755 | – | 38.281 | 329 µm | 95 MHz | Flags → Branch → PC-Ripple → `MemDataOut` |
+  | PC umgebaut | 21.335 | 97 | 40.103 | 336 µm | 109 MHz | Decoder → SP-Ripple → `MemAddr` |
+  | + SP mit CLA | 21.505 | 82 | 40.710 | 339 µm | **132 MHz** | Decoder → ImmMux → BMux → ALU → WbMux → `WbZero` → Flags |
+
+  +750 NANDs (+3,6 %) und +6 % Transistoren für +39 % Takt. Der Pfad läuft
+  jetzt wie erwartet durch den Datenpfad. Größte Einzelposten darauf: das
+  Steuersignal `ImmSel` (schwach getriebenes `nor4` mit 16 Mux-Lasten,
+  ≈ 1,1 ns) und der Kogge-Stone-Addierer der ALU (≈ 1,5 ns).
+- [ ] Hinweis: Befehle und Daten kommen ohne externe Verzögerung an
+      (`Instruction` ist Startpunkt mit 0 ns). Mit echtem ROM/RAM läge deren
+      Zugriffszeit zusätzlich im Takt – nächster Hebel ist eine Pipeline
+      (Befehlsregister, synchrones RAM)
