@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::circuit::{Circuit, LogicGate, Wire};
+use crate::circuit::{Circuit, Gate, GateKind, LogicGate, Wire};
 
 impl Circuit {
     /// Creates a new, empty circuit with a name.
@@ -11,6 +11,7 @@ impl Circuit {
             inputs: HashMap::new(),
             outputs: HashMap::new(),
             wire_map: HashMap::new(),
+            gate_kinds: HashMap::new(),
         }
     }
 
@@ -18,13 +19,25 @@ impl Circuit {
         &self.name
     }
 
-    /// Number of NAND gates the circuit was built from.
+    /// Number of gates the circuit was built from (built-in gates, see
+    /// `GateKind`; NAND gates only for `CircuitBuilder::build_nand`).
     pub fn gate_count(&self) -> usize {
         self.gates.len()
     }
 
     pub fn add_gate(&mut self, gate: Box<dyn LogicGate>) {
         self.gates.push(gate);
+    }
+
+    /// Adds a built-in gate and remembers its type by instance path.
+    pub fn add_builtin(&mut self, gate: Gate) {
+        self.gate_kinds.insert(gate.id.clone(), gate.kind);
+        self.gates.push(Box::new(gate));
+    }
+
+    /// Type of the built-in gate at instance path `id` (e.g. "Cpu.Alu.G3").
+    pub fn gate_kind(&self, id: &str) -> Option<GateKind> {
+        self.gate_kinds.get(id).copied()
     }
 
     /// Registers `wire` as a named circuit input. The wire is shared (not

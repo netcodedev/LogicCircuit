@@ -1,0 +1,20 @@
+CIRCUIT AND3_NAND {
+    // AND3 built from NAND gates only. The simulator uses the built-in gate
+    // AND3 (src/circuit/gates.rs); this definition stands in for it in the
+    // NAND view, the NAND count and the NAND netlist export.
+    // Inputs: Three single bits
+    INPUT A, B, C;
+    // Output: Single bit result AND(A,B,C)
+    OUTPUT Out;
+
+    PART AND_AB: AND_NAND;   // Calculate A AND B
+    PART AND_ABC: AND_NAND; // AND the result with C
+
+    CONNECT A -> AND_AB.in1;
+    CONNECT B -> AND_AB.in2;
+
+    CONNECT AND_AB.out -> AND_ABC.in1;
+    CONNECT C -> AND_ABC.in2;
+
+    CONNECT AND_ABC.out -> Out;
+}

@@ -1,0 +1,59 @@
+// Test suite for the 3-Input AND gate circuit
+
+TESTS FOR AND3_NAND {
+    TEST "All Inputs Zero" {
+        // AND(0,0,0) = 0
+        SET A 0, B 0, C 0;
+        EVAL;
+        ASSERT Out 0;
+    }
+
+    TEST "One Input High (A=1)" {
+        // AND(1,0,0) = 0
+        SET A 1, B 0, C 0;
+        EVAL;
+        ASSERT Out 0;
+    }
+
+     TEST "One Input High (C=1)" {
+        // AND(0,0,1) = 0
+        SET A 0, B 0, C 1;
+        EVAL;
+        ASSERT Out 0;
+    }
+
+     TEST "Two Inputs High (A=1, B=1)" {
+        // AND(1,1,0) = 0
+        SET A 1, B 1, C 0;
+        EVAL;
+        ASSERT Out 0;
+    }
+
+    TEST "Two Inputs High (A=1, C=1)" {
+        // AND(1,0,1) = 0
+        SET A 1, B 0, C 1;
+        EVAL;
+        ASSERT Out 0;
+    }
+
+     TEST "Two Inputs High (B=1, C=1)" {
+        // AND(0,1,1) = 0
+        SET A 0, B 1, C 1;
+        EVAL;
+        ASSERT Out 0;
+    }
+
+    TEST "All Inputs High" {
+        // AND(1,1,1) = 1
+        SET A 1, B 1, C 1;
+        EVAL;
+        ASSERT Out 1;
+    }
+
+    TEST "One Input High (B=1)" {
+        // AND(0,1,0) = 0
+        SET A 0, B 1, C 0;
+        EVAL;
+        ASSERT Out 0;
+    }
+}

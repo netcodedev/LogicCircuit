@@ -1499,6 +1499,7 @@ const GROUPS = [
   ['decoder', 'Decoder'],
   ['logic', 'Logik'],
   ['primitive', 'Basis-Blöcke'],
+  ['nand', 'Basis-Blöcke aus NAND'],
   ['display', 'Anzeige'],
 ];
 

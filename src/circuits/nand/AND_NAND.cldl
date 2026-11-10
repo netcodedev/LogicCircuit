@@ -1,0 +1,13 @@
+CIRCUIT AND_NAND {
+    // AND built from NAND gates only. The simulator uses the built-in gate
+    // AND (src/circuit/gates.rs); this definition stands in for it in the
+    // NAND view, the NAND count and the NAND netlist export.
+    INPUT in1, in2;
+    OUTPUT out;
+    PART N1: NAND;
+    PART G1: NOT_NAND;
+    CONNECT in1 -> N1.in1;
+    CONNECT in2 -> N1.in2;
+    CONNECT N1.out -> G1.in;
+    CONNECT G1.out -> out;
+}

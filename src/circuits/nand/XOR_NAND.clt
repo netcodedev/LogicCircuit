@@ -1,0 +1,27 @@
+// Test suite for the XOR primitive circuit
+
+TESTS FOR XOR_NAND {
+    TEST "Truth Table 0 XOR 0" {
+        SET in1 0, in2 0;
+        EVAL;
+        ASSERT out 0;
+    }
+
+    TEST "Truth Table 0 XOR 1" {
+        SET in1 0, in2 1;
+        EVAL;
+        ASSERT out 1;
+    }
+
+    TEST "Truth Table 1 XOR 0" {
+        SET in1 1, in2 0;
+        EVAL;
+        ASSERT out 1;
+    }
+
+    TEST "Truth Table 1 XOR 1" {
+        SET in1 1, in2 1;
+        EVAL;
+        ASSERT out 0;
+    }
+}

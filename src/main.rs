@@ -57,7 +57,12 @@ enum Commands {
     /// Run circuit tests (.clt files).
     /// Runs tests either from the directory specified by -d
     /// or from src/circuits/ if -d is not provided.
-    Test,
+    Test {
+        /// Build every circuit from NAND gates only (the *_NAND definitions
+        /// in place of the built-in gates), as a cross-check.
+        #[arg(long)]
+        nand: bool,
+    },
     Export {
         #[arg(value_name = "COMPONENT_NAME")]
         component_name: String,
@@ -334,8 +339,9 @@ fn main() {
 
     // Step 3: Dispatch Command
     match args.command {
-        Some(Commands::Test) => {
-            let tester = CircuitTester::new();
+        Some(Commands::Test { nand }) => {
+            let mut tester = CircuitTester::new();
+            tester.nand = nand;
             let mut summary = TestSummary::new(); // Initialize summary
             let mut test_run_error = false;
 
@@ -784,6 +790,8 @@ fn print_nand_breakdown(builder: &CircuitBuilder, name: &str, depth: usize) {
         std::process::exit(1);
     };
     println!("\n{}: {} NANDs", name, group_digits(total));
+    let gates = builder.build(name).gate_count();
+    println!("Simulated as {} built-in gates (NOT, AND, OR, XOR, ...; see src/circuit/gates.rs)", group_digits(gates));
     if let Some(d) = builder.logic_depth(name) {
         println!("Logic depth: {} NAND levels (longest path between inputs/flip-flops and outputs/flip-flops)", d);
     }

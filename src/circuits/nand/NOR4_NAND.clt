@@ -1,0 +1,59 @@
+// Test suite for the 4-Input NOR gate circuit
+
+TESTS FOR NOR4_NAND {
+    TEST "All Inputs Zero" {
+        // NOR(0,0,0,0) = 1
+        SET A 0, B 0, C 0, D 0;
+        EVAL;
+        ASSERT Out 1;
+    }
+
+    TEST "One Input High (A=1)" {
+        // NOR(1,0,0,0) = 0
+        SET A 1, B 0, C 0, D 0;
+        EVAL;
+        ASSERT Out 0;
+    }
+
+    TEST "One Input High (D=1)" {
+        // NOR(0,0,0,1) = 0
+        SET A 0, B 0, C 0, D 1;
+        EVAL;
+        ASSERT Out 0;
+    }
+
+     TEST "Two Inputs High" {
+        // NOR(1,0,1,0) = 0
+        SET A 1, B 0, C 1, D 0;
+        EVAL;
+        ASSERT Out 0;
+    }
+
+     TEST "Three Inputs High" {
+        // NOR(1,1,1,0) = 0
+        SET A 1, B 1, C 1, D 0;
+        EVAL;
+        ASSERT Out 0;
+    }
+
+    TEST "All Inputs High" {
+        // NOR(1,1,1,1) = 0
+        SET A 1, B 1, C 1, D 1;
+        EVAL;
+        ASSERT Out 0;
+    }
+
+    TEST "One Input High (B=1)" {
+        // NOR(0,1,0,0) = 0
+        SET A 0, B 1, C 0, D 0;
+        EVAL;
+        ASSERT Out 0;
+    }
+
+    TEST "One Input High (C=1)" {
+        // NOR(0,0,1,0) = 0
+        SET A 0, B 0, C 1, D 0;
+        EVAL;
+        ASSERT Out 0;
+    }
+}

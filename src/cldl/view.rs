@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use super::{CircuitBuilder, CldlDefinition, IoPinDef, PinRef};
+use crate::circuit::GateKind;
 
 /// A single IO pin of a circuit or part. `width` is `Some(n)` for an n-bit bus.
 #[derive(Debug, Clone)]
@@ -19,7 +20,8 @@ pub struct PartView {
     /// True if the part has its own definition with sub-parts (i.e. it can be
     /// opened one level deeper). False for the NAND primitive.
     pub expandable: bool,
-    /// NAND gates in one instance of this part (0 if its type is unknown).
+    /// NAND gates in one instance of this part (built-in gates count as
+    /// their NAND definition; 0 if its type is unknown).
     pub nand_count: usize,
 }
 
@@ -142,7 +144,8 @@ impl CircuitBuilder {
     }
 
     /// Number of NAND gates one instance of `name` is built from, i.e. the
-    /// number of gates `build(name)` creates. `None` if `name` or any part
+    /// number of gates `build_nand(name)` creates (built-in gates count as
+    /// their NAND definition). `None` if `name` or any part
     /// type below it is unknown.
     pub fn nand_count(&self, name: &str) -> Option<usize> {
         self.count_nands(name, &mut HashMap::new())
@@ -151,6 +154,10 @@ impl CircuitBuilder {
     fn count_nands(&self, name: &str, memo: &mut HashMap<String, usize>) -> Option<usize> {
         if name == "NAND" {
             return Some(1);
+        }
+        // A built-in gate counts as the NAND gates of its NAND definition.
+        if let Some(nand_def) = GateKind::from_name(name).and_then(GateKind::nand_definition) {
+            return self.count_nands(nand_def, memo);
         }
         if let Some(&n) = memo.get(name) {
             return Some(n);
@@ -230,7 +237,10 @@ impl CircuitBuilder {
                         part_type: part.part_type.clone(),
                         inputs: sub_def.map_or_else(Vec::new, |d| pin_views(&d.inputs)),
                         outputs: sub_def.map_or_else(Vec::new, |d| pin_views(&d.outputs)),
-                        expandable: sub_def.is_some_and(|d| !d.parts.is_empty()),
+                        // A built-in gate is a cell of its own (its NAND
+                        // definition can be opened by name).
+                        expandable: GateKind::from_name(&part.part_type).is_none()
+                            && sub_def.is_some_and(|d| !d.parts.is_empty()),
                         nand_count: self.count_nands(&part.part_type, &mut memo).unwrap_or(0),
                     }
                 }
@@ -299,7 +309,7 @@ mod tests {
             .unwrap();
         for name in builder.circuit_names() {
             let counted = builder.nand_count(&name).unwrap();
-            assert_eq!(counted, builder.build(&name).gate_count(), "{name}");
+            assert_eq!(counted, builder.build_nand(&name).gate_count(), "{name}");
             let nands = builder.flatten(&name, FlatLevel::Nand).unwrap().blocks;
             assert_eq!(counted, nands.len(), "{name}");
             // Basic blocks must add up to the same number of NANDs.

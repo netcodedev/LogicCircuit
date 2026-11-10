@@ -1,0 +1,27 @@
+// Test suite for the AND primitive circuit
+
+TESTS FOR AND_NAND {
+    TEST "Truth Table 0 AND 0" {
+        SET in1 0, in2 0;
+        EVAL;
+        ASSERT out 0;
+    }
+
+    TEST "Truth Table 0 AND 1" {
+        SET in1 0, in2 1;
+        EVAL;
+        ASSERT out 0;
+    }
+
+    TEST "Truth Table 1 AND 0" {
+        SET in1 1, in2 0;
+        EVAL;
+        ASSERT out 0;
+    }
+
+    TEST "Truth Table 1 AND 1" {
+        SET in1 1, in2 1;
+        EVAL;
+        ASSERT out 1;
+    }
+}

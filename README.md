@@ -18,7 +18,13 @@ the browser's Chip 3D view with an exploded layer stack.*
 ## Features
 
 - **Circuit description language (CLDL)** – circuits are built from parts and
-  connections, starting from a single `NAND` primitive.
+  connections, down to the built-in gates `NAND`, `NOT`, `AND`, `AND3`, `OR`,
+  `NOR`, `NOR4`, `XOR` and `XNOR` – the cells a CMOS process offers directly.
+  The simulator evaluates them in Rust ([`src/circuit/gates.rs`](src/circuit/gates.rs)).
+  Each one also exists built from NAND gates only (`AND_NAND`, … in
+  [`src/circuits/nand/`](src/circuits/nand)); those stand in for the gates in
+  the NAND view, the NAND counts and the NAND netlist export, and
+  `test --nand` runs every suite on circuits made of NAND gates alone.
 - **Test language (CLT)** – every circuit ships with a test suite (`SET`,
   `EVAL`, `ASSERT`).
 - **A complete 8-bit computer** – `COMPUTER_8B` = `CPU_8B` (ALU, 16 × 8
@@ -68,7 +74,8 @@ its input port:
 cargo run --release -- run programs/16/factorial.asm --input 8
 ```
 
-Count the NAND gates of a circuit, broken down by part:
+Count the NAND gates of a circuit (built-in gates counted as their NAND
+definition), broken down by part, with the number of gates actually simulated:
 
 ```bash
 cargo run --release -- nands COMPUTER_8B --depth 2
@@ -184,8 +191,8 @@ CIRCUIT ADDER<W> {
 | Path | Contents |
 |---|---|
 | `src/cldl`, `src/clt` | Parsers and builders for the circuit and test languages |
-| `src/circuit` | Circuit model and simulator |
-| `src/circuits/` | Library circuits: primitives, adders, ALU, muxes, decoders, latches, registers, display |
+| `src/circuit` | Circuit model, simulator and the built-in gates |
+| `src/circuits/` | Library circuits: primitives (multi-bit gates and the built-in gates' tests), `nand/` (the built-in gates from NAND gates), adders, ALU, muxes, decoders, latches, registers, display |
 | `circuits/` | Larger designs: datapaths, control units, CPUs, `COMPUTER_8B` |
 | `src/isa.rs`, `src/isa/`, `src/machine.rs` | Instruction sets (8- and 16-bit), assemblers, program runner |
 | `src/export` | Verilog export and Icarus testbenches |

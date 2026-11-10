@@ -163,7 +163,7 @@ pub(super) fn parse_clt_file(file_content: &str) -> Result<CltFile, pest::error:
 impl CircuitTester {
     /// Creates a new CircuitTester.
     pub fn new() -> Self {
-        CircuitTester {}
+        CircuitTester { nand: false }
     }
 
     /// Finds, parses, and runs all tests in .clt files within a directory.
@@ -236,7 +236,11 @@ impl CircuitTester {
         for suite in clt_file.suites {
             println!("  Testing Circuit: {}", suite.circuit_name);
             // Build the circuit *once* per suite
-            let circuit = builder.build(&suite.circuit_name); // Assumes build handles init
+            let circuit = if self.nand {
+                builder.build_nand(&suite.circuit_name)
+            } else {
+                builder.build(&suite.circuit_name)
+            };
 
             for test_case in suite.test_cases {
                 println!("    Test Case: {}", test_case.name);

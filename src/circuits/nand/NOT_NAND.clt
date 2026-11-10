@@ -1,0 +1,15 @@
+// Test suite for the NOT primitive circuit
+
+TESTS FOR NOT_NAND {
+    TEST "Truth Table NOT 0" {
+        SET in 0;
+        EVAL;
+        ASSERT out 1;
+    }
+
+    TEST "Truth Table NOT 1" {
+        SET in 1;
+        EVAL;
+        ASSERT out 0;
+    }
+}

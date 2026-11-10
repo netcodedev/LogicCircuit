@@ -85,7 +85,11 @@ pub struct CltFile {
 pub struct CltParser;
 
 /// This struct handles testing circuits
-pub struct CircuitTester {}
+pub struct CircuitTester {
+    /// Build every circuit from NAND gates only (`CircuitBuilder::build_nand`)
+    /// instead of with the built-in gates.
+    pub nand: bool,
+}
 
 // Simple struct to hold test results
 #[derive(Debug, Default)]

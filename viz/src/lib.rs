@@ -1,5 +1,7 @@
 use include_dir::{Dir, DirEntry, include_dir};
-use logic_circuit::circuit::Circuit;
+use logic_circuit::circuit::{Circuit, GateKind};
+use std::cell::RefCell;
+use std::collections::HashMap;
 use logic_circuit::cldl::{CircuitBuilder, CircuitView, EndpointView, FlatLevel, PinView};
 use logic_circuit::export::verilog::{CellLib, VerilogOptions, export_verilog};
 use logic_circuit::isa::Isa;
@@ -77,6 +79,9 @@ pub struct Sim {
     circuit: Option<Circuit>,
     /// Memories and clock of the built circuit, if it is runnable.
     machine: Option<Machine>,
+    /// One circuit per built-in gate type, built from NAND gates: gives the
+    /// values of the wires inside a gate for the NAND and transistor views.
+    nand_cells: RefCell<HashMap<GateKind, Circuit>>,
 }
 
 #[wasm_bindgen]
@@ -90,6 +95,7 @@ impl Sim {
             builder,
             circuit: None,
             machine: None,
+            nand_cells: RefCell::new(HashMap::new()),
         }
     }
 
@@ -339,14 +345,45 @@ impl Sim {
     }
 
     /// Values for newline-separated wire keys: 0, 1, or 2 if the key is unknown.
+    /// A wire inside a built-in gate (only in the NAND and transistor views)
+    /// is computed from the gate's inputs with its NAND definition.
     pub fn values(&self, keys: &str) -> Vec<u8> {
         let Some(c) = &self.circuit else {
             return Vec::new();
         };
         let map = c.get_wire_map();
         keys.split('\n')
-            .map(|k| map.get(k).map_or(2, |w| w.borrow().value as u8))
+            .map(|k| match map.get(k) {
+                Some(w) => w.borrow().value as u8,
+                None => self.inner_value(c, k).map_or(2, |v| v as u8),
+            })
             .collect()
+    }
+}
+
+impl Sim {
+    /// Value of `key` inside a built-in gate, e.g. "Alu.G3.N1.out" in the
+    /// gate "Alu.G3": its NAND definition is set to the gate's input values
+    /// and evaluated. `None` if `key` is not inside a built-in gate.
+    fn inner_value(&self, c: &Circuit, key: &str) -> Option<bool> {
+        let map = c.get_wire_map();
+        // The innermost gate instance that is a prefix of the key.
+        let (gate, rest) = key
+            .match_indices('.')
+            .map(|(i, _)| (&key[..i], &key[i + 1..]))
+            .filter(|(p, _)| c.gate_kind(p).is_some())
+            .last()?;
+        let kind = c.gate_kind(gate)?;
+        let mut cells = self.nand_cells.borrow_mut();
+        let cell = cells.entry(kind).or_insert_with(|| self.builder.build_nand(kind.name()));
+        for pin in kind.inputs() {
+            let v = map.get(&format!("{gate}.{pin}"))?.borrow().value;
+            cell.set_input(pin, v);
+        }
+        cell.evaluate_stable();
+        // The one-gate wrapper names its gate "G".
+        let value = cell.get_wire_map().get(&format!("G.{rest}"))?.borrow().value;
+        Some(value)
     }
 }
 

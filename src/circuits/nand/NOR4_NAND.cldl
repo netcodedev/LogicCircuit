@@ -1,14 +1,17 @@
-CIRCUIT NOR4 {
+CIRCUIT NOR4_NAND {
+    // NOR4 built from NAND gates only. The simulator uses the built-in gate
+    // NOR4 (src/circuit/gates.rs); this definition stands in for it in the
+    // NAND view, the NAND count and the NAND netlist export.
     // Inputs: Four single bits
     INPUT A, B, C, D;
     // Output: Single bit result NOR(A,B,C,D)
     OUTPUT Out;
 
     // Implementation: NOT( OR( OR(A, B), OR(C, D) ) )
-    PART OR_AB: OR;     // Calculate A OR B
-    PART OR_CD: OR;     // Calculate C OR D
-    PART OR_ABCD: OR;   // Calculate (A OR B) OR (C OR D)
-    PART NOT_Final: NOT; // Invert the final OR result
+    PART OR_AB: OR_NAND;     // Calculate A OR B
+    PART OR_CD: OR_NAND;     // Calculate C OR D
+    PART OR_ABCD: OR_NAND;   // Calculate (A OR B) OR (C OR D)
+    PART NOT_Final: NOT_NAND; // Invert the final OR result
 
     // Connect inputs to first level OR gates
     CONNECT A -> OR_AB.in1;

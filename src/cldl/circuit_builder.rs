@@ -3,7 +3,7 @@ use std::{cell::RefCell, collections::HashMap, fs, path::Path, fmt::Write, rc::R
 use include_dir::{Dir, DirEntry};
 
 use crate::{
-    circuit::{Circuit, NandGate, Wire, wire},
+    circuit::{Circuit, Gate, GateKind, Wire, wire},
     cldl::{
         CIRCUIT_DIR, CldlDefinition, FlatBlock, FlatCircuit, FlatLevel, FlatPin, InitCommand,
         InitValue, IoPinDef, PinRef,
@@ -48,6 +48,15 @@ impl CircuitBuilder {
         load_recursive(&CIRCUIT_DIR, &mut builder);
         if builder.definitions.get_mut().is_empty() {
             eprintln!("Warning: No embedded .cldl files found.");
+        }
+        // The built-in gates as circuits of their own (one gate each), so
+        // they can be built, tested and shown like any definition.
+        for kind in GateKind::ALL {
+            if kind != GateKind::Nand {
+                builder
+                    .add_source(&kind.wrapper_source(), Some("primitive".to_string()))
+                    .expect("built-in gate definition");
+            }
         }
         builder
     }
@@ -150,7 +159,7 @@ impl CircuitBuilder {
             .instantiate(name)?
             .ok_or_else(|| format!("Unknown circuit '{name}'"))?;
         for part in &def.parts {
-            if part.part_type != "NAND" {
+            if GateKind::from_name(&part.part_type).is_none() {
                 if self.instantiate(&part.part_type)?.is_none() {
                     return Err(format!(
                         "{}: unknown part type '{}' (part '{}')",
@@ -184,7 +193,23 @@ impl CircuitBuilder {
     /// order-independent and fan-out-safe: a single source pin can drive any
     /// number of loads, and a connection can span hierarchy boundaries, without
     /// an earlier connection being able to sever a later one.
+    ///
+    /// Built-in gates (`GateKind`) become one simulated gate each.
     pub fn build(&self, top_level_name: &str) -> Circuit {
+        self.build_with(top_level_name, &|_| true)
+    }
+
+    /// Like `build`, but every built-in gate is replaced by its CLDL
+    /// definition from NAND gates (`GateKind::nand_definition`), so the
+    /// circuit consists of NAND gates only. Behaves the same as `build`;
+    /// used to check the NAND definitions against the built-in gates.
+    pub fn build_nand(&self, top_level_name: &str) -> Circuit {
+        self.build_with(top_level_name, &|_| false)
+    }
+
+    /// Builds with the built-in gates for which `native(name)` is true; the
+    /// others are expanded into NAND gates (NAND itself always stays).
+    fn build_with(&self, top_level_name: &str, native: &dyn Fn(&str) -> bool) -> Circuit {
         let mut circuit = Circuit::new(top_level_name.to_string());
         let top_def = self.def(top_level_name).unwrap_or_else(|| {
             panic!(
@@ -194,7 +219,7 @@ impl CircuitBuilder {
         });
 
         // === Planning pass: collect wire equivalence classes, gates and inits ===
-        let mut plan = self.plan_circuit(&top_def);
+        let mut plan = self.plan_circuit(&top_def, native);
 
         // === Materialization pass: one shared Wire per equivalence class ===
         let wire_map = plan.materialize();
@@ -257,18 +282,13 @@ impl CircuitBuilder {
         // before the write decoder that feeds its Load line is in place).
         for event in &plan.events {
             match event {
-                BuildEvent::Nand {
-                    id,
-                    in1,
-                    in2,
-                    out,
-                } => {
-                    circuit.add_gate(Box::new(NandGate {
+                BuildEvent::Gate { id, kind, inputs, out } => {
+                    circuit.add_builtin(Gate {
                         id: id.clone(),
-                        in1: wire_map[in1].clone(),
-                        in2: wire_map[in2].clone(),
+                        kind: *kind,
+                        inputs: inputs.iter().map(|k| wire_map[k].clone()).collect(),
                         out: wire_map[out].clone(),
-                    }));
+                    });
                 }
                 BuildEvent::Init { prefix, commands } => {
                     execute_initialization(&circuit, &wire_map, commands, prefix);
@@ -282,8 +302,9 @@ impl CircuitBuilder {
         circuit
     }
 
-    /// Runs the planning pass for a top-level definition.
-    fn plan_circuit(&self, top_def: &CldlDefinition) -> BuildPlan {
+    /// Runs the planning pass for a top-level definition. Built-in gates for
+    /// which `native` is false are planned as their NAND definition.
+    fn plan_circuit(&self, top_def: &CldlDefinition, native: &dyn Fn(&str) -> bool) -> BuildPlan {
         let mut plan = BuildPlan::default();
 
         // Register the top-level IO pins so they always resolve to a wire, even
@@ -295,7 +316,7 @@ impl CircuitBuilder {
 
         // Recursively plan every part.
         for part in &top_def.parts {
-            self.plan_part(&part.part_type, &part.instance_name, &mut plan);
+            self.plan_part(&part.part_type, &part.instance_name, &mut plan, native);
         }
 
         // Top-level initialization runs last, after every part is planned.
@@ -314,27 +335,30 @@ impl CircuitBuilder {
         self.def(name).and_then(|d| d.category.clone())
     }
 
-    /// True for definitions loaded from the `primitive` directory (NOT, AND,
-    /// OR, XOR_8B, ...): the basic blocks of `FlatLevel::Basic`.
+    /// True for the built-in gates (NOT, AND, ...) and the other definitions
+    /// loaded from the `primitive` directory (AND_4B, XOR_8B, ...): the basic
+    /// blocks of `FlatLevel::Basic`.
     pub fn is_basic(&self, name: &str) -> bool {
-        self.def(name)
-            .is_some_and(|d| d.category.as_deref() == Some("primitive"))
+        GateKind::from_name(name).is_some()
+            || self.def(name).is_some_and(|d| d.category.as_deref() == Some("primitive"))
     }
 
     /// Flattens the named circuit down to `level`: parts are expanded until
-    /// they are NAND gates (`FlatLevel::Nand`) or basic blocks
-    /// (`FlatLevel::Basic`, see `is_basic`). Nets come from the same planning
-    /// pass as `build`, so they are exactly the wires that are simulated.
+    /// they are NAND gates (`FlatLevel::Nand`, built-in gates replaced by
+    /// their NAND definitions) or basic blocks (`FlatLevel::Basic`, see
+    /// `is_basic`). Nets come from the same planning pass as building, so at
+    /// the basic level they are exactly the wires that are simulated.
     pub fn flatten(&self, name: &str, level: FlatLevel) -> Option<FlatCircuit> {
         self.flatten_until(name, &|part_type: &str| level == FlatLevel::Basic && self.is_basic(part_type))
     }
 
     /// Like `flatten`, but parts are kept as blocks wherever `stop(part_type)`
     /// is true (NAND gates always are). Used e.g. to keep flip-flops whole
-    /// for cell mapping.
+    /// for cell mapping. A built-in gate for which `stop` is false is
+    /// expanded into its NAND definition.
     pub fn flatten_until(&self, name: &str, stop: &dyn Fn(&str) -> bool) -> Option<FlatCircuit> {
         let top_def = self.def(name)?;
-        let mut plan = self.plan_circuit(&top_def);
+        let mut plan = self.plan_circuit(&top_def, stop);
 
         // Number the equivalence classes in key order so the result is
         // deterministic. A net's key is its shortest member (ties: smallest),
@@ -415,7 +439,13 @@ impl CircuitBuilder {
                 format!("{prefix}.{}", part.instance_name)
             };
             let keep = part.part_type == "NAND" || stop(&part.part_type);
-            match self.def(&part.part_type) {
+            // A built-in gate opens into its NAND definition, not into its
+            // one-gate wrapper.
+            let sub = match GateKind::from_name(&part.part_type) {
+                Some(kind) => kind.nand_definition().and_then(|n| self.def(n)),
+                None => self.def(&part.part_type),
+            };
+            match sub {
                 Some(sub) if !keep => self.collect_blocks(&sub, &path, stop, out),
                 _ => out.push((path, part.part_type.clone())),
             }
@@ -426,20 +456,25 @@ impl CircuitBuilder {
     /// of build events (gates in DFS order, each part's init right after its own
     /// subtree). No `Wire` is created here — that happens later in
     /// `BuildPlan::materialize`.
-    fn plan_part(&self, part_type: &str, instance_name: &str, plan: &mut BuildPlan) {
-        if part_type == "NAND" {
-            // The single primitive gate. Its pins are plain (never indexed)
+    fn plan_part(&self, part_type: &str, instance_name: &str, plan: &mut BuildPlan, native: &dyn Fn(&str) -> bool) {
+        if let Some(kind) = GateKind::from_name(part_type) {
+            if let Some(nand_def) = kind.nand_definition().filter(|_| !native(part_type)) {
+                // Expanded into NAND gates: the NAND definition has the same
+                // pins, so the connections to this instance stay the same.
+                return self.plan_part(nand_def, instance_name, plan, native);
+            }
+            // A built-in gate. Its pins are plain (never indexed)
             // internally; indexed connections *to* it are handled by callers.
-            let in1 = format!("{}.in1", instance_name);
-            let in2 = format!("{}.in2", instance_name);
-            let out = format!("{}.out", instance_name);
-            plan.register(&in1);
-            plan.register(&in2);
-            plan.register(&out);
-            plan.events.push(BuildEvent::Nand {
+            let key = |pin: &str| format!("{}.{}", instance_name, pin);
+            let inputs: Vec<String> = kind.inputs().iter().map(|p| key(p)).collect();
+            let out = key(kind.output());
+            for k in inputs.iter().chain(std::iter::once(&out)) {
+                plan.register(k);
+            }
+            plan.events.push(BuildEvent::Gate {
                 id: instance_name.to_string(),
-                in1,
-                in2,
+                kind,
+                inputs,
                 out,
             });
         } else if let Some(def) = self.def(part_type) {
@@ -453,6 +488,7 @@ impl CircuitBuilder {
                     &sub_part.part_type,
                     &format!("{}.{}", instance_name, sub_part.instance_name),
                     plan,
+                    native,
                 );
             }
             // Record initialization AFTER its children (post-order).
@@ -972,11 +1008,11 @@ impl WireUnion {
 /// One step of circuit construction, recorded in DFS order during planning and
 /// replayed after wires are materialized.
 enum BuildEvent {
-    /// Add a NAND gate wired to the given (still unresolved) wire keys.
-    Nand {
+    /// Add a built-in gate wired to the given (still unresolved) wire keys.
+    Gate {
         id: String,
-        in1: String,
-        in2: String,
+        kind: GateKind,
+        inputs: Vec<String>,
         out: String,
     },
     /// Run an initialization block for the part at `prefix`.
