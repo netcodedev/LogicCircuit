@@ -488,6 +488,51 @@ Stufen sind jetzt ausgeglichen; weiter ginge es nur mit tieferen Umbauten
 (Shifter ohne Umkehr-Muxe, Steuerbits vordekodiert in `Ir`, `OR_WIDE` als
 Baum) oder mit mehr Stufen.
 
+### Lohnt sich jetzt eine 5-Stufen-Pipeline? (2026-11-10)
+
+Abschätzung aus den STA-Pfaden des 167-MHz-Laufs und den Zählungen von
+`bench --stalls`; Stufen Fetch 1 (PC, Cache, Treffer) | Fetch 2
+(Vorhersage, nächster PC) | Decode (Steuerwerk, Register lesen) | Execute
+| Memory (schreibt die Register wie heute).
+
+Takt: Die längste Stufe wäre Execute: Operanden-Mux mit Forwarding, ALU
+oder Shifter, Ergebnis-Mux, Z, Flags; im heutigen Pfad 3,4 → 6,9 ns =
+3,55 ns, dazu Flipflop (0,4) und Forwarding-Mux: **~4,5 ns (≈ 220 MHz)**.
+Der Shifter (zwei Umkehr-Muxe, 2,2 ns) ist dabei der längste Teil; ohne
+die Umkehr ~4,0 ns (250 MHz). Fetch 2, Decode und die Bus-/Hold-Steuerung
+liegen bei 3–4,2 ns.
+
+Takte (heute 7.297): vorhergesagte Sprünge erst nach Fetch 2 bekannt
+(+598), Sprünge in Execute entschieden, 3 statt 1 verworfene Wörter
+(+2 × 470 + 2 × 23), JMP/CALL in Decode (+130), RET-Ziel erst in Memory
+(4 statt 2, +260); Load-Use bleibt 1 Takt (Memory schreibt wie heute).
+Zusammen **~9.270 Takte (1,70 pro Befehl)**, mit Sprungziel-Puffer in
+Fetch 1 ~8.670.
+
+| | Takt | Laufzeit Benchmarks | gegenüber heute |
+|---|---|---|---|
+| heute, 3 Stufen | 6,0 ns (167 MHz) | 43,7 µs | 1,00× |
+| 5 Stufen | 4,5 ns | 41,7 µs | 1,05× |
+| 5 Stufen + Sprungziel-Puffer | 4,5 ns | 39,0 µs | 1,12× |
+| 5 Stufen, Shifter ohne Umkehr | 4,0 ns | 37,1 µs | 1,18× |
+| beides | 4,0 ns | 34,7 µs | 1,26× |
+
+- [x] Umgesetzt (3 Stufen): `SHIFTER_16B` als Rotator (`ROT_STAGE`,
+      Linksrotation = Rechtsrotation um 16 − n über die Stufenauswahl)
+      plus Maske, die parallel entsteht: das Wort läuft durch 5 statt 7
+      Muxe (Test `shifter_circuit_matches_isa_shifts` gegen `isa::sim16`,
+      alle Operationen und Weiten); `OR_WIDE` endet mit NAND statt AND +
+      NOT (eine Ebene weniger). SOC_16B: **171 MHz** (vorher 167),
+      10.288 Zellen, 104.009 µm², Benchmarks 42,7 µs; längster Pfad Ir →
+      Execute → Flags 5,8 ns
+
+Folgerung: Nach dem Kürzen der Pfade bringt die tiefere Pipeline nur noch
+5–26 %, kostet aber neue Hazard-, Sprung- und Interrupt-Logik, einen
+Sprungziel-Puffer (Flipflops) und mehr Fehlerquellen. Jeder verlorene Takt
+wiegt bei 5 Stufen schwerer (Sprünge 3 statt 1 Takt). Günstiger: Shifter
+ohne Umkehr-Muxe und `OR_WIDE` als Baum im Steuerwerk (Flags- und
+AddrM-Pfad, geschätzt 6,0 → ~5,4 ns, +10 %) bei 3 Stufen.
+
 ### Phase 4 – Speicher-Controller
 - [ ] QSPI-Controller (Flash lesen, PSRAM lesen/schreiben), Modell im Runner
 - [ ] später ggf. SDRAM-Controller (Init, Refresh, Bänke, CAS-Latenz)

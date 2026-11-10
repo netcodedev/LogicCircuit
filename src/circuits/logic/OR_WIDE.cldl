@@ -1,8 +1,10 @@
 CIRCUIT OR_WIDE<G> {
     // OR over 4*G inputs: one NOR4 per group of four (true if the group is
-    // all 0), an AND chain over the groups (true if all inputs are 0), and a
-    // final NOT. Unused inputs read 0, so any number of terms up to 4*G
-    // can be connected. Used for the OR trees of control units.
+    // all 0), an AND chain over groups 1..G-1, and a NAND of that with
+    // group 0 (true if any input is 1). The chain starts at a constant, so
+    // G = 1 is NOR4 + NAND and every G is one level shorter than a chain
+    // with a final NOT. Unused inputs read 0, so any number of terms up to
+    // 4*G can be connected. Used for the OR trees of control units.
     INPUT In[4*G];
 
     OUTPUT Out;
@@ -14,14 +16,18 @@ CIRCUIT OR_WIDE<G> {
         CONNECT In[4*g+1] -> Nib[g].B;
         CONNECT In[4*g+2] -> Nib[g].C;
         CONNECT In[4*g+3] -> Nib[g].D;
-        PART Chain[g]: AND;
-        CONNECT Nib[g].Out -> Chain[g].in1;
     }
+    // Chain[g] = Nib[1] AND ... AND Nib[g] (Chain[0] = 1)
+    PART Chain[0]: AND;
+    CONNECT C_TRUE.out -> Chain[0].in1;
     CONNECT C_TRUE.out -> Chain[0].in2;
     FOR g IN 1..G {
-        CONNECT Chain[g-1].out -> Chain[g].in2;
+        PART Chain[g]: AND;
+        CONNECT Chain[g-1].out -> Chain[g].in1;
+        CONNECT Nib[g].Out -> Chain[g].in2;
     }
-    PART Invert: NOT;
-    CONNECT Chain[G-1].out -> Invert.in;
-    CONNECT Invert.out -> Out;
+    PART Any: NAND;
+    CONNECT Nib[0].Out -> Any.in1;
+    CONNECT Chain[G-1].out -> Any.in2;
+    CONNECT Any.out -> Out;
 }

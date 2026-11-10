@@ -342,6 +342,38 @@ mod tests {
     use super::*;
     use crate::isa::Isa;
 
+    /// SHIFTER_16B against the instruction-level shift for every amount and
+    /// operation, on words that exercise every bit and the sign.
+    #[test]
+    fn shifter_circuit_matches_isa_shifts() {
+        use crate::cldl::CircuitBuilder;
+        use crate::machine::{read_bus, write_bus};
+        let b = CircuitBuilder::new();
+        let c = b.build("SHIFTER_16B");
+        // (k of Cpu16::shift, Left, Rot, Arith)
+        let ops = [(0, 1, 0, 0), (1, 0, 0, 0), (2, 1, 1, 0), (3, 0, 1, 0), (5, 0, 0, 1)];
+        let mut words = vec![0x0000u16, 0xFFFF, 0x8000, 0x0001, 0x8421, 0xB00F, 0x7FFE, 0x5A5A];
+        let mut x = 0x1234u16;
+        for _ in 0..24 {
+            x = x.wrapping_mul(25173).wrapping_add(13849);
+            words.push(x);
+        }
+        for (k, left, rot, arith) in ops {
+            c.set_input("Left", left == 1);
+            c.set_input("Rot", rot == 1);
+            c.set_input("Arith", arith == 1);
+            for &v in &words {
+                for n in 0..16u16 {
+                    write_bus(&c, "A", 16, v as u32);
+                    write_bus(&c, "Amt", 4, n as u32);
+                    c.evaluate_stable();
+                    let want = Cpu16::shift(v, n, k).unwrap();
+                    assert_eq!(read_bus(&c, "Out", 16) as u16, want, "k={k} v={v:#06x} n={n}");
+                }
+            }
+        }
+    }
+
     fn run(src: &str, input: u16) -> Cpu16 {
         let mut cpu = Cpu16::new(&Isa::Cpu16.assemble(src).unwrap().words);
         cpu.input = input;
