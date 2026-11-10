@@ -14,3 +14,5 @@ ruvector.db
 !/chip/flow/
 !/chip/smoke/
 /viz/web/layouts
+/agentdb.rvf
+/agentdb.rvf.lock
