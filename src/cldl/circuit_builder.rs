@@ -308,6 +308,12 @@ impl CircuitBuilder {
         plan
     }
 
+    /// Category of a definition: the directory it was loaded from (e.g.
+    /// "adder", "memory"), None for definitions loaded from a string.
+    pub fn category(&self, name: &str) -> Option<String> {
+        self.def(name).and_then(|d| d.category.clone())
+    }
+
     /// True for definitions loaded from the `primitive` directory (NOT, AND,
     /// OR, XOR_8B, ...): the basic blocks of `FlatLevel::Basic`.
     pub fn is_basic(&self, name: &str) -> bool {

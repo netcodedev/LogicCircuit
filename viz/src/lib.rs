@@ -148,6 +148,22 @@ impl Sim {
         Ok(layout.write_binary())
     }
 
+    /// JSON object mapping every circuit name to its category (the
+    /// directory under src/circuits, e.g. "adder"), or null for the
+    /// designs from circuits/ and definitions added in the viewer.
+    pub fn categories(&self) -> String {
+        let map: serde_json::Map<String, Value> = self
+            .builder
+            .circuit_names()
+            .into_iter()
+            .map(|name| {
+                let cat = self.builder.category(&name);
+                (name, json!(cat))
+            })
+            .collect();
+        Value::Object(map).to_string()
+    }
+
     /// JSON object mapping every circuit name to its NAND gate count.
     pub fn nand_counts(&self) -> String {
         let counts: serde_json::Map<String, Value> = self

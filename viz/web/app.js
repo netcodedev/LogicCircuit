@@ -1460,7 +1460,7 @@ function select(type) {
       updateProgramView();
     }
   }
-  for (const d of $('list').children) d.classList.toggle('sel', d.dataset.name === type);
+  for (const d of $('list').querySelectorAll('.item')) d.classList.toggle('sel', d.dataset.name === type);
 }
 
 function fromHash() {
@@ -1476,28 +1476,98 @@ function fromHash() {
   render();
 }
 
-// Circuit list
+// Circuit list, in collapsible groups. Building blocks are grouped by their
+// directory under src/circuits; the designs from circuits/ have no category
+// and are split into computers, CPUs and CPU parts by name.
+const categories = JSON.parse(sim.categories());
+const GROUPS = [
+  ['computer', 'Computer'],
+  ['cpu', 'CPUs'],
+  ['cpu-parts', 'CPU-Bausteine'],
+  ['memory', 'Speicher'],
+  ['alu', 'ALU & Schieber'],
+  ['adder', 'Addierer'],
+  ['mux', 'Multiplexer'],
+  ['decoder', 'Decoder'],
+  ['logic', 'Logik'],
+  ['primitive', 'Basis-Blöcke'],
+  ['display', 'Anzeige'],
+];
+
+function groupOf(name) {
+  const c = categories[name];
+  if (c) return c;
+  if (/^(COMPUTER|SOC)/.test(name)) return 'computer';
+  if (/^CPU/.test(name)) return 'cpu';
+  return 'cpu-parts';
+}
+
+// Collapsed groups, remembered per browser; at first only "Computer" is open.
+const GROUPS_KEY = 'lc-viz-collapsed';
+let collapsed = new Set(GROUPS.map(([id]) => id).filter((id) => id !== 'computer'));
+try { const v = localStorage.getItem(GROUPS_KEY); if (v) collapsed = new Set(JSON.parse(v)); } catch {}
+function setCollapsed(id, on) {
+  if (on) collapsed.add(id); else collapsed.delete(id);
+  try { localStorage.setItem(GROUPS_KEY, JSON.stringify([...collapsed])); } catch {}
+}
+
 function renderList() {
   const q = $('filter').value.trim().toLowerCase();
   const list = $('list');
   list.replaceChildren();
+  const byGroup = new Map();
   for (const n of names.filter((n) => n.toLowerCase().includes(q))) {
-    const d = document.createElement('div');
-    d.dataset.name = n;
-    d.textContent = n;
-    if (n in nandCounts) {
-      const c = document.createElement('span');
-      c.className = 'count';
-      c.textContent = fmtCount(nandCounts[n]);
-      c.title = `${nandLabel(nandCounts[n])}`;
-      d.appendChild(c);
+    const g = groupOf(n);
+    if (!byGroup.has(g)) byGroup.set(g, []);
+    byGroup.get(g).push(n);
+  }
+  const known = new Set(GROUPS.map(([id]) => id));
+  const order = [...GROUPS, ...[...byGroup.keys()].filter((g) => !known.has(g)).sort().map((g) => [g, g])];
+  for (const [id, label] of order) {
+    const members = byGroup.get(id);
+    if (!members) continue;
+    // While filtering, every group with a match is open.
+    const open = q !== '' || !collapsed.has(id);
+    const group = document.createElement('div');
+    group.className = 'group';
+    const head = document.createElement('button');
+    head.className = 'group-head';
+    head.setAttribute('aria-expanded', open);
+    head.innerHTML = '<span class="caret"></span><span class="gname"></span><span class="count"></span>';
+    head.querySelector('.gname').textContent = label;
+    head.querySelector('.count').textContent = members.length;
+    head.addEventListener('click', () => { if (!q) { setCollapsed(id, open); renderList(); } });
+    group.appendChild(head);
+    if (open) {
+      for (const n of members) {
+        const d = document.createElement('div');
+        d.className = 'item';
+        d.dataset.name = n;
+        d.textContent = n;
+        if (n in nandCounts) {
+          const c = document.createElement('span');
+          c.className = 'count';
+          c.textContent = fmtCount(nandCounts[n]);
+          c.title = `${nandLabel(nandCounts[n])}`;
+          d.appendChild(c);
+        }
+        if (stack[0] && stack[0].type === n) d.classList.add('sel');
+        d.addEventListener('click', () => { select(n); go(); });
+        group.appendChild(d);
+      }
     }
-    if (stack[0] && stack[0].type === n) d.className = 'sel';
-    d.addEventListener('click', () => { select(n); go(); });
-    list.appendChild(d);
+    list.appendChild(group);
   }
 }
 $('filter').addEventListener('input', renderList);
+
+// Opens the group of the shown circuit (once, on page load), so it is
+// visible in the list.
+function revealInList(name) {
+  const id = groupOf(name);
+  if (collapsed.has(id)) { collapsed.delete(id); renderList(); }
+  $('list').querySelector(`[data-name="${CSS.escape(name)}"]`)?.scrollIntoView({ block: 'nearest' });
+}
 
 // ---------------------------------------------------------------- pan & zoom
 
@@ -1596,3 +1666,4 @@ makeSplitter($('prog-split'), 'y', (e) => {
 
 fromHash();
 renderList();
+if (stack[0]) revealInList(stack[0].type);
