@@ -574,6 +574,7 @@ fn run_bench(builder: &CircuitBuilder, tops: &[&str], latency: usize) {
     }
     println!();
     let mut total_instr = 0u64;
+    let mut hw_instr = 0u64;
     let mut total_clocks = vec![0usize; tops.len()];
     let mut mismatch = false;
     for path in &files {
@@ -589,8 +590,16 @@ fn run_bench(builder: &CircuitBuilder, tops: &[&str], latency: usize) {
         let mut cpu = Cpu16::new(&words);
         cpu.run(10_000_000);
         total_instr += cpu.steps;
+        if name.ends_with("_hw") {
+            hw_instr += cpu.steps;
+        }
         print!("  {:<10} {:>8} {:>7}", name, format!("0x{:04X}", cpu.out), cpu.steps);
         for (i, top) in tops.iter().enumerate() {
+            // "*_hw" benchmarks need the multiply/divide unit (CPU_16B_SOC).
+            if name.ends_with("_hw") && !has_muldiv(builder, top) {
+                print!("  {:>20}", "–");
+                continue;
+            }
             let circuit = builder.build(top);
             let mut m = machine::Machine::new(&circuit).expect("not runnable");
             m.rom = words.clone();
@@ -610,17 +619,29 @@ fn run_bench(builder: &CircuitBuilder, tops: &[&str], latency: usize) {
         println!();
     }
     print!("  {:<10} {:>8} {:>7}", "total", "", total_instr);
-    for c in &total_clocks {
-        print!("  {:>20}", format!("{} ({:.2})", c, *c as f64 / total_instr as f64));
+    for (i, c) in total_clocks.iter().enumerate() {
+        let instr = if has_muldiv(builder, tops[i]) { total_instr } else { total_instr - hw_instr };
+        print!("  {:>20}", format!("{} ({:.2})", c, *c as f64 / instr as f64));
     }
     println!();
     if !tops.is_empty() {
         println!("\n  Instr: instructions (instruction-level simulator); per computer: clocks (clocks per instruction)");
+        println!("  –: needs the multiply/divide unit (CPU_16B_SOC); totals leave these out");
     }
     if mismatch {
         println!("\n≠: wrong Out or no HALT (expected the instruction-level result).");
         std::process::exit(1);
     }
+}
+
+/// True if `top` contains the multiply/divide unit (a CPU_16B_SOC).
+fn has_muldiv(builder: &CircuitBuilder, top: &str) -> bool {
+    fn find(builder: &CircuitBuilder, name: &str, depth: usize) -> bool {
+        name == "MULDIV_16B"
+            || depth > 0
+                && builder.describe(name).is_some_and(|v| v.parts.iter().any(|p| find(builder, &p.part_type, depth - 1)))
+    }
+    find(builder, top, 3)
 }
 
 fn run_program(

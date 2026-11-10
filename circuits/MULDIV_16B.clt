@@ -1,0 +1,341 @@
+// Tests for the multiply/divide unit (each test continues from the previous one)
+
+TESTS FOR MULDIV_16B {
+    TEST "Idle after reset" {
+        SET Start 0, Consume 0, Div 0, Reset 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Reset 0;
+        EVAL;
+        ASSERT Busy 0; ASSERT Done 0;
+    }
+
+    TEST "Multiply 1234 * 37" {
+        SET A[0] 0, A[1] 1, A[2] 0, A[3] 0, A[4] 1, A[5] 0, A[6] 1, A[7] 1, A[8] 0, A[9] 0, A[10] 1, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 1, B[3] 0, B[4] 0, B[5] 1, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Div 0, Start 1, Consume 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Start 0;
+        ASSERT Busy 1; ASSERT Done 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Busy 1; ASSERT Done 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Busy 0; ASSERT Done 1;
+        ASSERT Hi[0] 0; ASSERT Hi[1] 0; ASSERT Hi[2] 0; ASSERT Hi[3] 0; ASSERT Hi[4] 0; ASSERT Hi[5] 0; ASSERT Hi[6] 0; ASSERT Hi[7] 0; ASSERT Hi[8] 0; ASSERT Hi[9] 0; ASSERT Hi[10] 0; ASSERT Hi[11] 0; ASSERT Hi[12] 0; ASSERT Hi[13] 0; ASSERT Hi[14] 0; ASSERT Hi[15] 0;
+        ASSERT Lo[0] 0; ASSERT Lo[1] 1; ASSERT Lo[2] 0; ASSERT Lo[3] 1; ASSERT Lo[4] 1; ASSERT Lo[5] 0; ASSERT Lo[6] 1; ASSERT Lo[7] 0; ASSERT Lo[8] 0; ASSERT Lo[9] 1; ASSERT Lo[10] 0; ASSERT Lo[11] 0; ASSERT Lo[12] 1; ASSERT Lo[13] 1; ASSERT Lo[14] 0; ASSERT Lo[15] 1;
+        SET Consume 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Consume 0;
+        ASSERT Done 0; ASSERT Busy 0;
+    }
+
+    TEST "Multiply 65535 * 65535" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1, A[4] 1, A[5] 1, A[6] 1, A[7] 1, A[8] 1, A[9] 1, A[10] 1, A[11] 1, A[12] 1, A[13] 1, A[14] 1, A[15] 1;
+        SET B[0] 1, B[1] 1, B[2] 1, B[3] 1, B[4] 1, B[5] 1, B[6] 1, B[7] 1, B[8] 1, B[9] 1, B[10] 1, B[11] 1, B[12] 1, B[13] 1, B[14] 1, B[15] 1;
+        SET Div 0, Start 1, Consume 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Start 0;
+        ASSERT Busy 1; ASSERT Done 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Busy 1; ASSERT Done 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Busy 0; ASSERT Done 1;
+        ASSERT Hi[0] 0; ASSERT Hi[1] 1; ASSERT Hi[2] 1; ASSERT Hi[3] 1; ASSERT Hi[4] 1; ASSERT Hi[5] 1; ASSERT Hi[6] 1; ASSERT Hi[7] 1; ASSERT Hi[8] 1; ASSERT Hi[9] 1; ASSERT Hi[10] 1; ASSERT Hi[11] 1; ASSERT Hi[12] 1; ASSERT Hi[13] 1; ASSERT Hi[14] 1; ASSERT Hi[15] 1;
+        ASSERT Lo[0] 1; ASSERT Lo[1] 0; ASSERT Lo[2] 0; ASSERT Lo[3] 0; ASSERT Lo[4] 0; ASSERT Lo[5] 0; ASSERT Lo[6] 0; ASSERT Lo[7] 0; ASSERT Lo[8] 0; ASSERT Lo[9] 0; ASSERT Lo[10] 0; ASSERT Lo[11] 0; ASSERT Lo[12] 0; ASSERT Lo[13] 0; ASSERT Lo[14] 0; ASSERT Lo[15] 0;
+        SET Consume 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Consume 0;
+        ASSERT Done 0; ASSERT Busy 0;
+    }
+
+    TEST "Multiply 300 * 0" {
+        SET A[0] 0, A[1] 0, A[2] 1, A[3] 1, A[4] 0, A[5] 1, A[6] 0, A[7] 0, A[8] 1, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 0, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Div 0, Start 1, Consume 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Start 0;
+        ASSERT Busy 1; ASSERT Done 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Busy 1; ASSERT Done 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Busy 0; ASSERT Done 1;
+        ASSERT Hi[0] 0; ASSERT Hi[1] 0; ASSERT Hi[2] 0; ASSERT Hi[3] 0; ASSERT Hi[4] 0; ASSERT Hi[5] 0; ASSERT Hi[6] 0; ASSERT Hi[7] 0; ASSERT Hi[8] 0; ASSERT Hi[9] 0; ASSERT Hi[10] 0; ASSERT Hi[11] 0; ASSERT Hi[12] 0; ASSERT Hi[13] 0; ASSERT Hi[14] 0; ASSERT Hi[15] 0;
+        ASSERT Lo[0] 0; ASSERT Lo[1] 0; ASSERT Lo[2] 0; ASSERT Lo[3] 0; ASSERT Lo[4] 0; ASSERT Lo[5] 0; ASSERT Lo[6] 0; ASSERT Lo[7] 0; ASSERT Lo[8] 0; ASSERT Lo[9] 0; ASSERT Lo[10] 0; ASSERT Lo[11] 0; ASSERT Lo[12] 0; ASSERT Lo[13] 0; ASSERT Lo[14] 0; ASSERT Lo[15] 0;
+        SET Consume 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Consume 0;
+        ASSERT Done 0; ASSERT Busy 0;
+    }
+
+    TEST "Multiply 46341 * 46341" {
+        SET A[0] 1, A[1] 0, A[2] 1, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 1, A[9] 0, A[10] 1, A[11] 0, A[12] 1, A[13] 1, A[14] 0, A[15] 1;
+        SET B[0] 1, B[1] 0, B[2] 1, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 1, B[9] 0, B[10] 1, B[11] 0, B[12] 1, B[13] 1, B[14] 0, B[15] 1;
+        SET Div 0, Start 1, Consume 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Start 0;
+        ASSERT Busy 1; ASSERT Done 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Busy 1; ASSERT Done 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Busy 0; ASSERT Done 1;
+        ASSERT Hi[0] 0; ASSERT Hi[1] 0; ASSERT Hi[2] 0; ASSERT Hi[3] 0; ASSERT Hi[4] 0; ASSERT Hi[5] 0; ASSERT Hi[6] 0; ASSERT Hi[7] 0; ASSERT Hi[8] 0; ASSERT Hi[9] 0; ASSERT Hi[10] 0; ASSERT Hi[11] 0; ASSERT Hi[12] 0; ASSERT Hi[13] 0; ASSERT Hi[14] 0; ASSERT Hi[15] 1;
+        ASSERT Lo[0] 1; ASSERT Lo[1] 0; ASSERT Lo[2] 0; ASSERT Lo[3] 1; ASSERT Lo[4] 1; ASSERT Lo[5] 0; ASSERT Lo[6] 0; ASSERT Lo[7] 0; ASSERT Lo[8] 0; ASSERT Lo[9] 1; ASSERT Lo[10] 0; ASSERT Lo[11] 0; ASSERT Lo[12] 1; ASSERT Lo[13] 0; ASSERT Lo[14] 0; ASSERT Lo[15] 0;
+        SET Consume 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Consume 0;
+        ASSERT Done 0; ASSERT Busy 0;
+    }
+
+    TEST "Divide 65535 / 10" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1, A[4] 1, A[5] 1, A[6] 1, A[7] 1, A[8] 1, A[9] 1, A[10] 1, A[11] 1, A[12] 1, A[13] 1, A[14] 1, A[15] 1;
+        SET B[0] 0, B[1] 1, B[2] 0, B[3] 1, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Div 1, Start 1, Consume 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Start 0;
+        ASSERT Busy 1; ASSERT Done 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Busy 1; ASSERT Done 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Busy 0; ASSERT Done 1;
+        ASSERT Hi[0] 1; ASSERT Hi[1] 0; ASSERT Hi[2] 1; ASSERT Hi[3] 0; ASSERT Hi[4] 0; ASSERT Hi[5] 0; ASSERT Hi[6] 0; ASSERT Hi[7] 0; ASSERT Hi[8] 0; ASSERT Hi[9] 0; ASSERT Hi[10] 0; ASSERT Hi[11] 0; ASSERT Hi[12] 0; ASSERT Hi[13] 0; ASSERT Hi[14] 0; ASSERT Hi[15] 0;
+        ASSERT Lo[0] 1; ASSERT Lo[1] 0; ASSERT Lo[2] 0; ASSERT Lo[3] 1; ASSERT Lo[4] 1; ASSERT Lo[5] 0; ASSERT Lo[6] 0; ASSERT Lo[7] 1; ASSERT Lo[8] 1; ASSERT Lo[9] 0; ASSERT Lo[10] 0; ASSERT Lo[11] 1; ASSERT Lo[12] 1; ASSERT Lo[13] 0; ASSERT Lo[14] 0; ASSERT Lo[15] 0;
+        SET Consume 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Consume 0;
+        ASSERT Done 0; ASSERT Busy 0;
+    }
+
+    TEST "Divide 12345 / 100" {
+        SET A[0] 1, A[1] 0, A[2] 0, A[3] 1, A[4] 1, A[5] 1, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 1, A[13] 1, A[14] 0, A[15] 0;
+        SET B[0] 0, B[1] 0, B[2] 1, B[3] 0, B[4] 0, B[5] 1, B[6] 1, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Div 1, Start 1, Consume 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Start 0;
+        ASSERT Busy 1; ASSERT Done 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Busy 1; ASSERT Done 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Busy 0; ASSERT Done 1;
+        ASSERT Hi[0] 1; ASSERT Hi[1] 0; ASSERT Hi[2] 1; ASSERT Hi[3] 1; ASSERT Hi[4] 0; ASSERT Hi[5] 1; ASSERT Hi[6] 0; ASSERT Hi[7] 0; ASSERT Hi[8] 0; ASSERT Hi[9] 0; ASSERT Hi[10] 0; ASSERT Hi[11] 0; ASSERT Hi[12] 0; ASSERT Hi[13] 0; ASSERT Hi[14] 0; ASSERT Hi[15] 0;
+        ASSERT Lo[0] 1; ASSERT Lo[1] 1; ASSERT Lo[2] 0; ASSERT Lo[3] 1; ASSERT Lo[4] 1; ASSERT Lo[5] 1; ASSERT Lo[6] 1; ASSERT Lo[7] 0; ASSERT Lo[8] 0; ASSERT Lo[9] 0; ASSERT Lo[10] 0; ASSERT Lo[11] 0; ASSERT Lo[12] 0; ASSERT Lo[13] 0; ASSERT Lo[14] 0; ASSERT Lo[15] 0;
+        SET Consume 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Consume 0;
+        ASSERT Done 0; ASSERT Busy 0;
+    }
+
+    TEST "Divide 7 / 9" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 0, A[4] 0, A[5] 0, A[6] 0, A[7] 0, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 1, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Div 1, Start 1, Consume 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Start 0;
+        ASSERT Busy 1; ASSERT Done 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Busy 1; ASSERT Done 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Busy 0; ASSERT Done 1;
+        ASSERT Hi[0] 1; ASSERT Hi[1] 1; ASSERT Hi[2] 1; ASSERT Hi[3] 0; ASSERT Hi[4] 0; ASSERT Hi[5] 0; ASSERT Hi[6] 0; ASSERT Hi[7] 0; ASSERT Hi[8] 0; ASSERT Hi[9] 0; ASSERT Hi[10] 0; ASSERT Hi[11] 0; ASSERT Hi[12] 0; ASSERT Hi[13] 0; ASSERT Hi[14] 0; ASSERT Hi[15] 0;
+        ASSERT Lo[0] 0; ASSERT Lo[1] 0; ASSERT Lo[2] 0; ASSERT Lo[3] 0; ASSERT Lo[4] 0; ASSERT Lo[5] 0; ASSERT Lo[6] 0; ASSERT Lo[7] 0; ASSERT Lo[8] 0; ASSERT Lo[9] 0; ASSERT Lo[10] 0; ASSERT Lo[11] 0; ASSERT Lo[12] 0; ASSERT Lo[13] 0; ASSERT Lo[14] 0; ASSERT Lo[15] 0;
+        SET Consume 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Consume 0;
+        ASSERT Done 0; ASSERT Busy 0;
+    }
+
+    TEST "Divide 1000 / 0" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 1, A[4] 0, A[5] 1, A[6] 1, A[7] 1, A[8] 1, A[9] 1, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 0, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Div 1, Start 1, Consume 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Start 0;
+        ASSERT Busy 1; ASSERT Done 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Busy 1; ASSERT Done 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Busy 0; ASSERT Done 1;
+        ASSERT Hi[0] 0; ASSERT Hi[1] 0; ASSERT Hi[2] 0; ASSERT Hi[3] 1; ASSERT Hi[4] 0; ASSERT Hi[5] 1; ASSERT Hi[6] 1; ASSERT Hi[7] 1; ASSERT Hi[8] 1; ASSERT Hi[9] 1; ASSERT Hi[10] 0; ASSERT Hi[11] 0; ASSERT Hi[12] 0; ASSERT Hi[13] 0; ASSERT Hi[14] 0; ASSERT Hi[15] 0;
+        ASSERT Lo[0] 1; ASSERT Lo[1] 1; ASSERT Lo[2] 1; ASSERT Lo[3] 1; ASSERT Lo[4] 1; ASSERT Lo[5] 1; ASSERT Lo[6] 1; ASSERT Lo[7] 1; ASSERT Lo[8] 1; ASSERT Lo[9] 1; ASSERT Lo[10] 1; ASSERT Lo[11] 1; ASSERT Lo[12] 1; ASSERT Lo[13] 1; ASSERT Lo[14] 1; ASSERT Lo[15] 1;
+        SET Consume 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Consume 0;
+        ASSERT Done 0; ASSERT Busy 0;
+    }
+
+    TEST "Divide 40000 / 3" {
+        SET A[0] 0, A[1] 0, A[2] 0, A[3] 0, A[4] 0, A[5] 0, A[6] 1, A[7] 0, A[8] 0, A[9] 0, A[10] 1, A[11] 1, A[12] 1, A[13] 0, A[14] 0, A[15] 1;
+        SET B[0] 1, B[1] 1, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 0, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Div 1, Start 1, Consume 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Start 0;
+        ASSERT Busy 1; ASSERT Done 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Busy 1; ASSERT Done 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Busy 0; ASSERT Done 1;
+        ASSERT Hi[0] 1; ASSERT Hi[1] 0; ASSERT Hi[2] 0; ASSERT Hi[3] 0; ASSERT Hi[4] 0; ASSERT Hi[5] 0; ASSERT Hi[6] 0; ASSERT Hi[7] 0; ASSERT Hi[8] 0; ASSERT Hi[9] 0; ASSERT Hi[10] 0; ASSERT Hi[11] 0; ASSERT Hi[12] 0; ASSERT Hi[13] 0; ASSERT Hi[14] 0; ASSERT Hi[15] 0;
+        ASSERT Lo[0] 1; ASSERT Lo[1] 0; ASSERT Lo[2] 1; ASSERT Lo[3] 0; ASSERT Lo[4] 1; ASSERT Lo[5] 0; ASSERT Lo[6] 0; ASSERT Lo[7] 0; ASSERT Lo[8] 0; ASSERT Lo[9] 0; ASSERT Lo[10] 1; ASSERT Lo[11] 0; ASSERT Lo[12] 1; ASSERT Lo[13] 1; ASSERT Lo[14] 0; ASSERT Lo[15] 0;
+        SET Consume 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Consume 0;
+        ASSERT Done 0; ASSERT Busy 0;
+    }
+
+    TEST "Multiply 255 * 257" {
+        SET A[0] 1, A[1] 1, A[2] 1, A[3] 1, A[4] 1, A[5] 1, A[6] 1, A[7] 1, A[8] 0, A[9] 0, A[10] 0, A[11] 0, A[12] 0, A[13] 0, A[14] 0, A[15] 0;
+        SET B[0] 1, B[1] 0, B[2] 0, B[3] 0, B[4] 0, B[5] 0, B[6] 0, B[7] 0, B[8] 1, B[9] 0, B[10] 0, B[11] 0, B[12] 0, B[13] 0, B[14] 0, B[15] 0;
+        SET Div 0, Start 1, Consume 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Start 0;
+        ASSERT Busy 1; ASSERT Done 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Busy 1; ASSERT Done 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Busy 0; ASSERT Done 1;
+        ASSERT Hi[0] 0; ASSERT Hi[1] 0; ASSERT Hi[2] 0; ASSERT Hi[3] 0; ASSERT Hi[4] 0; ASSERT Hi[5] 0; ASSERT Hi[6] 0; ASSERT Hi[7] 0; ASSERT Hi[8] 0; ASSERT Hi[9] 0; ASSERT Hi[10] 0; ASSERT Hi[11] 0; ASSERT Hi[12] 0; ASSERT Hi[13] 0; ASSERT Hi[14] 0; ASSERT Hi[15] 0;
+        ASSERT Lo[0] 1; ASSERT Lo[1] 1; ASSERT Lo[2] 1; ASSERT Lo[3] 1; ASSERT Lo[4] 1; ASSERT Lo[5] 1; ASSERT Lo[6] 1; ASSERT Lo[7] 1; ASSERT Lo[8] 1; ASSERT Lo[9] 1; ASSERT Lo[10] 1; ASSERT Lo[11] 1; ASSERT Lo[12] 1; ASSERT Lo[13] 1; ASSERT Lo[14] 1; ASSERT Lo[15] 1;
+        SET Consume 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        SET Consume 0;
+        ASSERT Done 0; ASSERT Busy 0;
+    }
+}

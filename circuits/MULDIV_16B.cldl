@@ -1,0 +1,171 @@
+CIRCUIT MULDIV_16B {
+    // Multi-cycle multiply/divide unit of CPU_16B_SOC (MULL, MULH, DIVU,
+    // MODU). One bit per clock, 16 steps, sharing one adder and the 32-bit
+    // shift register Hi:Lo:
+    //
+    //   multiply (Div = 0): Hi = 0, Lo = B, M = A; each step
+    //       sum = Hi + (Lo[0] ? M : 0); Hi:Lo = {carry, sum, Lo} >> 1
+    //       -> Hi:Lo = A * B (unsigned, 32 bits)
+    //   divide (Div = 1): Hi = 0, Lo = A (dividend), M = B (divisor); each
+    //       step shifts Hi:Lo left by one, subtracts M from Hi if it fits
+    //       (restoring division) and shifts the quotient bit into Lo
+    //       -> Lo = A / B, Hi = A % B (unsigned); B = 0 gives Lo = 0xFFFF,
+    //       Hi = A
+    //
+    // Start = 1 on a rising edge loads the operands; Busy is 1 for the 16
+    // steps after it, then Done = 1 until Consume = 1 on an edge. Div must
+    // stay the same while Busy.
+    INPUT A[16];
+    INPUT B[16];
+    INPUT Div;
+    INPUT Start;
+    INPUT Consume;
+    INPUT CLK;
+    INPUT Reset;
+
+    OUTPUT Hi[16];
+    OUTPUT Lo[16];
+    OUTPUT Busy;
+    OUTPUT Done;
+
+    // Registers first: their INITs run before the gates driving them exist.
+    PART HiReg: REGISTER_R<16>;
+    PART LoReg: REGISTER_R<16>;
+    PART MReg: REGISTER_R<16>;
+    PART Count: REGISTER_R<5>;     // steps left
+    PART DoneReg: REGISTER_R<1>;
+
+    PART C_TRUE: NOR;              // Constant 1 (VCC), NOR(0,0) = 1
+    PART Running: OR_WIDE<2>;      // Count != 0
+    PART LoadOr: OR;               // Start OR Running: Hi, Lo, Count load
+    PART NotStart: NOT;
+
+    // Operands on Start
+    PART LoSrc: MUX_2_1_BUS<16>;   // B (multiply), A (divide)
+    PART MSrc: MUX_2_1_BUS<16>;    // A (multiply), B (divide)
+
+    // One step
+    PART MulAdd: AND_BUS<16>;      // M AND Lo[0]
+    PART NotM: NOT_BUS<16>;
+    PART XMux: MUX_2_1_BUS<16>;    // Hi (multiply), Hi:Lo << 1 (divide)
+    PART YMux: MUX_2_1_BUS<16>;    // M AND Lo[0], NOT M
+    PART Adder: ADDER_CLA_16B;
+    PART TakeOr: OR;               // divide: shifted value >= M
+    PART HiDiv: MUX_2_1_BUS<16>;   // shifted, difference
+    PART HiStep: MUX_2_1_BUS<16>;  // multiply, divide
+    PART LoStep: MUX_2_1_BUS<16>;  // multiply, divide
+    PART HiData: AND_BUS<16>;      // 0 on Start
+    PART LoData: MUX_2_1_BUS<16>;  // step, operand
+
+    // Count and Done
+    PART CountDec: ADDER<5>;       // Count - 1
+    PART CountMux: MUX_2_1_BUS<5>; // Count - 1, 16
+    PART Upper0: NOR4;             // Count[4..1] = 0
+    PART LastAnd: AND3;            // Running AND Count = 1: last step
+    PART DoneLoad: OR;             // last step OR Consume
+
+    // Busy, Done
+    FOR i IN 0..5 {
+        CONNECT Count.Q[i] -> Running.In[i];
+    }
+    CONNECT Running.Out -> Busy;
+    CONNECT DoneReg.Q[0] -> Done;
+    CONNECT Start -> LoadOr.in1;
+    CONNECT Running.Out -> LoadOr.in2;
+    CONNECT Start -> NotStart.in;
+
+    // Operands
+    CONNECT B -> LoSrc.A;
+    CONNECT A -> LoSrc.B;
+    CONNECT Div -> LoSrc.S;
+    CONNECT A -> MSrc.A;
+    CONNECT B -> MSrc.B;
+    CONNECT Div -> MSrc.S;
+    CONNECT MSrc.Out -> MReg.Data;
+    CONNECT Start -> MReg.Load;
+    CONNECT Reset -> MReg.Reset;
+    CONNECT CLK -> MReg.CLK;
+
+    // Adder inputs: multiply Hi + (M AND Lo[0]); divide (Hi:Lo << 1) + NOT M + 1
+    CONNECT MReg.Q -> MulAdd.A;
+    CONNECT LoReg.Q[0] -> MulAdd.B;   // tee
+    CONNECT MReg.Q -> NotM.A;
+    CONNECT HiReg.Q -> XMux.A;
+    CONNECT LoReg.Q[15] -> XMux.B[0];
+    FOR i IN 0..15 {
+        CONNECT HiReg.Q[i] -> XMux.B[1+i];
+    }
+    CONNECT Div -> XMux.S;
+    CONNECT MulAdd.Out -> YMux.A;
+    CONNECT NotM.Out -> YMux.B;
+    CONNECT Div -> YMux.S;
+    CONNECT XMux.Out -> Adder.A;
+    CONNECT YMux.Out -> Adder.B;
+    CONNECT Div -> Adder.Cin;
+
+    // Divide: take = Hi[15] (17th bit of the shifted value) OR no borrow
+    CONNECT HiReg.Q[15] -> TakeOr.in1;
+    CONNECT Adder.Cout -> TakeOr.in2;
+    CONNECT XMux.Out -> HiDiv.A;
+    CONNECT Adder.S -> HiDiv.B;
+    CONNECT TakeOr.out -> HiDiv.S;
+
+    // Next Hi: multiply {carry, sum[15..1]}, divide HiDiv
+    FOR i IN 0..15 {
+        CONNECT Adder.S[1+i] -> HiStep.A[i];
+    }
+    CONNECT Adder.Cout -> HiStep.A[15];
+    CONNECT HiDiv.Out -> HiStep.B;
+    CONNECT Div -> HiStep.S;
+    // Next Lo: multiply {sum[0], Lo[15..1]}, divide {Lo[14..0], take}
+    FOR i IN 0..15 {
+        CONNECT LoReg.Q[1+i] -> LoStep.A[i];
+        CONNECT LoReg.Q[i] -> LoStep.B[1+i];
+    }
+    CONNECT Adder.S[0] -> LoStep.A[15];
+    CONNECT TakeOr.out -> LoStep.B[0];
+    CONNECT Div -> LoStep.S;
+
+    CONNECT HiStep.Out -> HiData.A;
+    CONNECT NotStart.out -> HiData.B;   // tee
+    CONNECT HiData.Out -> HiReg.Data;
+    CONNECT LoadOr.out -> HiReg.Load;
+    CONNECT Reset -> HiReg.Reset;
+    CONNECT CLK -> HiReg.CLK;
+    CONNECT HiReg.Q -> Hi;
+
+    CONNECT LoStep.Out -> LoData.A;
+    CONNECT LoSrc.Out -> LoData.B;
+    CONNECT Start -> LoData.S;
+    CONNECT LoData.Out -> LoReg.Data;
+    CONNECT LoadOr.out -> LoReg.Load;
+    CONNECT Reset -> LoReg.Reset;
+    CONNECT CLK -> LoReg.CLK;
+    CONNECT LoReg.Q -> Lo;
+
+    // Count: 16 on Start, then down to 0
+    CONNECT Count.Q -> CountDec.A;
+    CONNECT C_TRUE.out -> CountDec.B;   // tee: all ones = -1
+    CONNECT CountDec.S -> CountMux.A;
+    CONNECT C_TRUE.out -> CountMux.B[4];
+    CONNECT Start -> CountMux.S;
+    CONNECT CountMux.Out -> Count.Data;
+    CONNECT LoadOr.out -> Count.Load;
+    CONNECT Reset -> Count.Reset;
+    CONNECT CLK -> Count.CLK;
+
+    // Done: set by the last step, cleared by Consume
+    CONNECT Count.Q[1] -> Upper0.A;
+    CONNECT Count.Q[2] -> Upper0.B;
+    CONNECT Count.Q[3] -> Upper0.C;
+    CONNECT Count.Q[4] -> Upper0.D;
+    CONNECT Running.Out -> LastAnd.A;
+    CONNECT Count.Q[0] -> LastAnd.B;
+    CONNECT Upper0.Out -> LastAnd.C;
+    CONNECT LastAnd.Out -> DoneReg.Data[0];
+    CONNECT LastAnd.Out -> DoneLoad.in1;
+    CONNECT Consume -> DoneLoad.in2;
+    CONNECT DoneLoad.out -> DoneReg.Load;
+    CONNECT Reset -> DoneReg.Reset;
+    CONNECT CLK -> DoneReg.CLK;
+}

@@ -20,6 +20,12 @@ CIRCUIT CPU_16B_SOC {
     // the second word, so the return address of CALL is the PC, as for
     // CALLR, and relative branches stay PC + Offset (see PC_FETCH_16B).
     //
+    // Multiply/divide (op 7: MULL, MULH, DIVU, MODU, Rd = Rd op Rs) runs on
+    // MULDIV_16B: the instruction starts the unit when it reaches execute,
+    // waits there for 16 clocks (MdWait: PC and Ir hold, the control unit
+    // sees a NOP) and then writes its result like an ALU instruction, with
+    // Z/N from it.
+    //
     // Reset (synchronous, on a CLK edge) clears PC, SP, the flags, Out and
     // the pipeline and blocks register and memory writes. The register file
     // is not cleared.
@@ -59,6 +65,7 @@ CIRCUIT CPU_16B_SOC {
     PART DataM: REGISTER_R<16>;     // store data
     PART CtrlM: REGISTER_R<8>;      // Rd[0..3], RegWrite, MemWrite, Load, Ret
     PART RegFile: REG_FILE_16<16>;
+    PART MulDiv: MULDIV_16B;         // MULL/MULH/DIVU/MODU, 16 clocks
 
     PART Hazard: HAZARD_16B;
     PART Control: CONTROL_UNIT_16B;
@@ -86,6 +93,22 @@ CIRCUIT CPU_16B_SOC {
     PART OpGate: AND_BUS<4>;         // Op AND NOT HoldE
     PART FnGate: AND_BUS<3>;         // Fn[3..1] AND NOT HoldE
     PART Fn0Or: OR;                  // Fn[0] OR HoldE: decodes as NOP
+    PART Md14Not: NOT;               // Ir opcode 7: multiply/divide
+    PART Md13Not: NOT;
+    PART Md12Not: NOT;
+    PART IsMd: NOR4;
+    PART MdBusyOr: OR;               // unit busy or done: not idle
+    PART MdIdle: NOT;
+    PART MdStart: AND3;              // IsMd AND idle AND NOT Hold: start
+    PART MdNotDone: NOT;
+    PART MdWait: AND;                // IsMd AND NOT Done: execute waits
+    PART MdNotWait: NOT;
+    PART MdExec: AND3;               // IsMd AND Done AND NOT Hold: result
+    PART MdResult: MUX_2_1_BUS<16>;  // Lo, Hi (fn[0])
+    PART HoldEOr2: OR;               // HoldE OR MdWait
+    PART RegWriteOr: OR;             // RegWrite OR MdExec
+    PART LoadZnOr: OR;               // LoadZN OR MdExec
+    PART WbS1Or: OR;                 // WbSel[1] OR MdExec: result in slot 2
 
     PART FwdMuxA: MUX_2_1_BUS<16>;   // Rd: register file or ResultM
     PART FwdMuxB: MUX_2_1_BUS<16>;   // Rs: register file or ResultM
@@ -122,12 +145,12 @@ CIRCUIT CPU_16B_SOC {
     PART FlushOr3: OR;  // ... or no word fetched
     PART Flush: AND;    // only when Ir advances
     PART PcGo: OR;      // word fetched, or a jump/branch
-    PART PcEnable: AND; // Base AND PcGo
+    PART PcEnable: AND3; // Base AND PcGo AND NOT MdWait
     PART BusyOr: OR;    // memory stage still writes
     PART NotBusy: NOT;
     PART HaltedAnd: AND;
     PART BaseAnd: AND;  // Base = NOT Halt AND NOT Hold: fetch/execute move
-    PART AdvanceAnd: AND; // Base AND NOT NeedNext: Ir loads
+    PART AdvanceAnd: AND3; // Base AND NOT NeedNext AND NOT MdWait: Ir loads
 
     // PC and Ir advance unless HALT executes. Must stay last.
     PART HaltNot: NOT;
@@ -154,7 +177,7 @@ CIRCUIT CPU_16B_SOC {
 
     // 1. Fetch: instruction register, second word of LONG instructions
     CONNECT DataIn -> Ir.Data;
-    CONNECT AdvanceAnd.out -> Ir.Load;
+    CONNECT AdvanceAnd.Out -> Ir.Load;
     CONNECT Reset -> Ir.Reset;
     CONNECT CLK -> Ir.CLK;
     CONNECT Flush.out -> Ir.Flush;
@@ -192,7 +215,9 @@ CIRCUIT CPU_16B_SOC {
     CONNECT HoldOr.out -> NotHold.in;
     CONNECT HoldOr.out -> HoldEOr.in1;
     CONNECT NeedAnd.out -> HoldEOr.in2;
-    CONNECT HoldEOr.out -> NotHoldE.in;
+    CONNECT HoldEOr.out -> HoldEOr2.in1;
+    CONNECT MdWait.out -> HoldEOr2.in2;
+    CONNECT HoldEOr2.out -> NotHoldE.in;
     FOR i IN 0..4 {
         CONNECT Ir.Q[12+i] -> OpGate.A[i];
     }
@@ -204,7 +229,7 @@ CIRCUIT CPU_16B_SOC {
     }
     CONNECT NotHoldE.out -> FnGate.B;
     CONNECT Ir.Q[0] -> Fn0Or.in1;
-    CONNECT HoldEOr.out -> Fn0Or.in2;
+    CONNECT HoldEOr2.out -> Fn0Or.in2;
     CONNECT Fn0Or.out -> Control.Fn[0];
 
     // 3. Register file: read Rd [11..8] and Rs [7..4] in execute (with
@@ -280,9 +305,47 @@ CIRCUIT CPU_16B_SOC {
     FOR i IN 0..16 {
         CONNECT Alu.Result[i] -> WbMux.In[i];
         CONNECT Shifter.Out[i] -> WbMux.In[16+i];
+        CONNECT MdResult.Out[i] -> WbMux.In[32+i];   // multiply/divide
         CONNECT In[i] -> WbMux.In[48+i];
     }
-    CONNECT Control.WbSel -> WbMux.S;
+    CONNECT Control.WbSel[0] -> WbMux.S[0];
+    CONNECT Control.WbSel[1] -> WbS1Or.in1;
+    CONNECT MdExec.Out -> WbS1Or.in2;
+    CONNECT WbS1Or.out -> WbMux.S[1];
+
+    // 7b. Multiply/divide: starts when the instruction reaches execute,
+    //     execute waits (MdWait) until Done, then writes the result like an
+    //     ALU instruction (Z/N from it) and consumes it
+    CONNECT Ir.Q[14] -> Md14Not.in;
+    CONNECT Ir.Q[13] -> Md13Not.in;
+    CONNECT Ir.Q[12] -> Md12Not.in;
+    CONNECT Ir.Q[15] -> IsMd.A;
+    CONNECT Md14Not.out -> IsMd.B;
+    CONNECT Md13Not.out -> IsMd.C;
+    CONNECT Md12Not.out -> IsMd.D;
+    CONNECT MulDiv.Busy -> MdBusyOr.in1;
+    CONNECT MulDiv.Done -> MdBusyOr.in2;
+    CONNECT MdBusyOr.out -> MdIdle.in;
+    CONNECT IsMd.Out -> MdStart.A;
+    CONNECT MdIdle.out -> MdStart.B;
+    CONNECT NotHold.out -> MdStart.C;
+    CONNECT MulDiv.Done -> MdNotDone.in;
+    CONNECT IsMd.Out -> MdWait.in1;
+    CONNECT MdNotDone.out -> MdWait.in2;
+    CONNECT MdWait.out -> MdNotWait.in;
+    CONNECT IsMd.Out -> MdExec.A;
+    CONNECT MulDiv.Done -> MdExec.B;
+    CONNECT NotHold.out -> MdExec.C;
+    CONNECT FwdMuxA.Out -> MulDiv.A;
+    CONNECT FwdMuxB.Out -> MulDiv.B;
+    CONNECT Ir.Q[1] -> MulDiv.Div;
+    CONNECT MdStart.Out -> MulDiv.Start;
+    CONNECT MdExec.Out -> MulDiv.Consume;
+    CONNECT Reset -> MulDiv.Reset;
+    CONNECT CLK -> MulDiv.CLK;
+    CONNECT MulDiv.Lo -> MdResult.A;
+    CONNECT MulDiv.Hi -> MdResult.B;
+    CONNECT Ir.Q[0] -> MdResult.S;
 
     // 8. Flags: Z/N of the result, C/V of the ALU (loads leave them alone)
     CONNECT WbMux.Out -> WbZero.A;
@@ -290,7 +353,9 @@ CIRCUIT CPU_16B_SOC {
     CONNECT WbMux.Out[15] -> Flags.NIn;
     CONNECT Alu.Cout -> Flags.CIn;
     CONNECT Alu.V -> Flags.VIn;
-    CONNECT Control.LoadZN -> Flags.LoadZN;
+    CONNECT Control.LoadZN -> LoadZnOr.in1;
+    CONNECT MdExec.Out -> LoadZnOr.in2;
+    CONNECT LoadZnOr.out -> Flags.LoadZN;
     CONNECT Control.LoadCV -> Flags.LoadCV;
     CONNECT Reset -> Flags.Reset;
     CONNECT CLK -> Flags.CLK;
@@ -323,7 +388,9 @@ CIRCUIT CPU_16B_SOC {
     FOR i IN 0..4 {
         CONNECT Ir.Q[8+i] -> CtrlM.Data[i];
     }
-    CONNECT Control.RegWrite -> CtrlM.Data[4];
+    CONNECT Control.RegWrite -> RegWriteOr.in1;
+    CONNECT MdExec.Out -> RegWriteOr.in2;
+    CONNECT RegWriteOr.out -> CtrlM.Data[4];
     CONNECT Control.MemWrite -> CtrlM.Data[5];
     CONNECT Control.WbSel[0] -> NotWb0.in;
     CONNECT Control.WbSel[1] -> LoadAnd.in1;
@@ -375,7 +442,7 @@ CIRCUIT CPU_16B_SOC {
     CONNECT FlushOr2.out -> FlushOr3.in1;
     CONNECT NoWordOr.out -> FlushOr3.in2;
     CONNECT FlushOr3.out -> Flush.in1;
-    CONNECT AdvanceAnd.out -> Flush.in2;
+    CONNECT AdvanceAnd.Out -> Flush.in2;
     // Branch offset: sign-extended imm8
     FOR i IN 0..8 {
         CONNECT Ir.Q[i] -> PcUnit.Offset[i];
@@ -394,13 +461,15 @@ CIRCUIT CPU_16B_SOC {
     CONNECT Control.Halt -> HaltNot.in;
     CONNECT HaltNot.out -> BaseAnd.in1;
     CONNECT NotHold.out -> BaseAnd.in2;
-    CONNECT BaseAnd.out -> AdvanceAnd.in1;
-    CONNECT NotNeed.out -> AdvanceAnd.in2;
+    CONNECT BaseAnd.out -> AdvanceAnd.A;
+    CONNECT NotNeed.out -> AdvanceAnd.B;
+    CONNECT MdNotWait.out -> AdvanceAnd.C;
     CONNECT FetchOk.out -> PcGo.in1;
     CONNECT FlushOr1.out -> PcGo.in2;
-    CONNECT BaseAnd.out -> PcEnable.in1;
-    CONNECT PcGo.out -> PcEnable.in2;
-    CONNECT PcEnable.out -> PcUnit.Enable;
+    CONNECT BaseAnd.out -> PcEnable.A;
+    CONNECT PcGo.out -> PcEnable.B;
+    CONNECT MdNotWait.out -> PcEnable.C;
+    CONNECT PcEnable.Out -> PcUnit.Enable;
     CONNECT Reset -> PcUnit.Reset;
     CONNECT CLK -> PcUnit.CLK;
     CONNECT PcUnit.Addr -> PC;

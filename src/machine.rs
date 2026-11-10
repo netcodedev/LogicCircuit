@@ -606,26 +606,46 @@ mod tests {
     /// and the benchmarks.
     #[test]
     fn isa_simulator_matches_circuit() {
-        use crate::isa::sim16::Cpu16;
+        use crate::isa::sim16::{BENCHMARKS, Cpu16};
         let mut programs: Vec<(&str, u16)> = vec![
             (include_str!("../programs/16/fibonacci.asm"), 0),
             (include_str!("../programs/16/multiply.asm"), 0),
             (include_str!("../programs/16/factorial.asm"), 6),
             (include_str!("../programs/16/sort.asm"), 0),
         ];
-        programs.extend(crate::isa::sim16::BENCHMARKS.iter().map(|&(_, src, _)| (src, 0)));
-        for (src, input) in programs {
-            let (circuit, machine) = run16("COMPUTER_16B", src, input);
-            let mut cpu = Cpu16::new(&Isa::Cpu16.assemble(src).unwrap().words);
-            cpu.input = input;
-            cpu.run(1_000_000);
-            assert_eq!(read_bus(&circuit, OUT, 16), cpu.out as u32);
-            assert_eq!(read_bus(&circuit, "Cpu.SP", 16), cpu.sp as u32);
-            let flags = ["Cpu.FlagZ", "Cpu.FlagN", "Cpu.FlagC", "Cpu.FlagV"].map(|f| read_bit(&circuit, f));
-            assert_eq!(flags, [cpu.flags.z, cpu.flags.n, cpu.flags.c, cpu.flags.v]);
-            // Data memory above the program (Harvard: the program is not in RAM).
-            let len = Isa::Cpu16.assemble(src).unwrap().words.len();
-            assert_eq!(machine.ram[len..], cpu.mem[len..]);
+        programs.extend(BENCHMARKS.iter().map(|&(_, src, _)| (src, 0)));
+        programs.push((MULDIV_TEST, 0));
+        for top in ["COMPUTER_16B", "SOC_16B"] {
+            for &(src, input) in &programs {
+                // Only CPU_16B_SOC has the multiply/divide unit.
+                let uses_muldiv = ["MULL", "MULH", "DIVU", "MODU"].iter().any(|m| src.contains(m));
+                if top == "COMPUTER_16B" && uses_muldiv {
+                    continue;
+                }
+                let words = Isa::Cpu16.assemble(src).unwrap().words;
+                let (circuit, machine) = run16(top, src, input);
+                let mut cpu = Cpu16::new(&words);
+                cpu.input = input;
+                cpu.run(1_000_000);
+                assert_eq!(read_bus(&circuit, OUT, 16), cpu.out as u32, "{top}");
+                assert_eq!(read_bus(&circuit, "Cpu.SP", 16), cpu.sp as u32, "{top}");
+                let flags = ["Cpu.FlagZ", "Cpu.FlagN", "Cpu.FlagC", "Cpu.FlagV"].map(|f| read_bit(&circuit, f));
+                assert_eq!(flags, [cpu.flags.z, cpu.flags.n, cpu.flags.c, cpu.flags.v], "{top}");
+                if top == "COMPUTER_16B" {
+                    // Data memory above the program (Harvard: the program is not in RAM).
+                    assert_eq!(machine.ram[words.len()..], cpu.mem[words.len()..]);
+                } else {
+                    assert!((0..cpu.mem.len()).all(|a| machine.word_at(a) == cpu.mem[a]), "{top}: memory");
+                }
+            }
         }
     }
+
+    /// MULL/MULH/DIVU/MODU with forwarding, a load-use operand, division by
+    /// zero and the Z flag. Out = 51111.
+    const MULDIV_TEST: &str = "LI R1, 1234\n MOVI R2, 37\n MOV R3, R1\n MULL R3, R2\n\
+        LI R4, 0xFFFF\n MOV R5, R4\n MULH R5, R4\n LI R6, 12345\n MOVI R7, 100\n MOV R8, R6\n\
+        DIVU R8, R7\n MODU R6, R7\n ADD R8, R6\n MOVI R9, 7\n DIVU R9, R0\n LI R10, 0x1000\n\
+        SW R3, [R10]\n LW R11, [R10]\n MULL R11, R2\n MODU R1, R1\n BEQ ok\n HALT\n\
+        ok: ADD R8, R5\n ADD R8, R9\n ADD R8, R11\n OUT R8\n HALT";
 }

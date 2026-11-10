@@ -160,6 +160,30 @@ SoC-Linie (`CPU_16B_SOC`, `SOC_16B`).
   Bei `calls` kosten RET (zwei Takte), Zwei-Wort-CALL und Stack-Zugriffe
   auf dem gemeinsamen Bus am meisten.
 
+**A2 – Multiplikation und Division in Hardware**
+- [x] `MULDIV_16B` (3.704 NANDs): mehrtaktig, ein Bit pro Takt, 16 Schritte;
+      Multiplikation durch Schieben und Addieren, Division restaurierend
+      (Schieben und Subtrahieren), beide über denselben Kogge-Stone-Addierer
+      und das 32-Bit-Schieberegister Hi:Lo. Division durch 0: Quotient
+      0xFFFF, Rest = Dividend
+- [x] Befehle (Opcode 7, bisher reserviert): `MULL`, `MULH` (unteres/oberes
+      Wort des vorzeichenlosen Produkts), `DIVU`, `MODU`; Z/N aus dem
+      Ergebnis. Assembler, Disassembler, `isa::sim16`
+- [x] `CPU_16B_SOC`: der Befehl startet die Einheit in Execute und wartet
+      dort (`MdWait`, Steuerwerk sieht NOP, PC und Befehlsregister halten),
+      bis `Done`; dann schreibt er das Ergebnis über den freien Eingang 2
+      des Write-back-Muxes. Operanden kommen über das Forwarding, ein
+      Load-Use-Stall verzögert den Start. Die anderen CPUs behandeln
+      Opcode 7 weiter als NOP. SOC_16B: 35.947 NANDs (+3.877)
+- [x] Tests: `MULDIV_16B.clt` (10 Fälle inkl. Division durch 0, Takt für
+      Takt), MD-Programm in `CPU_16B_SOC.clt` (Referenz: `isa::sim16`), Rust:
+      `isa_simulator_matches_circuit` jetzt auch auf SOC_16B (inkl.
+      Speicher), Benchmarks `mul_hw`, `div_hw` (`bench` zeigt „–“ auf CPUs
+      ohne Einheit)
+- [x] Ergebnis SOC_16B: `div` 2.592 → `div_hw` 593 Takte (4,4×), `mul` 488
+      → `mul_hw` 326 Takte (1,5×; kleine Faktoren, Schleife und Ladebefehle
+      bleiben). Ein MUL/DIV kostet 18 Takte
+
 ### Phase 4 – Speicher-Controller
 - [ ] QSPI-Controller (Flash lesen, PSRAM lesen/schreiben), Modell im Runner
 - [ ] später ggf. SDRAM-Controller (Init, Refresh, Bänke, CAS-Latenz)

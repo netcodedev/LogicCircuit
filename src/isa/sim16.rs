@@ -5,7 +5,8 @@
 //!
 //! One memory of 64K words holds program and data (as on CPU_16B_SOC); on
 //! the Harvard CPUs the same programs behave alike as long as they do not
-//! store into their own code.
+//! store into their own code. It models the instruction set of
+//! CPU_16B_SOC, including MULL/MULH/DIVU/MODU (a NOP on the other CPUs).
 
 use super::cpu16::MEMORY_WORDS;
 
@@ -225,6 +226,18 @@ impl Cpu16 {
                     _ => {}
                 }
             }
+            7 if func < 4 => {
+                let (a, b) = (self.reg(rd) as u32, self.reg(rs) as u32);
+                let r = match func {
+                    0 => (a * b) as u16,
+                    1 => ((a * b) >> 16) as u16,
+                    // Division by zero as MULDIV_16B computes it.
+                    2 => a.checked_div(b).unwrap_or(0xFFFF) as u16,
+                    _ => a.checked_rem(b).unwrap_or(a) as u16,
+                };
+                self.set_zn(r);
+                self.set_reg(rd, r);
+            }
             8 => self.set_reg(rd, imm),
             9 => {
                 let r = self.arith(self.reg(rd), simm, false);
@@ -262,12 +275,14 @@ impl Cpu16 {
 
 /// The benchmarks (programs/bench) with the results their headers state.
 #[cfg(test)]
-pub(crate) const BENCHMARKS: [(&str, &str, u16); 5] = [
+pub(crate) const BENCHMARKS: [(&str, &str, u16); 7] = [
     ("mul", include_str!("../../programs/bench/mul.asm"), 120),
     ("div", include_str!("../../programs/bench/div.asm"), 66),
     ("branch", include_str!("../../programs/bench/branch.asm"), 80),
     ("memory", include_str!("../../programs/bench/memory.asm"), 3384),
     ("calls", include_str!("../../programs/bench/calls.asm"), 34),
+    ("mul_hw", include_str!("../../programs/bench/mul_hw.asm"), 120),
+    ("div_hw", include_str!("../../programs/bench/div_hw.asm"), 66),
 ];
 
 #[cfg(test)]

@@ -77,7 +77,7 @@ fn überspringt trotzdem zwei Wörter).
 | 6 | LI Rd, imm16 | `6 Rd - 0` + Wort | Rd ← imm16 | |
 | 6 | JMP addr16 | `6 - - 1` + Wort | PC ← addr16 | |
 | 6 | CALL addr16 | `6 - - 2` + Wort | SP ← SP−1; mem[SP] ← PC+2; PC ← addr16 | |
-| 7 | – | | reserviert | |
+| 7 | MULL MULH DIVU MODU | `7 Rd Rs 0..3` | Rd ← low/high Wort von Rd·Rs, Rd / Rs, Rd mod Rs (vorzeichenlos; /0: 0xFFFF bzw. Rd). Nur CPU_16B_SOC (MULDIV_16B, 16 Takte), sonst NOP | ZN |
 | 8 | MOVI Rd, imm8 | `8 Rd imm8` | Rd ← imm8 (ohne Vorzeichen) | |
 | 9 | ADDI Rd, imm8 | `9 Rd imm8` | Rd ← Rd + imm8 (vorzeichenbehaftet, −128..127) | ZNCV |
 | 10 | CMPI Rd, imm8 | `A Rd imm8` | Rd − imm8 (vorzeichenbehaftet), ohne Rückschreiben | ZNCV |

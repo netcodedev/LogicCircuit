@@ -12,6 +12,9 @@
 //! - `BEQ label`: branch targets are addresses (labels or numbers), the
 //!   assembler computes the offset
 //! - `LI R1, 1000`, `JMP label`, `CALL label` (two words)
+//! - `MULL`/`MULH`/`DIVU`/`MODU R1, R2` (op 7): low/high word of the
+//!   unsigned product, unsigned quotient/remainder. Only CPU_16B_SOC has the
+//!   unit; the other CPUs treat op 7 as NOP
 //! - pseudo instructions: `INC Rd` / `DEC Rd` (ADDI ±1), `SUBI Rd, n`
 //!   (ADDI −n), `BRA` = `BAL`, `BHS` = `BCS`, `BLO` = `BCC`
 //! - numbers may be negative (`-5`); a label may stand wherever a number can
@@ -34,6 +37,8 @@ enum Kind {
     Shift { k: u16 },
     /// op 3/4: `Rd, [Rs+off4]`.
     Mem { op: u16 },
+    /// op 7: `Rd, Rs`, multiply/divide unit (CPU_16B_SOC).
+    MulDiv { func: u16 },
     /// op 5: `target`.
     Branch { cond: u16 },
     /// op 6 plus a second word: `Rd, value` (LI) or `target`.
@@ -64,6 +69,9 @@ const ALU: &[&str] = &[
 
 /// Shifts by `k` (fn[2..0]); 4, 6 and 7 are reserved.
 const SHIFT: &[(&str, u16)] = &[("SHL", 0), ("SHR", 1), ("ROL", 2), ("ROR", 3), ("SAR", 5)];
+
+/// Multiply/divide (op 7, CPU_16B_SOC only; a NOP elsewhere).
+const MULDIV: &[&str] = &["MULL", "MULH", "DIVU", "MODU"];
 
 /// Branch conditions by code (first name is the one the disassembler uses).
 const CONDS: &[&[&str]] = &[
@@ -108,6 +116,9 @@ fn kind_of(mnemonic: &str) -> Option<Kind> {
     }
     if let Some(&(_, k)) = SHIFT.iter().find(|s| s.0 == m) {
         return Some(Kind::Shift { k });
+    }
+    if let Some(func) = MULDIV.iter().position(|&a| a == m) {
+        return Some(Kind::MulDiv { func: func as u16 });
     }
     if let Some(&(_, func, reg)) = LONG.iter().find(|s| s.0 == m) {
         return Some(Kind::Long { func, reg });
@@ -210,6 +221,10 @@ fn encode(p: &Pending, addr: usize, labels: &HashMap<String, usize>) -> Result<V
             let (rs, off) = parse_address(p.operands[1], line, &value)?;
             vec![op << 12 | reg(0)? << 8 | rs << 4 | off]
         }
+        Kind::MulDiv { func } => {
+            expect_operands(p, 2)?;
+            vec![0x7000 | reg(0)? << 8 | reg(1)? << 4 | func]
+        }
         Kind::Branch { cond } => {
             expect_operands(p, 1)?;
             let target = value(p.operands[0], 0, MEMORY_WORDS as i64 - 1)?;
@@ -290,6 +305,10 @@ pub fn disassemble(addr: u16, word: u16, next: u16) -> (String, usize) {
                 off => (format!("{name} R{rd}, [R{rs}+{off}]"), 1),
             }
         }
+        7 => match MULDIV.get(func as usize) {
+            Some(name) => (format!("{name} R{rd}, R{rs}"), 1),
+            None => raw(),
+        },
         5 => {
             let target = addr.wrapping_add(1).wrapping_add(imm as i8 as u16);
             (format!("B{} 0x{target:04X}", CONDS[rd as usize][0]), 1)
