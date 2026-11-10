@@ -1,0 +1,33 @@
+CIRCUIT IR_WORD_16B {
+    // Instruction register for one word. On the rising CLK edge:
+    //   Reset = 1 or Flush = 1 -> Q <- NOP (0x0001)
+    //   Load = 1               -> Q <- Data
+    //   otherwise              -> hold
+    // NOP is 0x0001 but REGISTER_R clears to 0 (= HALT), so bit 0 is stored
+    // inverted: the cleared register reads as NOP, also right after building.
+    INPUT Data[16];
+    INPUT Flush;        // 1 = replace the instruction by a NOP
+    INPUT Load;
+    INPUT Reset;
+    INPUT CLK;
+
+    OUTPUT Q[16];
+
+    // Register first: its INIT runs before the gates driving it exist.
+    PART Reg: REGISTER_R<16>;
+    PART ClearOr: OR;   // Reset OR Flush
+    PART Bit0Not: NOT;
+
+    FOR i IN 1..16 {
+        CONNECT Data[i] -> Reg.Data[i];
+        CONNECT Reg.Q[i] -> Q[i];
+    }
+    CONNECT Data[0] -> Bit0Not.in;
+    CONNECT Bit0Not.out -> Reg.Data[0];
+    CONNECT Reg.nQ[0] -> Q[0];
+    CONNECT Reset -> ClearOr.in1;
+    CONNECT Flush -> ClearOr.in2;
+    CONNECT ClearOr.out -> Reg.Reset;
+    CONNECT Load -> Reg.Load;
+    CONNECT CLK -> Reg.CLK;
+}

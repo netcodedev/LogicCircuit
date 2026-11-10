@@ -43,13 +43,30 @@ noch keine Hardware.
       `COMPUTER_16B_PIPE3.clt` enthalten je ein Programm zusätzlich mit 2
       Wartetakten pro Zugriff (`IWait`/`DWait` im Testharness)
 
-### Phase 2 – Gemeinsamer Speicher
-- [ ] `CPU_16B_SOC`: ein Speicherbus für Befehle und Daten (von-Neumann),
-      Speicherstufe hat Vorrang vor dem Fetch
-- [ ] Kein `InstructionNext` mehr: das zweite Wort von LI/JMP/CALL wird in
-      einem eigenen Fetch geholt
-- [ ] Runner: ein gemeinsamer Speicher mit Latenz; Programme und Daten im
-      selben Adressraum
+### Phase 2 – Gemeinsamer Speicher (2026-11-10)
+- [x] `CPU_16B_SOC` / `COMPUTER_16B_SOC`: ein Speicherbus für Befehle und
+      Daten (von Neumann): `Addr`, `DataIn`, `DataOut`, `Write`, `Wait`,
+      dazu `Fetch` (1 = Befehlsholen). Die Speicherstufe hat Vorrang; in dem
+      Takt bekommt Execute eine Blase (wie bei `IWait`). `Wait` während eines
+      Zugriffs der Speicherstufe hält die ganze Pipeline
+- [x] Kein `InstructionNext` mehr: Erreicht LI/JMP/CALL die Execute-Stufe,
+      wartet der Befehl einen Takt (`NeedNext`, Steuerwerk sieht NOP), bis
+      das Folgewort in `IrNext` steht. Der PC zeigt dann hinter das zweite
+      Wort, Rücksprungadresse und Sprungziel bleiben wie bei der Pipeline.
+      Der Fetch-Vor-Decoder fällt weg
+- [x] `IR_WORD_16B` (Befehlsregister für ein Wort, aus `IR_16B` gelöst;
+      `IR_16B` nutzt es, gleiche NAND-Zahl)
+- [x] 25.649 NANDs (COMPUTER_16B_SOC; COMPUTER_16B_PIPE3: 25.442 vor Phase 1)
+- [x] Runner: ein gemeinsamer Speicher (`rom` = Inhalt ab Adresse 0,
+      geschriebene Wörter in `ram`), Latenz pro Buszugriff. Takte
+      gegenüber PIPE3 (getrennte Speicher, ohne Latenz): factorial 610 → 689,
+      sort 401 → 478, multiply 79 → 87, fibonacci 193 → 193 – jeder
+      Speicherzugriff blockiert einen Fetch, LI/JMP/CALL kosten einen Takt
+- [x] Tests: alle Rust-Programmtests auch auf COMPUTER_16B_SOC, mit 0/1/3
+      Wartetakten, plus ein Programm, das Code in den Speicher schreibt und
+      anspringt; `CPU_16B_SOC.clt`/`COMPUTER_16B_SOC.clt` (Testharness spielt
+      den Speicher, prüft jeden Buszugriff; Endzustand gleich `CPU_16B`; ein
+      Programm zusätzlich mit 2 Wartetakten)
 
 ### Phase 3 – Memory-mapped I/O
 - [ ] Adressseite 0xF0xx für Peripherie (Stack wächst von 0xFFFF nach unten,

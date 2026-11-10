@@ -11,9 +11,13 @@
 //! - `IWait`/`DWait` (with `MemRead`): wait states of slow memories, see
 //!   [`Machine::latency`]
 //!
+//! Instead of `Instruction` a circuit may have one memory bus for
+//! instructions and data (`Addr`, `DataIn`, `DataOut`, `Write`, `Fetch`,
+//! `Wait`, see CPU_16B_SOC); the machine then plays that one memory.
+//!
 //! The port widths come from the circuit, so CPU_8B, COMPUTER_8B, CPU_16B,
-//! COMPUTER_16B and the pipelined COMPUTER_16B_PIPE(3) all work. On the
-//! pipelines one step is one clock, not one instruction.
+//! COMPUTER_16B, the pipelined COMPUTER_16B_PIPE(3) and COMPUTER_16B_SOC all
+//! work. On the pipelines one step is one clock, not one instruction.
 
 use std::cell::Cell;
 
@@ -30,6 +34,12 @@ pub const MEM_WRITE: &str = "MemWrite";
 pub const MEM_READ: &str = "MemRead";
 pub const I_WAIT: &str = "IWait";
 pub const D_WAIT: &str = "DWait";
+pub const ADDR: &str = "Addr";
+pub const DATA_IN: &str = "DataIn";
+pub const DATA_OUT: &str = "DataOut";
+pub const WRITE: &str = "Write";
+pub const FETCH: &str = "Fetch";
+pub const WAIT: &str = "Wait";
 pub const INPUT: &str = "In";
 pub const OUT: &str = "Out";
 pub const CLK: &str = "CLK";
@@ -62,11 +72,13 @@ pub fn bus_width(circuit: &Circuit, name: &str) -> usize {
     (0..).take_while(|i| map.contains_key(&format!("{name}.{i}"))).count()
 }
 
-/// True if the circuit has the ports needed to run programs on it.
+/// True if the circuit has the ports needed to run programs on it: PC, CLK
+/// and either an instruction port or a memory bus (`Addr`/`DataIn`).
 pub fn is_runnable(circuit: &Circuit) -> bool {
     let map = circuit.get_wire_map();
     map.contains_key(&format!("{PC}.0"))
-        && map.contains_key(&format!("{INSTRUCTION}.0"))
+        && (map.contains_key(&format!("{INSTRUCTION}.0"))
+            || map.contains_key(&format!("{ADDR}.0")) && map.contains_key(&format!("{DATA_IN}.0")))
         && map.contains_key(CLK)
 }
 
@@ -90,6 +102,8 @@ struct Ports {
     /// `IWait`/`DWait` inputs present.
     i_wait: bool,
     d_wait: bool,
+    /// Width of `Addr` of a memory bus (CPU_16B_SOC), 0 = separate ports.
+    bus: usize,
 }
 
 /// Wait states of one memory port. An access starts when the circuit
@@ -126,6 +140,11 @@ impl WaitState {
 }
 
 /// Memories, input port and clock around one runnable circuit.
+///
+/// With a memory bus (`Addr`, `DataIn`, `DataOut`, `Write`, `Wait`, `Fetch`)
+/// there is one memory for instructions and data: [`Self::rom`] is its
+/// initial content from address 0, words written by the circuit go to
+/// [`Self::ram`] and read back from there.
 #[derive(Debug, Clone)]
 pub struct Machine {
     ports: Ports,
@@ -135,11 +154,13 @@ pub struct Machine {
     pub ram: Vec<u16>,
     /// Value presented on the `In` port; `None` leaves it to the caller.
     pub input: Option<u16>,
-    /// Wait states per memory access (instruction and data memory), for
-    /// circuits with `IWait`/`DWait` ports; 0 = memories answer at once.
+    /// Wait states per memory access, for circuits with `IWait`/`DWait` or
+    /// `Wait` ports; 0 = memories answer at once.
     pub latency: usize,
     fetch_wait: WaitState,
     data_wait: WaitState,
+    /// Bus only: words of `ram` the circuit has written.
+    written: Vec<bool>,
 }
 
 impl Machine {
@@ -156,8 +177,13 @@ impl Machine {
             input: bus_width(circuit, INPUT),
             i_wait: circuit.get_wire_map().contains_key(I_WAIT),
             d_wait: circuit.get_wire_map().contains_key(D_WAIT),
+            bus: bus_width(circuit, ADDR),
         };
-        let ram_words = if ports.mem_data > 0 { 1 << ports.mem_addr } else { 0 };
+        let ram_words = match ports {
+            Ports { bus: b @ 1.., .. } => 1 << b,
+            Ports { mem_data: 1.., mem_addr, .. } => 1 << mem_addr,
+            _ => 0,
+        };
         Some(Self {
             ports,
             rom: Vec::new(),
@@ -166,12 +192,13 @@ impl Machine {
             latency: 0,
             fetch_wait: WaitState::default(),
             data_wait: WaitState::default(),
+            written: vec![false; if ports.bus > 0 { ram_words } else { 0 }],
         })
     }
 
     /// The instruction set of the CPU behind the ports.
     pub fn isa(&self) -> Isa {
-        if self.ports.next > 0 { Isa::Cpu16 } else { Isa::Cpu8 }
+        if self.ports.next > 0 || self.ports.bus > 0 { Isa::Cpu16 } else { Isa::Cpu8 }
     }
 
     /// Width of the PC in bits.
@@ -183,9 +210,13 @@ impl Machine {
         read_bus(circuit, PC, self.ports.pc) as usize
     }
 
-    /// Instruction memory at `addr` (wrapping at the PC width).
+    /// Instruction memory at `addr` (wrapping at the PC width); with a
+    /// memory bus the shared memory, including words written since.
     pub fn word_at(&self, addr: usize) -> u16 {
         let addr = addr & ((1 << self.ports.pc) - 1);
+        if self.written.get(addr) == Some(&true) {
+            return self.ram[addr];
+        }
         self.rom.get(addr).copied().unwrap_or(0)
     }
 
@@ -197,12 +228,16 @@ impl Machine {
     /// Clears the data memory.
     pub fn clear_ram(&mut self) {
         self.ram.fill(0);
+        self.written.fill(false);
     }
 
     /// Presents the word(s) at the current PC, the input port and the data
     /// memory word at `MemAddr`, and settles the circuit, so all
     /// combinational signals reflect the instruction about to execute.
     pub fn fetch(&self, circuit: &Circuit) {
+        if self.ports.bus > 0 {
+            return self.serve_bus(circuit);
+        }
         let pc = self.pc(circuit);
         write_bus(circuit, INSTRUCTION, INSTRUCTION_WIDTH, self.word_at(pc) as u32);
         write_bus(circuit, INSTRUCTION_NEXT, self.ports.next, self.word_at(pc + 1) as u32);
@@ -231,6 +266,27 @@ impl Machine {
         }
     }
 
+    /// Memory bus: presents the word at `Addr` (instruction or data) and the
+    /// wait state of the current access, and settles the circuit.
+    fn serve_bus(&self, circuit: &Circuit) {
+        if let Some(input) = self.input {
+            write_bus(circuit, INPUT, self.ports.input, input as u32);
+        }
+        circuit.evaluate_stable();
+        // Addr comes from registers (PC or the memory stage), so this settles
+        // after one round; the loop only guards other designs.
+        for _ in 0..4 {
+            let addr = read_bus(circuit, ADDR, self.ports.bus) as usize;
+            write_bus(circuit, DATA_IN, 16, self.word_at(addr) as u32);
+            let request = addr | (read_bit(circuit, WRITE) as usize) << 31 | (read_bit(circuit, FETCH) as usize) << 30;
+            circuit.set_input(WAIT, self.data_wait.waiting(Some(request), self.latency));
+            circuit.evaluate_stable();
+            if read_bus(circuit, ADDR, self.ports.bus) as usize == addr {
+                break;
+            }
+        }
+    }
+
     /// The data access the circuit requests right now (address, plus a bit
     /// for writes), None if it neither reads nor writes.
     fn data_request(&self, circuit: &Circuit) -> Option<usize> {
@@ -252,17 +308,29 @@ impl Machine {
         if halted(circuit) {
             return false;
         }
-        let store = (!self.ram.is_empty() && read_bit(circuit, MEM_WRITE) && !self.data_waiting(circuit))
-            .then(|| (self.mem_addr(circuit), read_bus(circuit, MEM_DATA_OUT, self.ports.mem_data) as u16));
+        let store = if self.ports.bus > 0 {
+            (read_bit(circuit, WRITE) && !read_bit(circuit, WAIT)).then(|| {
+                (read_bus(circuit, ADDR, self.ports.bus) as usize, read_bus(circuit, DATA_OUT, 16) as u16)
+            })
+        } else {
+            (!self.ram.is_empty() && read_bit(circuit, MEM_WRITE) && !self.data_waiting(circuit))
+                .then(|| (self.mem_addr(circuit), read_bus(circuit, MEM_DATA_OUT, self.ports.mem_data) as u16))
+        };
+        // A finished fetch stays valid while the PC stays; any other bus
+        // access is used up by the clock edge.
+        let fetching = self.ports.bus > 0 && read_bit(circuit, FETCH);
         circuit.set_input(CLK, true);
         circuit.evaluate_stable();
         if let Some((addr, data)) = store {
             self.ram[addr] = data;
+            if let Some(w) = self.written.get_mut(addr) {
+                *w = true;
+            }
         }
         circuit.set_input(CLK, false);
         circuit.evaluate_stable();
         self.fetch_wait.clock(false);
-        self.data_wait.clock(true);
+        self.data_wait.clock(!fetching);
         self.fetch(circuit);
         true
     }
@@ -316,8 +384,9 @@ mod tests {
         assert_eq!(machine.pc(&circuit), 0);
     }
 
-    /// The 16-bit computers: single cycle, two- and three-stage pipeline.
-    const COMPUTERS_16: [&str; 3] = ["COMPUTER_16B", "COMPUTER_16B_PIPE", "COMPUTER_16B_PIPE3"];
+    /// The 16-bit computers: single cycle, two- and three-stage pipeline,
+    /// three stages with one shared memory.
+    const COMPUTERS_16: [&str; 4] = ["COMPUTER_16B", "COMPUTER_16B_PIPE", "COMPUTER_16B_PIPE3", "COMPUTER_16B_SOC"];
 
     /// Runs a 16-bit program on `top` to HALT and returns the circuit and
     /// machine.
@@ -391,8 +460,8 @@ mod tests {
         }
     }
 
-    /// Wait states (IWait/DWait) change the number of clocks, never the
-    /// result.
+    /// Wait states (IWait/DWait, or Wait on the memory bus) change the
+    /// number of clocks, never the result.
     #[test]
     fn slow_memories() {
         let programs = [
@@ -400,17 +469,31 @@ mod tests {
             (include_str!("../programs/16/factorial.asm"), 5, 120),
             (include_str!("../programs/16/sort.asm"), 0, 0x1234),
         ];
-        for (src, input, out) in programs {
-            let mut last = 0;
-            for latency in [0, 1, 3] {
-                let (circuit, machine, clocks) = run16_slow("COMPUTER_16B_PIPE3", src, input, latency);
-                assert_eq!(read_bus(&circuit, OUT, 16), out, "latency {latency}");
-                if src.contains("Bubble sort") {
-                    assert_eq!(machine.ram[0x100..0x108], [0, 1, 7, 42, 503, 999, 0x0FFF, 0x1234]);
+        for top in ["COMPUTER_16B_PIPE3", "COMPUTER_16B_SOC"] {
+            for (src, input, out) in programs {
+                let mut last = 0;
+                for latency in [0, 1, 3] {
+                    let (circuit, machine, clocks) = run16_slow(top, src, input, latency);
+                    assert_eq!(read_bus(&circuit, OUT, 16), out, "{top}, latency {latency}");
+                    if src.contains("Bubble sort") {
+                        assert_eq!(machine.ram[0x100..0x108], [0, 1, 7, 42, 503, 999, 0x0FFF, 0x1234]);
+                    }
+                    assert!(clocks > last, "{top}, latency {latency}: {clocks} clocks");
+                    last = clocks;
                 }
-                assert!(clocks > last, "latency {latency}: {clocks} clocks");
-                last = clocks;
             }
         }
+    }
+
+    /// With one memory for instructions and data, a program can write code
+    /// and run it.
+    #[test]
+    fn shared_memory_runs_written_code() {
+        // Writes "MOVI R2, 0x42; OUT R2; HALT" to 0x0100 and jumps there.
+        let src = "LI R1, 0x0100\n LI R3, 0x8242\n SW R3, [R1]\n LI R3, 0x0207\n SW R3, [R1+1]\n\
+                   MOVI R3, 0\n SW R3, [R1+2]\n JR R1";
+        let (circuit, machine) = run16("COMPUTER_16B_SOC", src, 0);
+        assert_eq!(machine.word_at(0x0100), 0x8242);
+        assert_eq!(read_bus(&circuit, OUT, 16), 0x42);
     }
 }

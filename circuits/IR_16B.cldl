@@ -1,16 +1,15 @@
 CIRCUIT IR_16B {
-    // Instruction register of CPU_16B_PIPE: holds the instruction word and
+    // Instruction register of CPU_16B_PIPE(3): holds the instruction word and
     // the word after it (second word of LI/JMP/CALL) between the fetch and
     // the execute stage. On the rising CLK edge:
     //   Reset = 1 or Flush = 1 -> Q <- NOP (0x0001), QNext <- unchanged
     //   Load = 1               -> Q <- Data, QNext <- DataNext
     //   otherwise              -> hold
-    // NOP is 0x0001 but REGISTER_R clears to 0 (= HALT), so bit 0 is stored
-    // inverted: the cleared register reads as NOP, also right after building.
-    // QNext needs no clear: it only matters for two-word instructions. It is
-    // still a REGISTER_R: a plain REGISTER drives its Load input in its own
-    // INIT, and Load is shared with the PC enable in CPU_16B_PIPE, so the
-    // PC would count while the CPU is being built.
+    // The word itself is an IR_WORD_16B. QNext needs no clear: it only
+    // matters for two-word instructions. It is still a REGISTER_R: a plain
+    // REGISTER drives its Load input in its own INIT, and Load is shared
+    // with the PC enable in CPU_16B_PIPE, so the PC would count while the
+    // CPU is being built.
     INPUT Data[16];
     INPUT DataNext[16];
     INPUT Flush;        // 1 = replace the instruction by a NOP (taken jump)
@@ -22,23 +21,15 @@ CIRCUIT IR_16B {
     OUTPUT QNext[16];
 
     // Registers first: their INITs run before the gates driving them exist.
-    PART Reg: REGISTER_R<16>;
+    PART Word: IR_WORD_16B;
     PART RegNext: REGISTER_R<16>; // Reset unconnected (0)
-    PART ClearOr: OR;   // Reset OR Flush
-    PART Bit0Not: NOT;
 
-    FOR i IN 1..16 {
-        CONNECT Data[i] -> Reg.Data[i];
-        CONNECT Reg.Q[i] -> Q[i];
-    }
-    CONNECT Data[0] -> Bit0Not.in;
-    CONNECT Bit0Not.out -> Reg.Data[0];
-    CONNECT Reg.nQ[0] -> Q[0];
-    CONNECT Reset -> ClearOr.in1;
-    CONNECT Flush -> ClearOr.in2;
-    CONNECT ClearOr.out -> Reg.Reset;
-    CONNECT Load -> Reg.Load;
-    CONNECT CLK -> Reg.CLK;
+    CONNECT Data -> Word.Data;
+    CONNECT Flush -> Word.Flush;
+    CONNECT Load -> Word.Load;
+    CONNECT Reset -> Word.Reset;
+    CONNECT CLK -> Word.CLK;
+    CONNECT Word.Q -> Q;
 
     CONNECT DataNext -> RegNext.Data;
     CONNECT RegNext.Q -> QNext;

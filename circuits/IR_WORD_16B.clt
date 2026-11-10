@@ -1,0 +1,49 @@
+// Tests for the one-word instruction register (each test continues from the previous one)
+
+TESTS FOR IR_WORD_16B {
+    TEST "Starts as NOP (0x0001)" {
+        EVAL;
+        ASSERT Q[0] 1; ASSERT Q[1] 0; ASSERT Q[2] 0; ASSERT Q[3] 0; ASSERT Q[4] 0; ASSERT Q[5] 0; ASSERT Q[6] 0; ASSERT Q[7] 0; ASSERT Q[8] 0; ASSERT Q[9] 0; ASSERT Q[10] 0; ASSERT Q[11] 0; ASSERT Q[12] 0; ASSERT Q[13] 0; ASSERT Q[14] 0; ASSERT Q[15] 0;
+    }
+
+    TEST "Load 0x6100" {
+        SET Data[0] 0, Data[1] 0, Data[2] 0, Data[3] 0, Data[4] 0, Data[5] 0, Data[6] 0, Data[7] 0, Data[8] 1, Data[9] 0, Data[10] 0, Data[11] 0, Data[12] 0, Data[13] 1, Data[14] 1, Data[15] 0;
+        SET Flush 0, Load 1, Reset 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Q[0] 0; ASSERT Q[1] 0; ASSERT Q[2] 0; ASSERT Q[3] 0; ASSERT Q[4] 0; ASSERT Q[5] 0; ASSERT Q[6] 0; ASSERT Q[7] 0; ASSERT Q[8] 1; ASSERT Q[9] 0; ASSERT Q[10] 0; ASSERT Q[11] 0; ASSERT Q[12] 0; ASSERT Q[13] 1; ASSERT Q[14] 1; ASSERT Q[15] 0;
+    }
+
+    TEST "Hold (Load=0)" {
+        SET Data[0] 0, Data[1] 0, Data[2] 1, Data[3] 0, Data[4] 1, Data[5] 1, Data[6] 0, Data[7] 0, Data[8] 0, Data[9] 1, Data[10] 0, Data[11] 0, Data[12] 1, Data[13] 0, Data[14] 0, Data[15] 0;
+        SET Flush 0, Load 0, Reset 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Q[0] 0; ASSERT Q[1] 0; ASSERT Q[2] 0; ASSERT Q[3] 0; ASSERT Q[4] 0; ASSERT Q[5] 0; ASSERT Q[6] 0; ASSERT Q[7] 0; ASSERT Q[8] 1; ASSERT Q[9] 0; ASSERT Q[10] 0; ASSERT Q[11] 0; ASSERT Q[12] 0; ASSERT Q[13] 1; ASSERT Q[14] 1; ASSERT Q[15] 0;
+    }
+
+    TEST "Load HALT (0x0000)" {
+        SET Data[0] 0, Data[1] 0, Data[2] 0, Data[3] 0, Data[4] 0, Data[5] 0, Data[6] 0, Data[7] 0, Data[8] 0, Data[9] 0, Data[10] 0, Data[11] 0, Data[12] 0, Data[13] 0, Data[14] 0, Data[15] 0;
+        SET Flush 0, Load 1, Reset 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Q[0] 0; ASSERT Q[1] 0; ASSERT Q[2] 0; ASSERT Q[3] 0; ASSERT Q[4] 0; ASSERT Q[5] 0; ASSERT Q[6] 0; ASSERT Q[7] 0; ASSERT Q[8] 0; ASSERT Q[9] 0; ASSERT Q[10] 0; ASSERT Q[11] 0; ASSERT Q[12] 0; ASSERT Q[13] 0; ASSERT Q[14] 0; ASSERT Q[15] 0;
+    }
+
+    TEST "Flush -> NOP" {
+        SET Data[0] 1, Data[1] 0, Data[2] 0, Data[3] 0, Data[4] 0, Data[5] 0, Data[6] 0, Data[7] 0, Data[8] 1, Data[9] 0, Data[10] 0, Data[11] 0, Data[12] 1, Data[13] 0, Data[14] 0, Data[15] 1;
+        SET Flush 1, Load 1, Reset 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Q[0] 1; ASSERT Q[1] 0; ASSERT Q[2] 0; ASSERT Q[3] 0; ASSERT Q[4] 0; ASSERT Q[5] 0; ASSERT Q[6] 0; ASSERT Q[7] 0; ASSERT Q[8] 0; ASSERT Q[9] 0; ASSERT Q[10] 0; ASSERT Q[11] 0; ASSERT Q[12] 0; ASSERT Q[13] 0; ASSERT Q[14] 0; ASSERT Q[15] 0;
+    }
+
+    TEST "Load 0xFFFE" {
+        SET Data[0] 0, Data[1] 1, Data[2] 1, Data[3] 1, Data[4] 1, Data[5] 1, Data[6] 1, Data[7] 1, Data[8] 1, Data[9] 1, Data[10] 1, Data[11] 1, Data[12] 1, Data[13] 1, Data[14] 1, Data[15] 1;
+        SET Flush 0, Load 1, Reset 0;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Q[0] 0; ASSERT Q[1] 1; ASSERT Q[2] 1; ASSERT Q[3] 1; ASSERT Q[4] 1; ASSERT Q[5] 1; ASSERT Q[6] 1; ASSERT Q[7] 1; ASSERT Q[8] 1; ASSERT Q[9] 1; ASSERT Q[10] 1; ASSERT Q[11] 1; ASSERT Q[12] 1; ASSERT Q[13] 1; ASSERT Q[14] 1; ASSERT Q[15] 1;
+    }
+
+    TEST "Reset -> NOP" {
+        SET Flush 0, Load 0, Reset 1;
+        SEQ CLK 0 -> CLK 1 -> CLK 0;
+        ASSERT Q[0] 1; ASSERT Q[1] 0; ASSERT Q[2] 0; ASSERT Q[3] 0; ASSERT Q[4] 0; ASSERT Q[5] 0; ASSERT Q[6] 0; ASSERT Q[7] 0; ASSERT Q[8] 0; ASSERT Q[9] 0; ASSERT Q[10] 0; ASSERT Q[11] 0; ASSERT Q[12] 0; ASSERT Q[13] 0; ASSERT Q[14] 0; ASSERT Q[15] 0;
+    }
+}

@@ -1,0 +1,46 @@
+CIRCUIT COMPUTER_16B_SOC {
+    // CPU_16B_SOC (one memory for instructions and data) with a four-digit
+    // hex display of its output register. The memory stays external (test
+    // harness or the Rust runner), see CPU_16B_SOC for the bus.
+
+    INPUT DataIn[16];
+    INPUT Wait;
+    INPUT In[16];
+    INPUT CLK;
+    INPUT Reset;
+
+    OUTPUT Addr[16];
+    OUTPUT DataOut[16];
+    OUTPUT Write;
+    OUTPUT Fetch;
+    OUTPUT PC[16];
+    OUTPUT Halted;
+    OUTPUT Out[16];
+    OUTPUT Seg3[7];     // Out[15..12], segments a..g
+    OUTPUT Seg2[7];
+    OUTPUT Seg1[7];
+    OUTPUT Seg0[7];     // Out[3..0]
+
+    PART Cpu: CPU_16B_SOC;
+    PART Display: HEX_DISPLAY_16B;
+
+    CONNECT DataIn -> Cpu.DataIn;
+    CONNECT Wait -> Cpu.Wait;
+    CONNECT In -> Cpu.In;
+    CONNECT CLK -> Cpu.CLK;
+    CONNECT Reset -> Cpu.Reset;
+
+    CONNECT Cpu.Addr -> Addr;
+    CONNECT Cpu.DataOut -> DataOut;
+    CONNECT Cpu.Write -> Write;
+    CONNECT Cpu.Fetch -> Fetch;
+    CONNECT Cpu.PC -> PC;
+    CONNECT Cpu.Halted -> Halted;
+    CONNECT Cpu.Out -> Out;
+
+    CONNECT Cpu.Out -> Display.Value;
+    CONNECT Display.Seg3 -> Seg3;
+    CONNECT Display.Seg2 -> Seg2;
+    CONNECT Display.Seg1 -> Seg1;
+    CONNECT Display.Seg0 -> Seg0;
+}
