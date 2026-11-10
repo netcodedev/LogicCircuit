@@ -8,9 +8,9 @@
 //! - `GET  /api/health`                  -> {"ok":true}
 //! - `GET  /api/chip/runs?name=N`        -> runs of design N (metrics, layout present?)
 //! - `GET  /api/chip/layout?name=N&run=R` -> layout.bin of a run (extracted on demand)
-//! - `POST /api/chip/build?name=N&max_layer=met5&level=basic&util=40&optimize=0&keep_latches=0`
+//! - `POST /api/chip/build?name=N&max_layer=met5&level=basic&util=40&optimize=0&keep_latches=0&clock=10&mem_delay=0`
 //!   starts `chip build` + `chip extract` in the background (one job at a time)
-//! - `GET  /api/chip/job`                -> state of the current/last job
+//! - `GET  /api/chip/job`                -> state of the current/last job, with the log tail
 //!
 //! Requests that change something must carry the header `X-LogicCircuit: 1`:
 //! a cross-site page cannot set it without a CORS preflight, which this
@@ -163,15 +163,23 @@ fn start_build(server: &Arc<Server>, q: &HashMap<String, String>) -> Result<Valu
     if !(10..=90).contains(&utilization) {
         return Err("util must be 10..90".into());
     }
+    let clock_period_ns: f64 = q.get("clock").and_then(|v| v.parse().ok()).unwrap_or(10.0);
+    if !(1.0..=100.0).contains(&clock_period_ns) {
+        return Err("clock must be 1..100 ns".into());
+    }
+    let mem_delay_ns: f64 = q.get("mem_delay").and_then(|v| v.parse().ok()).unwrap_or(0.0);
+    if !(0.0..=50.0).contains(&mem_delay_ns) {
+        return Err("mem_delay must be 0..50 ns".into());
+    }
     let opts = BuildOptions {
         level,
         keep_latches: q.get("keep_latches").is_some_and(|v| v == "1"),
         max_layer,
-        clock_period_ns: 10.0,
+        clock_period_ns,
         utilization,
         die_size_um: None,
         optimize: q.get("optimize").is_some_and(|v| v == "1"),
-        mem_delay_ns: 0.0,
+        mem_delay_ns,
     };
     let run = opts.run_name();
     let id = {
@@ -212,7 +220,8 @@ fn start_build(server: &Arc<Server>, q: &HashMap<String, String>) -> Result<Valu
     Ok(response)
 }
 
-/// Last informative line of the running build's OpenROAD log.
+/// State of the current/last job, with the last informative line of its
+/// OpenROAD log (`step`) and the last lines of the log (`log`).
 fn job_json(server: &Server) -> Value {
     let job = server.job.lock().unwrap();
     let elapsed = match job.state {
@@ -220,13 +229,21 @@ fn job_json(server: &Server) -> Value {
         _ => job.elapsed_s,
     };
     let log = chip::chip_dir(&server.root, &job.name).join(&job.run).join("pnr.log");
-    let step = fs::read_to_string(&log)
-        .ok()
-        .and_then(|l| l.lines().rev().find(|x| x.starts_with("[INFO")).map(|x| x.chars().take(140).collect::<String>()))
+    let text = fs::read_to_string(&log).unwrap_or_default();
+    let step = text
+        .lines()
+        .rev()
+        .find(|x| x.starts_with("[INFO"))
+        .map(|x| x.chars().take(140).collect::<String>())
         .unwrap_or_default();
+    let lines: Vec<&str> = text.lines().filter(|l| !l.trim().is_empty()).collect();
+    let tail: Vec<String> = lines[lines.len().saturating_sub(14)..]
+        .iter()
+        .map(|l| l.chars().take(160).collect())
+        .collect();
     json!({
         "id": job.id, "state": job.state, "name": job.name, "run": job.run,
-        "elapsed_s": elapsed, "step": step, "error": job.error,
+        "elapsed_s": elapsed, "step": step, "log": tail, "error": job.error,
     })
 }
 

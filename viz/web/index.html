@@ -43,7 +43,7 @@
   header { grid-column: 1 / 4; display: flex; align-items: center; gap: 12px; padding: 0 14px;
            border-bottom: 1px solid var(--line); background: var(--panel); }
   header h1 { font-size: 14px; margin: 0; font-weight: 600; letter-spacing: .02em; }
-  #crumbs { display: flex; gap: 4px; align-items: center; color: var(--muted); flex: 1; overflow: hidden; white-space: nowrap; }
+  #crumbs { display: flex; gap: 4px; align-items: center; color: var(--muted); flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; }
   #crumbs a { color: var(--accent); cursor: pointer; text-decoration: none; }
   #crumbs a:hover { text-decoration: underline; }
   #crumbs .type { color: var(--muted); font-size: 11px; }
@@ -55,7 +55,7 @@
   aside section { padding: 10px 12px; border-bottom: 1px solid var(--line); }
   aside h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
   #filter { width: 100%; padding: 5px 8px; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; font: inherit; }
-  #list { max-height: 34vh; overflow: auto; margin-top: 6px; }
+  #list { max-height: 46vh; overflow: auto; margin-top: 6px; }
   #list .group + .group { margin-top: 2px; }
   #list .group-head { display: flex; align-items: center; gap: 6px; width: 100%; padding: 4px 6px; border: 0; border-radius: 4px; background: none; color: var(--muted); font: 600 11px/1.4 inherit; text-transform: uppercase; letter-spacing: .06em; cursor: pointer; text-align: left; }
   #list .group-head:hover { background: var(--panel-2); color: var(--text); }
@@ -76,7 +76,6 @@
   .bit.on { background: var(--hi); color: #04130a; border-color: var(--hi); }
   .bit.ro { cursor: default; }
   .val { color: var(--muted); min-width: 34px; text-align: right; }
-  #controls { display: flex; gap: 6px; flex-wrap: wrap; }
   #workspace { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
   #main { position: relative; overflow: hidden; flex: 1; min-height: 100px; }
   .splitter { background: var(--line); transition: background .12s; touch-action: none; }
@@ -149,9 +148,83 @@
   .tr.n2, .tr.p2 { fill: var(--unk); }
   .flat-box rect.body { fill: var(--node); stroke: var(--node-stroke); }
   .flat-box .type { font-size: 10px; fill: var(--text); }
-  .export-row { display: flex; gap: 6px; margin-top: 10px; }
-  .export-row select { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; }
-  .view-mode select { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; margin-left: 4px; }
+  select { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; }
+  /* Header toolbar */
+  header .tools { display: flex; align-items: center; gap: 6px; flex: none; }
+  .tsep { width: 1px; height: 22px; background: var(--line); margin: 0 4px; }
+  .segmented { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; background: var(--panel-2); }
+  .segmented button { border: 0; border-radius: 0; background: none; padding: 4px 10px; color: var(--muted); }
+  .segmented button + button { border-left: 1px solid var(--line); }
+  .segmented button:hover { color: var(--text); background: var(--node-x); }
+  .segmented button[aria-checked="true"] { background: var(--accent); color: #fff; }
+  .tbtn-toggle { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border: 1px solid var(--line); border-radius: 6px;
+                 background: var(--panel-2); cursor: pointer; user-select: none; }
+  .tbtn-toggle:hover { border-color: var(--accent); }
+  .tbtn-toggle input { margin: 0; accent-color: var(--accent); }
+  #build-badge { display: inline-block; width: 8px; height: 8px; margin-left: 6px; border-radius: 50%; background: var(--mix);
+                 animation: pulse-dot 1s ease-in-out infinite alternate; vertical-align: middle; }
+  #crumbs { min-width: 90px; }
+  /* Narrow windows: tool buttons show only their symbol (title has the text). */
+  @media (max-width: 1440px) {
+    header .tools .lbl { display: none; }
+    .segmented button { padding: 4px 7px; }
+  }
+  @media (max-width: 900px) {
+    header h1 { display: none; }
+  }
+  #build-badge.done { background: var(--hi); animation: none; }
+  #build-badge.error { background: var(--unk); animation: none; }
+  @keyframes pulse-dot { from { opacity: .35; } to { opacity: 1; } }
+  /* Dropdown menu */
+  .menu-wrap { position: relative; }
+  .menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; min-width: 300px; background: var(--panel); border: 1px solid var(--line);
+          border-radius: 8px; box-shadow: 0 8px 28px rgb(0 0 0 / 30%); padding: 6px; }
+  .menu-head { font-size: 11px; color: var(--muted); padding: 4px 8px 6px; border-bottom: 1px solid var(--line); margin-bottom: 4px; line-height: 1.5; }
+  .menu-head span { color: var(--text); font-family: ui-monospace, monospace; }
+  .menu button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 6px 8px; border-radius: 5px; }
+  .menu button:hover { background: var(--panel-2); }
+  .menu button b { display: block; font-weight: 500; }
+  .menu button span { display: block; font-size: 11px; color: var(--muted); }
+  /* Floating window (chip build) */
+  .window { position: fixed; z-index: 45; width: 380px; max-height: calc(100vh - 80px); display: flex; flex-direction: column;
+            background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 12px 40px rgb(0 0 0 / 35%); }
+  .win-title { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px 8px 14px; border-bottom: 1px solid var(--line);
+               cursor: move; user-select: none; font-weight: 600; }
+  .win-close { border: 0; background: none; color: var(--muted); padding: 2px 6px; }
+  .win-close:hover { color: var(--text); }
+  .win-body { padding: 12px 14px; overflow: auto; font-size: 12px; }
+  .win-body h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 14px 0 6px; font-weight: 600; }
+  .win-body code { display: block; font: 11px ui-monospace, monospace; background: var(--panel-2); padding: 6px 8px; border-radius: 6px; margin: 4px 0 10px; white-space: pre-wrap; }
+  .build-design { margin-bottom: 10px; color: var(--muted); }
+  .build-design b { color: var(--text); font-family: ui-monospace, monospace; }
+  .build-actions { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+  #build-run-name { color: var(--muted); font: 11px ui-monospace, monospace; }
+  .build-state { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent);
+             animation: loading-spin 0.8s linear infinite; flex: none; }
+  #build-result { margin-top: 8px; }
+  #build-result.ok { color: var(--hi); } #build-result.error { color: var(--unk); }
+  .run-row { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: center; padding: 6px 8px; border: 1px solid var(--line);
+             border-radius: 6px; margin-bottom: 4px; }
+  .run-row .rname { font-family: ui-monospace, monospace; }
+  .run-row .rinfo { grid-column: 1; color: var(--muted); font-size: 11px; }
+  .run-row button { grid-row: 1 / 3; grid-column: 2; }
+  .run-row.cur { border-color: var(--accent); }
+  .muted { color: var(--muted); }
+  /* Chip panel sections */
+  .panel-sec { border-bottom: 1px solid var(--line); padding: 8px 0; }
+  .panel-sec:first-child { padding-top: 0; }
+  .panel-sec > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 6px; font-size: 11px; text-transform: uppercase;
+                         letter-spacing: .08em; color: var(--muted); font-weight: 600; padding: 2px 0 6px; user-select: none; }
+  .panel-sec > summary::-webkit-details-marker { display: none; }
+  .panel-sec > summary::before { content: ''; width: 0; height: 0; border-left: 5px solid currentColor; border-top: 4px solid transparent;
+                                 border-bottom: 4px solid transparent; transition: transform .12s; }
+  .panel-sec[open] > summary::before { transform: rotate(90deg); }
+  .sec-actions { margin-left: auto; display: flex; gap: 4px; text-transform: none; letter-spacing: 0; }
+  button.mini { padding: 1px 7px; font-size: 11px; }
+  .sec-text { color: var(--muted); font-size: 12px; margin: 0 0 8px; line-height: 1.5; }
+  .row { display: flex; gap: 6px; align-items: center; margin: 4px 0; }
+  .row select { flex: 1; min-width: 0; }
   /* Constant 1px wires at any zoom: thousands of nets otherwise merge into a solid mass. */
   .edge.flat-net { stroke-width: 1; vector-effect: non-scaling-stroke; }
   .edge.flat-net:hover { stroke-width: 3; }
@@ -189,17 +262,12 @@
   .layer-row input { margin: 0; accent-color: var(--accent); }
   .swatch { width: 12px; height: 12px; border-radius: 3px; }
   .layer-kind { color: var(--muted); font-size: 10px; }
-  #chip-build .prog-row { display: flex; gap: 8px; align-items: center; margin: 4px 0; }
-  #chip-build .prog-row select { flex: 1; min-width: 0; font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; }
-  .chip-label { font-size: 12px; color: var(--muted); width: 36px; }
-  #chip-build-form { margin: 6px 0; font-size: 12px; }
-  #chip-build-form summary { cursor: pointer; color: var(--accent); margin-bottom: 6px; }
-  .build-grid { display: grid; grid-template-columns: 76px 1fr; gap: 6px; align-items: center; margin-bottom: 6px; color: var(--muted); }
-  .build-grid select, .build-grid input { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; }
-  .build-grid input { width: 64px; }
-  #chip-build-start { margin-top: 6px; }
+  .build-grid { display: grid; grid-template-columns: 96px 1fr; gap: 7px 10px; align-items: center; margin-bottom: 6px; color: var(--muted); }
+  .build-grid input { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; width: 70px; }
   #chip-build-start:disabled { opacity: .5; cursor: default; }
-  #chip-job { white-space: pre-wrap; font: 11px ui-monospace, monospace; color: var(--muted); margin: 6px 0; word-break: break-word; }
+  #chip-job { white-space: pre-wrap; font: 10.5px/1.45 ui-monospace, monospace; color: var(--muted); margin: 6px 0 0; word-break: break-word;
+              background: var(--panel-2); border-radius: 6px; padding: 6px 8px; max-height: 190px; overflow: auto; }
+  #chip-job:empty { display: none; }
   .chip-hint { margin-top: 8px; font-size: 11px; color: var(--muted); line-height: 1.5; }
   .seg { fill: var(--seg-off); transition: fill .08s; }
   .seg.on { fill: var(--seg-on); filter: drop-shadow(0 0 3px var(--seg-on)); }
@@ -231,37 +299,38 @@
 <header>
   <h1>LogicCircuit</h1>
   <nav id="crumbs"></nav>
-  <button id="fit" title="Ansicht einpassen (F)">Einpassen</button>
+  <div class="tools">
+    <div id="viewmode" class="segmented" role="radiogroup" aria-label="Ansicht" title="Wie weit die aktuelle Ebene aufgelöst wird">
+      <button data-mode="parts" role="radio">Bauteile</button>
+      <button data-mode="basic" role="radio">Basis-Blöcke</button>
+      <button data-mode="nand" role="radio">NANDs</button>
+      <button data-mode="cmos" role="radio">Transistoren</button>
+      <button data-mode="chip" role="radio">Chip 3D</button>
+    </div>
+    <span class="tsep"></span>
+    <button id="pulse" class="primary" hidden>Takt ↑↓</button>
+    <button id="reset" title="Schaltung neu aufbauen: alle Register auf 0">↻<span class="lbl"> Neu bauen</span></button>
+    <label class="tbtn-toggle" title="Busse als einzelne Bit-Leitungen zeichnen"><input type="checkbox" id="stripes"><span class="lbl"> Bit-Streifen</span></label>
+    <span class="tsep"></span>
+    <div class="menu-wrap">
+      <button id="export-btn" aria-haspopup="menu" aria-expanded="false" title="Die aktuelle Ebene als Netzliste herunterladen">⤓<span class="lbl"> Export</span> ▾</button>
+      <div id="export-menu" class="menu" role="menu" hidden>
+        <div class="menu-head">Verilog-Netzliste der aktuellen Ebene<br><span id="export-target"></span></div>
+        <button role="menuitem" data-level="basic" data-cells="sky130"><b>Basis-Blöcke · sky130-Zellen</b><span>Standardzellen für OpenROAD (and2, xor2, …)</span></button>
+        <button role="menuitem" data-level="basic" data-cells="generic"><b>Basis-Blöcke · generische Zellen</b><span>eigene Zellmodelle, für Icarus Verilog / Verilator</span></button>
+        <button role="menuitem" data-level="nand" data-cells="sky130"><b>Nur NANDs · sky130-Zellen</b><span>alles als nand2-Zellen</span></button>
+        <button role="menuitem" data-level="nand" data-cells="generic"><b>Nur NANDs · generische Zellen</b><span>alles als NAND, für Icarus Verilog / Verilator</span></button>
+      </div>
+    </div>
+    <button id="build-open" title="Ein Chip-Layout mit OpenROAD bauen (eigenes Fenster)">▦<span class="lbl"> Chip bauen</span><span id="build-badge" hidden></span></button>
+    <button id="fit" title="Ansicht einpassen (F)">⤢<span class="lbl"> Einpassen</span></button>
+  </div>
 </header>
 <aside>
-  <section>
+  <section class="list-section">
     <h2>Schaltung</h2>
     <input id="filter" placeholder="Filtern…" autocomplete="off">
     <div id="list"></div>
-  </section>
-  <section>
-    <h2>Simulation</h2>
-    <div id="controls">
-      <button id="pulse" class="primary" hidden>Takt ↑↓</button>
-      <button id="reset">Neu bauen</button>
-    </div>
-    <label class="toggle"><input type="checkbox" id="stripes"> Busse als Bit-Streifen</label>
-    <div class="export-row">
-      <select id="export-cells" title="Zellbibliothek">
-        <option value="sky130">sky130</option>
-        <option value="generic">generisch</option>
-      </select>
-      <button id="export-verilog" title="Die aktuelle Ebene als Gatter-Netzliste herunterladen (Stufe: NANDs in der NAND-Ansicht, sonst Basis-Blöcke)">Verilog ↓</button>
-    </div>
-    <label class="toggle view-mode" title="Wie weit die aktuelle Ebene aufgelöst wird">Ansicht
-      <select id="viewmode">
-        <option value="parts">Bauteile</option>
-        <option value="basic">Basis-Blöcke</option>
-        <option value="nand">Nur NANDs</option>
-        <option value="cmos">Transistoren</option>
-        <option value="chip">Chip 3D</option>
-      </select>
-    </label>
   </section>
   <section id="display-section" hidden><h2>Anzeige</h2><svg id="display"></svg></section>
   <section id="gpio-section" hidden><h2>GPIO</h2>
@@ -320,38 +389,36 @@
     </svg>
     <div id="chip3d" hidden></div>
     <section id="chip-section" hidden>
-      <h2>Chip</h2>
-      <div id="chip-build" hidden>
-        <div class="prog-row"><span class="chip-label">Lauf</span><select id="chip-run" title="Gebaute Layouts dieses Designs"></select></div>
-        <details id="chip-build-form">
-          <summary>Chip bauen (OpenROAD)</summary>
-          <div class="build-grid">
-            <span>Lagen</span>
-            <select id="chip-build-layer"><option value="met5" selected>bis met5</option><option value="met4">bis met4</option><option value="met3">bis met3</option><option value="met2">bis met2</option></select>
-            <span>Stufe</span>
-            <select id="chip-build-level"><option value="basic" selected>Basis-Blöcke</option><option value="nand">nur NANDs</option></select>
-            <span>Auslastung</span>
-            <span><input id="chip-build-util" type="number" min="10" max="90" step="5" value="40"> %</span>
-          </div>
-          <label class="toggle"><input type="checkbox" id="chip-build-opt"> optimieren (Buffer, Zellgrößen)</label>
-          <label class="toggle"><input type="checkbox" id="chip-build-latches"> eigene Latches statt Flipflop-Zellen</label>
-          <button id="chip-build-start" class="primary">Bauen</button>
-        </details>
-        <div id="chip-job"></div>
-      </div>
-      <div id="chip-metrics"></div>
-      <label class="slider">Explode <input type="range" id="chip-explode" min="0" max="20" step="0.5" value="0"></label>
-      <label class="slider">Z-Überhöhung <input type="range" id="chip-zscale" min="1" max="40" step="1" value="5"></label>
-      <label class="slider">Schnitt <input type="range" id="chip-cut" min="0" max="1" step="0.01" value="1"></label>
-      <label class="toggle"><input type="checkbox" id="chip-power"> Power-Grid (VDD/VSS)</label>
-      <div class="export-row" title="Ohne OpenROAD im Browser platzieren und verdrahten (eigener Router)">
-        <select id="own-layers">
-          <option value="2">2 Lagen</option><option value="3" selected>3 Lagen</option>
-          <option value="4">4 Lagen</option><option value="5">5 Lagen</option>
-        </select>
-        <button id="own-route">Eigener Router</button>
-      </div>
-      <div id="chip-layers"></div>
+      <details class="panel-sec" open>
+        <summary>Layout</summary>
+        <div id="chip-run-row" class="row" hidden>
+          <select id="chip-run" title="Gebaute Layouts dieses Designs"></select>
+          <button id="chip-build-here" title="Neues Layout bauen (Fenster „Chip bauen“)">Bauen…</button>
+        </div>
+        <div id="chip-metrics"></div>
+      </details>
+      <details class="panel-sec" open>
+        <summary>Darstellung</summary>
+        <label class="slider">Explode <input type="range" id="chip-explode" min="0" max="20" step="0.5" value="0"></label>
+        <label class="slider">Z-Überhöhung <input type="range" id="chip-zscale" min="1" max="40" step="1" value="5"></label>
+        <label class="slider">Schnitt <input type="range" id="chip-cut" min="0" max="1" step="0.01" value="1"></label>
+        <label class="toggle"><input type="checkbox" id="chip-power"> Power-Grid (VDD/VSS)</label>
+      </details>
+      <details class="panel-sec" open>
+        <summary>Lagen <span class="sec-actions"><button id="layers-all" class="mini" title="Alle Lagen zeigen">alle</button><button id="layers-none" class="mini" title="Alle Lagen ausblenden">keine</button></span></summary>
+        <div id="chip-layers"></div>
+      </details>
+      <details class="panel-sec">
+        <summary>Eigener Router</summary>
+        <p class="sec-text">Platziert und verdrahtet die Schaltung ohne OpenROAD direkt im Browser.</p>
+        <div class="row">
+          <select id="own-layers">
+            <option value="2">2 Lagen</option><option value="3" selected>3 Lagen</option>
+            <option value="4">4 Lagen</option><option value="5">5 Lagen</option>
+          </select>
+          <button id="own-route">Platzieren und verdrahten</button>
+        </div>
+      </details>
       <div class="chip-hint">Klick auf Leitung: Netz hervorheben · Esc: zurück · F: einpassen · layout.bin hierher ziehen</div>
     </section>
     <div id="chip-message" hidden></div>
@@ -382,6 +449,47 @@
       <div id="listing"></div>
     </div>
   </section>
+</div>
+<!-- Chip build window: a floating, draggable window; a build keeps running
+     (and its progress shows on the header button) when it is closed. -->
+<div id="build-win" class="window" hidden role="dialog" aria-labelledby="build-title">
+  <div class="win-title" id="build-drag">
+    <span id="build-title">Chip bauen</span>
+    <button id="build-close" class="win-close" title="Schließen (läuft im Hintergrund weiter)">✕</button>
+  </div>
+  <div class="win-body">
+    <div id="build-noapi" hidden>
+      <p>Bauen aus dem Browser braucht den Entwicklungsserver mit seiner API:</p>
+      <code>cargo run -p logic_circuit_viz --bin viz-serve</code>
+      <p>Ohne ihn auf der Kommandozeile:</p>
+      <code id="build-cli"></code>
+    </div>
+    <div id="build-form">
+      <div class="build-design">Design <b id="build-design"></b></div>
+      <div class="build-grid">
+        <label for="chip-build-layer">Metall-Lagen</label>
+        <select id="chip-build-layer"><option value="met5" selected>bis met5</option><option value="met4">bis met4</option><option value="met3">bis met3</option><option value="met2">bis met2</option></select>
+        <label for="chip-build-level">Zellen</label>
+        <select id="chip-build-level"><option value="basic" selected>Basis-Blöcke</option><option value="nand">nur NANDs</option></select>
+        <label for="chip-build-util">Auslastung</label>
+        <span><input id="chip-build-util" type="number" min="10" max="90" step="5" value="40"> %</span>
+        <label for="chip-build-clock" title="Taktperiode, gegen die das Timing geprüft wird">Taktziel</label>
+        <span><input id="chip-build-clock" type="number" min="1" max="100" step="0.5" value="10"> ns</span>
+        <label for="chip-build-mem" title="Zugriffszeit des Speichers außerhalb des Chips (0 = ideal)">Speicher</label>
+        <span><input id="chip-build-mem" type="number" min="0" max="50" step="0.5" value="0"> ns</span>
+      </div>
+      <label class="toggle"><input type="checkbox" id="chip-build-opt"> optimieren (Buffer, Zellgrößen)</label>
+      <label class="toggle"><input type="checkbox" id="chip-build-latches"> eigene Latches statt Flipflop-Zellen</label>
+      <div class="build-actions"><button id="chip-build-start" class="primary">Bauen</button><span id="build-run-name"></span></div>
+      <div id="build-progress" hidden>
+        <div class="build-state"><span class="spinner"></span><span id="build-state-text"></span></div>
+        <pre id="chip-job"></pre>
+      </div>
+      <div id="build-result"></div>
+      <h3>Gebaute Layouts</h3>
+      <div id="build-runs"></div>
+    </div>
+  </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/elkjs@0.12.1/lib/elk.bundled.js"></script>
 <script type="module" src="app.js"></script>

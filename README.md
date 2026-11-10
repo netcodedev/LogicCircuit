@@ -95,9 +95,13 @@ cargo run -p logic_circuit_viz --bin viz-serve -- 8173
 ```
 
 Then open <http://localhost:8173>. Pick a circuit on the left, load and run a
-program at the bottom, and switch the view under *Ansicht* (the UI is in
-German): *Bauteile* (parts), *Basis-Blöcke* (basic gates), *Nur NANDs*,
-*Transistoren* (CMOS) and *Chip 3D*. In Chip 3D you can toggle layers, explode the stack, cut from the
+program at the bottom, and switch the view in the header (the UI is in
+German): *Bauteile* (parts), *Basis-Blöcke* (basic gates), *NANDs*,
+*Transistoren* (CMOS) and *Chip 3D*. The header also has the clock and
+rebuild buttons, the Verilog export (basic blocks or NAND gates, sky130 or
+generic cells) and *Chip bauen*: a window that runs OpenROAD through
+`viz-serve` (metal layers, utilisation, clock target, memory delay,
+optimisation), shows the log while it builds and lists the design's layouts. In Chip 3D you can toggle layers, explode the stack, cut from the
 top, click a net to highlight it through all layers, and see wires turn green
 as signals go high while the program runs. The 3D view needs WebGL.
 

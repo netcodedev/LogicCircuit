@@ -705,11 +705,29 @@ $('pulse').addEventListener('click', () => {
   refresh();
 });
 
-// Download the current level as structural Verilog (computed in WASM).
-$('export-verilog').addEventListener('click', () => {
+// Export menu: the current level as structural Verilog (computed in WASM),
+// as basic blocks or NAND gates, with sky130 or generic cells.
+function setExportMenu(open) {
+  $('export-menu').hidden = !open;
+  $('export-btn').setAttribute('aria-expanded', String(open));
+  if (open) $('export-target').textContent = stack[stack.length - 1].type;
+}
+$('export-btn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  setExportMenu($('export-menu').hidden);
+});
+document.addEventListener('click', (e) => {
+  if (!$('export-menu').hidden && !e.target.closest('.menu-wrap')) setExportMenu(false);
+});
+for (const item of $('export-menu').querySelectorAll('[data-level]')) {
+  item.addEventListener('click', () => {
+    setExportMenu(false);
+    exportVerilog(item.dataset.level, item.dataset.cells);
+  });
+}
+
+function exportVerilog(level, cells) {
   const type = stack[stack.length - 1].type;
-  const level = viewMode === 'nand' ? 'nand' : 'basic';
-  const cells = $('export-cells').value;
   try {
     const text = sim.export_verilog(type, level, cells, false);
     const a = document.createElement('a');
@@ -721,7 +739,7 @@ $('export-verilog').addEventListener('click', () => {
   } catch (e) {
     statusEl.textContent = `Export fehlgeschlagen: ${e.message ?? e}`;
   }
-});
+}
 
 // ---------------------------------------------------------------- chip 3D
 
@@ -784,7 +802,7 @@ async function renderChip() {
   // With viz-serve's API: list the design's runs and load the chosen one
   // (layouts can also be built from here). Without it: layouts/<NAME>.bin.
   const api = await chipApiAvailable();
-  $('chip-build').hidden = !api;
+  $('chip-run-row').hidden = !api;
   if (api) {
     if (chipRunsFor !== name) await refreshChipRuns(name);
     resumeChipJob();
@@ -821,8 +839,8 @@ function showNoLayout(name, api) {
   $('chip-metrics').replaceChildren();
   chipMessage(api
     ? `Für <b>${name}</b> gibt es noch kein Layout.<br>
-       Links unter <b>Chip bauen</b> mit OpenROAD erzeugen,<br>
-       oder den <b>eigenen Router</b> nutzen.`
+       Oben über <b>▦ Chip bauen</b> mit OpenROAD erzeugen,<br>
+       oder rechts den <b>eigenen Router</b> nutzen.`
     : `Für <b>${name}</b> gibt es noch kein Layout.<br>
        <code>cargo run -- chip build ${name}</code><br>
        <code>cargo run -- chip extract ${name}</code><br>
@@ -880,20 +898,158 @@ async function loadChipRun(name, run) {
 
 $('chip-run').addEventListener('change', () => loadChipRun(stack[0].type, $('chip-run').value));
 
-$('chip-build-start').addEventListener('click', async () => {
-  const name = stack[0].type;
-  const params = new URLSearchParams({
-    name,
+// ---------------------------------------------------------------- chip build window
+
+// A floating window with the OpenROAD options, the progress of the running
+// build (it keeps running when the window is closed; the dot on the header
+// button shows its state) and the design's finished layouts.
+
+const DEFAULT_UTIL = 40;   // as chip::DEFAULT_UTIL
+
+// Options of the form as API parameters.
+function buildParams() {
+  return {
+    name: stack[0].type,
     max_layer: $('chip-build-layer').value,
     level: $('chip-build-level').value,
     util: $('chip-build-util').value,
+    clock: $('chip-build-clock').value,
+    mem_delay: $('chip-build-mem').value,
     optimize: $('chip-build-opt').checked ? '1' : '0',
     keep_latches: $('chip-build-latches').checked ? '1' : '0',
+  };
+}
+
+// The run directory these options build into (as BuildOptions::run_name).
+function runName(p) {
+  let n = `${p.level}-${p.max_layer}`;
+  if (Number(p.util) !== DEFAULT_UTIL) n += `-u${Number(p.util)}`;
+  if (p.keep_latches === '1') n += '-latches';
+  if (Number(p.mem_delay) > 0) n += `-mem${Number(p.mem_delay)}`;
+  if (Number(p.clock) !== 10) n += `-p${Number(p.clock)}`;
+  if (p.optimize === '1') n += '-opt';
+  return n;
+}
+
+function cliCommand(p) {
+  let c = `cargo run --release -- chip build ${p.name} --max-layer ${p.max_layer} --level ${p.level} --util ${p.util}`;
+  if (Number(p.clock) !== 10) c += ` --clock-period ${p.clock}`;
+  if (Number(p.mem_delay) > 0) c += ` --mem-delay ${p.mem_delay}`;
+  if (p.optimize === '1') c += ' --optimize';
+  if (p.keep_latches === '1') c += ' --keep-latches';
+  return `${c}\ncargo run --release -- chip extract ${p.name}`;
+}
+
+function updateBuildForm() {
+  const p = buildParams();
+  $('build-design').textContent = p.name;
+  $('build-title').textContent = `Chip bauen – ${p.name}`;
+  $('build-run-name').textContent = `→ chip/${p.name}/${runName(p)}`;
+  $('build-cli').textContent = cliCommand(p);
+}
+for (const id of ['chip-build-layer', 'chip-build-level', 'chip-build-util', 'chip-build-clock', 'chip-build-mem', 'chip-build-opt', 'chip-build-latches']) {
+  $(id).addEventListener('input', updateBuildForm);
+  $(id).addEventListener('change', updateBuildForm);
+}
+
+async function openBuildWindow() {
+  const win = $('build-win');
+  if (win.hidden) {
+    win.hidden = false;
+    if (!win.style.left) {
+      // First open: below the header, at the right edge of the canvas.
+      win.style.left = `${Math.max(12, window.innerWidth - win.offsetWidth - 24)}px`;
+      win.style.top = '56px';
+    }
+  }
+  updateBuildForm();
+  const api = await chipApiAvailable();
+  $('build-noapi').hidden = api;
+  $('chip-build-start').hidden = !api;
+  $('build-runs').closest('.win-body').querySelector('h3').hidden = !api;
+  if (api) {
+    resumeChipJob();
+    await refreshBuildRuns();
+  }
+}
+$('build-open').addEventListener('click', openBuildWindow);
+$('chip-build-here').addEventListener('click', openBuildWindow);
+$('build-close').addEventListener('click', () => { $('build-win').hidden = true; });
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !$('build-win').hidden && $('build-win').contains(document.activeElement)) $('build-win').hidden = true;
+});
+
+// Drag the window by its title bar, kept inside the viewport.
+{
+  let drag = null;
+  $('build-drag').addEventListener('pointerdown', (e) => {
+    if (e.target.closest('button')) return;
+    const win = $('build-win');
+    drag = { x: e.clientX - win.offsetLeft, y: e.clientY - win.offsetTop };
+    $('build-drag').setPointerCapture(e.pointerId);
   });
+  $('build-drag').addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    const win = $('build-win');
+    const x = Math.min(Math.max(0, e.clientX - drag.x), window.innerWidth - 80);
+    const y = Math.min(Math.max(0, e.clientY - drag.y), window.innerHeight - 40);
+    win.style.left = `${x}px`;
+    win.style.top = `${y}px`;
+  });
+  $('build-drag').addEventListener('pointerup', () => { drag = null; });
+}
+
+// The design's finished layouts, each with its key numbers and a button
+// that shows it in Chip 3D.
+async function refreshBuildRuns() {
+  const name = stack[0].type;
+  const box = $('build-runs');
+  let runs = [];
+  try { runs = (await (await fetch(`api/chip/runs?name=${encodeURIComponent(name)}`)).json()).runs || []; } catch {}
+  box.replaceChildren();
+  if (!runs.length) {
+    box.innerHTML = '<div class="muted">Noch keine.</div>';
+    return;
+  }
+  for (const r of runs) {
+    const m = r.metrics;
+    const row = document.createElement('div');
+    row.className = 'run-row';
+    if (viewMode === 'chip' && chipLoaded === name && chipLoadedRun === r.run) row.classList.add('cur');
+    const rname = document.createElement('span');
+    rname.className = 'rname';
+    rname.textContent = r.run;
+    const info = document.createElement('span');
+    info.className = 'rinfo';
+    info.textContent = m
+      ? [m.fmax_mhz ? `${m.fmax_mhz.toFixed(0)} MHz` : null, `${m.die_um[0].toFixed(0)} µm`, `${fmtCount(m.logic_cells)} Zellen`,
+         m.drc_violations ? `${m.drc_violations} DRC` : null].filter(Boolean).join(' · ')
+      : 'ohne Kennzahlen';
+    const show = document.createElement('button');
+    show.textContent = 'Anzeigen';
+    show.addEventListener('click', () => showRun(name, r.run));
+    row.append(rname, show, info);
+    box.appendChild(row);
+  }
+}
+
+// Shows a run in Chip 3D.
+async function showRun(name, run) {
+  await refreshChipRuns(name, run);
+  $('chip-run').value = run;
+  if (viewMode !== 'chip') setViewMode('chip');
+  else await loadChipRun(name, run);
+  refreshBuildRuns();
+}
+
+$('chip-build-start').addEventListener('click', async () => {
+  const params = new URLSearchParams(buildParams());
+  $('build-result').textContent = '';
   const res = await fetch(`api/chip/build?${params}`, { method: 'POST', headers: { 'X-LogicCircuit': '1' } });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
-    $('chip-job').textContent = body.error ?? `Fehler ${res.status}`;
+    $('build-result').className = 'error';
+    $('build-result').textContent = body.error ?? `Fehler ${res.status}`;
     return;
   }
   pollChipJob();
@@ -908,32 +1064,59 @@ async function resumeChipJob() {
   } catch {}
 }
 
+function setBuildBadge(state) {
+  const b = $('build-badge');
+  b.hidden = !state;
+  b.className = state === 'running' ? '' : state ?? '';
+  $('build-open').title = state === 'running' ? 'Ein Chip wird gebaut – Fenster öffnen'
+    : state === 'done' ? 'Chip fertig gebaut – Fenster öffnen'
+      : state === 'error' ? 'Chip-Build fehlgeschlagen – Fenster öffnen'
+        : 'Ein Chip-Layout mit OpenROAD bauen (eigenes Fenster)';
+}
+
 function pollChipJob() {
   clearInterval(chipJobTimer);
   $('chip-build-start').disabled = true;
+  $('build-progress').hidden = false;
+  setBuildBadge('running');
   const tick = async () => {
     let job;
     try { job = await (await fetch('api/chip/job')).json(); } catch { return; }
-    const box = $('chip-job');
+    $('chip-job').textContent = (job.log ?? []).join('\n');
+    $('chip-job').scrollTop = $('chip-job').scrollHeight;
     if (job.state === 'running') {
-      box.textContent = `Baue ${job.name} / ${job.run} … ${job.elapsed_s.toFixed(0)} s\n${job.step}`;
+      $('build-state-text').textContent = `Baue ${job.name} / ${job.run} … ${job.elapsed_s.toFixed(0)} s`;
       return;
     }
     clearInterval(chipJobTimer);
     chipJobTimer = null;
     $('chip-build-start').disabled = false;
+    $('build-progress').hidden = true;
+    const result = $('build-result');
     if (job.state === 'done') {
-      box.textContent = `Fertig: ${job.run} in ${job.elapsed_s.toFixed(0)} s`;
-      if (job.name === stack[0].type && viewMode === 'chip') {
-        await refreshChipRuns(job.name, job.run);
-        await loadChipRun(job.name, job.run);
+      setBuildBadge('done');
+      result.className = 'ok';
+      result.textContent = `Fertig: ${job.name} / ${job.run} in ${job.elapsed_s.toFixed(0)} s`;
+      if (job.name === stack[0].type) {
+        await refreshBuildRuns();
+        if (viewMode === 'chip') await showRun(job.name, job.run);
       }
     } else if (job.state === 'error') {
-      box.textContent = `Fehlgeschlagen: ${job.error}`;
+      setBuildBadge('error');
+      result.className = 'error';
+      result.textContent = `Fehlgeschlagen: ${job.error}`;
     }
   };
   chipJobTimer = setInterval(tick, 1000);
   tick();
+}
+
+// A finished build's dot goes away once the window was seen.
+$('build-open').addEventListener('click', () => { if (!chipJobTimer) setBuildBadge(null); });
+
+// The window follows the selected design.
+function buildWindowFollow() {
+  if (!$('build-win').hidden) openBuildWindow();
 }
 
 function loadChipBuffer(buffer) {
@@ -1017,6 +1200,7 @@ function buildChipPanel(header) {
     const cb = document.createElement('input');
     cb.type = 'checkbox';
     cb.checked = l.visible;
+    cb.dataset.layer = l.name;
     cb.addEventListener('change', () => chipView.setLayerVisible(l.name, cb.checked));
     const sw = document.createElement('span');
     sw.className = 'swatch';
@@ -1036,6 +1220,18 @@ for (const [id, fn] of [['chip-explode', (v) => chipView?.setExplode(v)], ['chip
 }
 
 $('chip-power').addEventListener('change', (e) => chipView?.setShowPower(e.target.checked));
+
+// "alle" / "keine" in the layer section's header (without toggling it).
+for (const [id, on] of [['layers-all', true], ['layers-none', false]]) {
+  $(id).addEventListener('click', (e) => {
+    e.preventDefault();
+    if (!chipView) return;
+    for (const cb of $('chip-layers').querySelectorAll('input[type=checkbox]')) {
+      cb.checked = on;
+      chipView.setLayerVisible(cb.dataset.layer, on);
+    }
+  });
+}
 
 // Our own placer/router, run in WASM on the simulated top-level circuit.
 $('own-route').addEventListener('click', async () => {
@@ -1087,12 +1283,19 @@ $('main').addEventListener('drop', async (e) => {
   }
 });
 
-$('viewmode').value = viewMode;
-$('viewmode').addEventListener('change', (e) => {
-  viewMode = e.target.value;
+// View mode: segmented buttons in the header.
+function showViewMode() {
+  for (const b of $('viewmode').querySelectorAll('[data-mode]')) b.setAttribute('aria-checked', String(b.dataset.mode === viewMode));
+}
+function setViewMode(mode) {
+  if (mode === viewMode) return;
+  viewMode = mode;
+  showViewMode();
   try { localStorage.setItem(MODE_KEY, viewMode); } catch {}
   rerender();
-});
+}
+showViewMode();
+for (const b of $('viewmode').querySelectorAll('[data-mode]')) b.addEventListener('click', () => setViewMode(b.dataset.mode));
 
 $('stripes').checked = stripes;
 $('stripes').addEventListener('change', (e) => {
@@ -1518,6 +1721,7 @@ function select(type) {
     }
   }
   for (const d of $('list').querySelectorAll('.item')) d.classList.toggle('sel', d.dataset.name === type);
+  buildWindowFollow();
 }
 
 function fromHash() {
@@ -1729,3 +1933,6 @@ renderList();
 await fromHash();
 renderList();
 if (stack[0]) revealInList(stack[0].type);
+// A chip build still running on the server (e.g. after a reload) shows on
+// the header button.
+chipApiAvailable().then((api) => { if (api) resumeChipJob(); });

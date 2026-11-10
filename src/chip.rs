@@ -59,6 +59,11 @@ impl BuildOptions {
         if self.mem_delay_ns > 0.0 {
             name.push_str(&format!("-mem{}", self.mem_delay_ns));
         }
+        // A clock target other than the default gets its own run (the
+        // timing results differ).
+        if self.clock_period_ns != 10.0 {
+            name.push_str(&format!("-p{}", self.clock_period_ns));
+        }
         if self.optimize {
             name.push_str("-opt");
         }
@@ -351,6 +356,8 @@ mod tests {
         assert_eq!(o.run_name(), "nand-met3-die160x225-latches-opt");
         o.mem_delay_ns = 2.5;
         assert_eq!(o.run_name(), "nand-met3-die160x225-latches-mem2.5-opt");
+        o.clock_period_ns = 7.0;
+        assert_eq!(o.run_name(), "nand-met3-die160x225-latches-mem2.5-p7-opt");
     }
 
     /// Extracts a real run if one has been built (needs `chip build
