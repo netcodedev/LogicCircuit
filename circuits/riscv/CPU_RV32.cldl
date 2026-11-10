@@ -136,7 +136,19 @@ CIRCUIT CPU_RV32 {
     // --- Exceptions ---
     PART Ill: OR;                   // Control.Illegal OR CsrIll
     PART NotIll: NOT;
-    PART MisT: AND3;                // jump AND target[1] AND NOT Ill
+    // Misaligned target: jal/jalr from the target adder; a branch from
+    // imm[1] (PcE is word-aligned), so only its condition is on the path.
+    PART JalAny: OR;
+    PART MisJ: AND3;                // (jal OR jalr) AND target[1] AND NOT Ill
+    PART MisBPre: AND3;             // IsBranch AND imm[1] AND NOT Ill
+    PART MisB: AND;                 // ... AND condition
+    PART MisT: OR;
+    // The low address bits for the alignment check: (rs1 + imm)[1:0] from
+    // its own 2-bit adder, so the check does not wait for the ALU.
+    PART AddrLo0: XOR;
+    PART AddrC0: AND;
+    PART AddrX1: XOR;
+    PART AddrLo1: XOR;
     PART A0or1: OR;
     PART MisHalf: AND;              // funct3[0] AND addr[0]
     PART MisWord: AND;              // funct3[1] AND addr[1:0] != 0
@@ -190,9 +202,12 @@ CIRCUIT CPU_RV32 {
     PART RegWriteG: AND;            // Commit AND RegWrite
     PART LoadG: AND;
     PART StoreG: AND;
-    PART CsrWriteG: AND3;           // Commit AND IsCsr AND WriteIntent
+    // CSR instructions, mret and ebreak can only fail as illegal, so they
+    // commit without waiting for the ALU and branch exceptions.
+    PART CommitSys: AND3;           // XGo AND NOT TakeIrq AND NOT Ill
+    PART CsrWriteG: AND3;           // CommitSys AND IsCsr AND WriteIntent
     PART MretG: AND;
-    PART HaltG: AND;                // Commit AND ebreak
+    PART HaltG: AND;                // CommitSys AND ebreak
 
     // ================= Fetch =================
     CONNECT PcReg.Q -> PC;
@@ -402,13 +417,30 @@ CIRCUIT CPU_RV32 {
     CONNECT Control.Illegal -> Ill.in1;
     CONNECT CsrIll.out -> Ill.in2;
     CONNECT Ill.out -> NotIll.in;
-    CONNECT JumpOr.Out -> MisT.A;
-    CONNECT TgtAdd.S[1] -> MisT.B;
-    CONNECT NotIll.out -> MisT.C;
-    CONNECT Alu.Result[0] -> A0or1.in1;
-    CONNECT Alu.Result[1] -> A0or1.in2;
+    CONNECT Control.IsJal -> JalAny.in1;
+    CONNECT Control.IsJalr -> JalAny.in2;
+    CONNECT JalAny.out -> MisJ.A;
+    CONNECT TgtAdd.S[1] -> MisJ.B;
+    CONNECT NotIll.out -> MisJ.C;
+    CONNECT Control.IsBranch -> MisBPre.A;
+    CONNECT Imm.Imm[1] -> MisBPre.B;
+    CONNECT NotIll.out -> MisBPre.C;
+    CONNECT MisBPre.Out -> MisB.in1;
+    CONNECT CondX.out -> MisB.in2;
+    CONNECT MisJ.Out -> MisT.in1;
+    CONNECT MisB.out -> MisT.in2;
+    CONNECT RegA.Out[0] -> AddrLo0.in1;
+    CONNECT Imm.Imm[0] -> AddrLo0.in2;
+    CONNECT RegA.Out[0] -> AddrC0.in1;
+    CONNECT Imm.Imm[0] -> AddrC0.in2;
+    CONNECT RegA.Out[1] -> AddrX1.in1;
+    CONNECT Imm.Imm[1] -> AddrX1.in2;
+    CONNECT AddrX1.out -> AddrLo1.in1;
+    CONNECT AddrC0.out -> AddrLo1.in2;
+    CONNECT AddrLo0.out -> A0or1.in1;
+    CONNECT AddrLo1.out -> A0or1.in2;
     CONNECT Ir.Q[12] -> MisHalf.in1;
-    CONNECT Alu.Result[0] -> MisHalf.in2;
+    CONNECT AddrLo0.out -> MisHalf.in2;
     CONNECT Ir.Q[13] -> MisWord.in1;
     CONNECT A0or1.out -> MisWord.in2;
     CONNECT MisHalf.out -> MisLs.in1;
@@ -421,7 +453,8 @@ CIRCUIT CPU_RV32 {
     CONNECT NotIll.out -> MisSt.C;
     CONNECT Ill.out -> ExcOr.In[0];
     CONNECT Control.Ecall -> ExcOr.In[1];
-    CONNECT MisT.Out -> ExcOr.In[2];
+    CONNECT MisJ.Out -> ExcOr.In[2];
+    CONNECT MisB.out -> ExcOr.In[5];
     CONNECT MisLd.Out -> ExcOr.In[3];
     CONNECT MisSt.Out -> ExcOr.In[4];
 
@@ -450,7 +483,7 @@ CIRCUIT CPU_RV32 {
     FOR i IN 1..32 {
         CONNECT TgtAdd.S[i] -> TvTgt.A[i];
     }
-    CONNECT MisT.Out -> TvTgt.B;           // tee
+    CONNECT MisT.out -> TvTgt.B;           // tee
     CONNECT Alu.Result -> TvAddr.A;
     CONNECT MisLsAny.out -> TvAddr.B;      // tee
     CONNECT TvIll.Out -> TvOr1.A;
@@ -519,12 +552,15 @@ CIRCUIT CPU_RV32 {
     CONNECT Control.IsLoad -> LoadG.in2;
     CONNECT Commit.Out -> StoreG.in1;
     CONNECT Control.IsStore -> StoreG.in2;
-    CONNECT Commit.Out -> CsrWriteG.A;
+    CONNECT XGo.out -> CommitSys.A;
+    CONNECT NotIrq.out -> CommitSys.B;
+    CONNECT NotIll.out -> CommitSys.C;
+    CONNECT CommitSys.Out -> CsrWriteG.A;
     CONNECT Control.IsCsr -> CsrWriteG.B;
     CONNECT WriteIntent.out -> CsrWriteG.C;
-    CONNECT Commit.Out -> MretG.in1;
+    CONNECT CommitSys.Out -> MretG.in1;
     CONNECT Control.Mret -> MretG.in2;
-    CONNECT Commit.Out -> HaltG.in1;
+    CONNECT CommitSys.Out -> HaltG.in1;
     CONNECT Control.Ebreak -> HaltG.in2;
     CONNECT C_TRUE.out -> HaltReg.Data[0];
     CONNECT HaltG.out -> HaltReg.Load;
