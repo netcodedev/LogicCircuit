@@ -23,7 +23,7 @@ CIRCUIT CPU_RV32 {
     // in the memory stage is about to write waits one clock (load-use).
     //
     // Multiply/divide (MULDIV_RV32) starts when the instruction reaches
-    // execute, which then waits 32 clocks; its result goes through the
+    // execute, which then waits 16 clocks; its result goes through the
     // memory stage like an ALU result.
     //
     // Traps: illegal instruction (incl. a CSR that does not exist or a
@@ -66,6 +66,7 @@ CIRCUIT CPU_RV32 {
     PART CtrlM: REGISTER_R<11>;     // Rd[0..4], RegWrite 5, Load 6, Store 7,
                                     // Size 8..9, Unsigned 10
     PART HaltReg: REGISTER_R<1>;
+    PART PredE: REGISTER_R<1>;      // Ir was predicted taken at fetch
     PART RegFile: REG_FILE_32<32>;
     PART Csr: CSR_RV32;
     PART MulDiv: MULDIV_RV32;
@@ -197,6 +198,30 @@ CIRCUIT CPU_RV32 {
     PART PcLoad: OR;
     PART ValidIn: AND;              // FetchOk AND NOT Redirect
 
+    // --- Static prediction at fetch (backward taken, forward not taken) ---
+    // A backward branch or a jal in DataIn loads PC with PC + its
+    // immediate (not when imm[1] = 1: execute raises the exception). Execute
+    // checks the direction: Branch.F[0] XOR PredE turns the condition into
+    // "mispredicted", and a predicted jal does not redirect again. A
+    // predicted branch that falls through redirects to PcE + 4 (TgtB).
+    PART NotD4: NOT;
+    PART NotD31: NOT;
+    PART NotD21: NOT;
+    PART PdC1: AND3;                // d6 d5 d1
+    PART PdC: AND3;                 // ... d0, NOT d4: branch or jal(r)
+    PART PdB: NOR4;                 // NOT d3, NOT d2, NOT imm[1], imm < 0
+    PART PdJ: AND3;                 // d3 d2 (jal), NOT imm[1]
+    PART PdBr: AND;
+    PART PdJal: AND;
+    PART Pred: OR;
+    PART FImm: MUX_2_1_BUS<12>;     // imm bits 4..2, 11, 19..12: B, J (d3)
+    PART FTgt: ADDER_KS5<30>;       // PC[31:2] + imm[31:2]
+    PART PredMux: MUX_2_1_BUS<30>;  // PC + 4, predicted target
+    PART NotPredE: NOT;
+    PART JalNp: AND;                // jal not predicted
+    PART BrF0: XOR;                 // funct3[0] XOR PredE
+    PART TgtB: MUX_2_1_BUS<32>;     // Imm, 4 (predicted, fell through)
+
     // --- Effects ---
     PART RegWriteG: AND;            // Commit AND RegWrite
     PART LoadG: AND;
@@ -242,7 +267,60 @@ CIRCUIT CPU_RV32 {
     // PC: PC + 4, or the redirect target
     FOR i IN 0..30 {
         CONNECT PcReg.Q[2+i] -> PcInc.A[i];
-        CONNECT PcInc.S[i] -> PcMux.A[2+i];
+        CONNECT PcInc.S[i] -> PredMux.A[i];
+        CONNECT FTgt.S[i] -> PredMux.B[i];
+        CONNECT PredMux.Out[i] -> PcMux.A[2+i];
+        CONNECT PcReg.Q[2+i] -> FTgt.A[i];
+    }
+    CONNECT Pred.out -> PredMux.S;
+
+    // Prediction from the fetched word
+    CONNECT DataIn[4] -> NotD4.in;
+    CONNECT DataIn[31] -> NotD31.in;
+    CONNECT DataIn[21] -> NotD21.in;
+    CONNECT DataIn[6] -> PdC1.A;
+    CONNECT DataIn[5] -> PdC1.B;
+    CONNECT DataIn[1] -> PdC1.C;
+    CONNECT PdC1.Out -> PdC.A;
+    CONNECT DataIn[0] -> PdC.B;
+    CONNECT NotD4.out -> PdC.C;
+    CONNECT DataIn[3] -> PdB.A;
+    CONNECT DataIn[2] -> PdB.B;
+    CONNECT DataIn[8] -> PdB.C;
+    CONNECT NotD31.out -> PdB.D;
+    CONNECT DataIn[3] -> PdJ.A;
+    CONNECT DataIn[2] -> PdJ.B;
+    CONNECT NotD21.out -> PdJ.C;
+    CONNECT PdC.Out -> PdBr.in1;
+    CONNECT PdB.Out -> PdBr.in2;
+    CONNECT PdC.Out -> PdJal.in1;
+    CONNECT PdJ.Out -> PdJal.in2;
+    CONNECT PdBr.out -> Pred.in1;
+    CONNECT PdJal.out -> Pred.in2;
+    CONNECT Pred.out -> PredE.Data[0];
+    CONNECT NotHoldE.out -> PredE.Load;
+    CONNECT Reset -> PredE.Reset;
+    CONNECT CLK -> PredE.CLK;
+    // imm[31:2]: B and J share bits 10..5 (d30..d25) and the sign
+    FOR j IN 0..3 {
+        CONNECT DataIn[9+j] -> FImm.A[j];
+        CONNECT DataIn[22+j] -> FImm.B[j];
+        CONNECT FImm.Out[j] -> FTgt.B[j];
+    }
+    CONNECT DataIn[7] -> FImm.A[3];
+    CONNECT DataIn[20] -> FImm.B[3];
+    CONNECT FImm.Out[3] -> FTgt.B[9];
+    FOR j IN 0..8 {
+        CONNECT DataIn[31] -> FImm.A[4+j];
+        CONNECT DataIn[12+j] -> FImm.B[4+j];
+        CONNECT FImm.Out[4+j] -> FTgt.B[10+j];
+    }
+    CONNECT DataIn[3] -> FImm.S;
+    FOR k IN 5..11 {
+        CONNECT DataIn[20+k] -> FTgt.B[k-2];
+    }
+    FOR k IN 20..32 {
+        CONNECT DataIn[31] -> FTgt.B[k-2];
     }
     CONNECT C_TRUE.out -> PcInc.Cin;
     CONNECT TrapMux.Out -> PcMux.B;
@@ -339,16 +417,24 @@ CIRCUIT CPU_RV32 {
     CONNECT RegA.Out -> TgtMux.B;
     CONNECT Control.IsJalr -> TgtMux.S;
     CONNECT TgtMux.Out -> TgtAdd.A;
-    CONNECT Imm.Imm -> TgtAdd.B;
+    CONNECT Imm.Imm -> TgtB.A;
+    CONNECT C_TRUE.out -> TgtB.B[2];
+    CONNECT PredE.Q[0] -> TgtB.S;
+    CONNECT TgtB.Out -> TgtAdd.B;
     CONNECT RegA.Out -> Branch.A;
     CONNECT RegB.Out -> Branch.B;
-    CONNECT Ir.Q[12] -> Branch.F[0];
+    CONNECT Ir.Q[12] -> BrF0.in1;
+    CONNECT PredE.Q[0] -> BrF0.in2;
+    CONNECT BrF0.out -> Branch.F[0];
     CONNECT Ir.Q[13] -> Branch.F[1];
     CONNECT Ir.Q[14] -> Branch.F[2];
     CONNECT Control.IsBranch -> Taken.in1;
     CONNECT Branch.Cond -> Taken.in2;
     CONNECT Taken.out -> JumpOr.In[0];
-    CONNECT Control.IsJal -> JumpOr.In[1];
+    CONNECT PredE.Q[0] -> NotPredE.in;
+    CONNECT Control.IsJal -> JalNp.in1;
+    CONNECT NotPredE.out -> JalNp.in2;
+    CONNECT JalNp.out -> JumpOr.In[1];
     CONNECT Control.IsJalr -> JumpOr.In[2];
 
     // Multiply/divide

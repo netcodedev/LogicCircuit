@@ -3,8 +3,8 @@ CIRCUIT MULDIV_RV32 {
     // F = funct3: 0 mul, 1 mulh, 2 mulhsu, 3 mulhu, 4 div, 5 divu, 6 rem,
     // 7 remu.
     //
-    // The core is MULDIV_16B at 32 bits: one bit per clock, 32 steps, one
-    // adder and the 64-bit shift register Hi:Lo, unsigned. Signed
+    // The core works radix 4: two bits per clock, 16 steps, three adders
+    // and the 64-bit shift register Hi:Lo, unsigned (see "One step"). Signed
     // operations work on magnitudes: on Start, A and B are negated when they
     // are signed and negative (AbsA, AbsB), and the result is negated at the
     // output when its sign says so (Neg, saved on Start):
@@ -14,7 +14,7 @@ CIRCUIT MULDIV_RV32 {
     // Division by zero gives quotient 0xFFFFFFFF and remainder A, and
     // -2^31 / -1 gives -2^31 remainder 0, as the specification asks.
     //
-    // Start = 1 on a rising edge loads the operands; Busy is 1 for the 32
+    // Start = 1 on a rising edge loads the operands; Busy is 1 for the 16
     // steps after it, then Done = 1 until Consume = 1 on an edge. F must
     // stay the same until Consume (the CPU holds the instruction).
     INPUT A[32];
@@ -67,23 +67,42 @@ CIRCUIT MULDIV_RV32 {
     // Operands on Start
     PART LoSrc: MUX_2_1_BUS<32>;   // |B| (multiply), |A| (divide)
     PART MSrc: MUX_2_1_BUS<32>;    // |A| (multiply), |B| (divide)
-
-    // One step
-    PART MulAdd: AND_BUS<32>;      // M AND Lo[0]
-    PART NotM: NOT_BUS<32>;
-    PART XMux: MUX_2_1_BUS<32>;    // Hi (multiply), Hi:Lo << 1 (divide)
-    PART YMux: MUX_2_1_BUS<32>;    // M AND Lo[0], NOT M
-    PART Adder: ADDER_KS5<32>;
-    PART TakeOr: OR;               // divide: shifted value >= M
-    PART HiDiv: MUX_2_1_BUS<32>;   // shifted, difference
-    PART HiStep: MUX_2_1_BUS<32>;  // multiply, divide
+    // One step (radix 4: two bits per clock). X is 34 bits: multiply
+    // {0, 0, Hi}, divide {Hi, Lo[31:30]} (Hi:Lo << 2). Three adders compute
+    // X + kM (multiply) or X - kM (divide) for k = 1, 2, 3 at once:
+    //   k = 1: X + Y1, k = 2: X + Y2, k = 3: X + Y1 + Y2 (carry-save, then add)
+    // with Y1 = M, Y2 = 2M (multiply) or Y1 = NOT M, Y2 = NOT 2M, carry 1
+    // (divide). Multiply picks k = Lo[1:0]; divide takes the largest k with
+    // no borrow (K1, K2, K3: X >= kM), which is the next quotient digit.
+    // The adders are 32-bit Kogge-Stone plus two ripple bits (32, 33).
+    PART XLo: MUX_2_1_BUS<32>;     // X[31:0]: Hi, {Hi[29:0], Lo[31:30]}
+    PART XHi: AND_BUS<2>;          // X[33:32]: 0, Hi[31:30]
+    PART Y1x: XOR_BUS<32>;         // M XOR divide
+    PART Add1: ADDER_KS5<32>;
+    PART Top1a: FULL_ADDER;
+    PART Top1b: FULL_ADDER;
+    PART Add2: ADDER_KS5<32>;
+    PART Top2a: FULL_ADDER;
+    PART Top2b: FULL_ADDER;
+    PART Add3: ADDER_KS5<32>;
+    PART Top3a: FULL_ADDER;
+    PART Top3b: FULL_ADDER;
+    PART DigLo: MUX_2_1;           // Lo[0], K1: X or X + 1M
+    PART DigHi: MUX_2_1;           // Lo[0], K3: X + 2M or X + 3M
+    PART DigOut: MUX_2_1;          // Lo[1], K2
+    PART MuxL: MUX_2_1_BUS<34>;
+    PART MuxH: MUX_2_1_BUS<34>;
+    PART MuxP: MUX_2_1_BUS<34>;    // P = X + digit * M
+    PART Q0: MUX_2_1;              // quotient digit bit 0: K2 ? K3 : K1
+    PART Csa32: FULL_ADDER;        // carry-save bit 32 (bit 33: sum X[33], carry d)
+    PART HiStep: MUX_2_1_BUS<32>;  // multiply P[33:2], divide P[31:0]
     PART LoStep: MUX_2_1_BUS<32>;  // multiply, divide
     PART HiData: AND_BUS<32>;      // 0 on Start
     PART LoData: MUX_2_1_BUS<32>;  // step, operand
 
     // Count and Done
     PART CountDec: ADDER<6>;       // Count - 1
-    PART CountMux: MUX_2_1_BUS<6>; // Count - 1, 32
+    PART CountMux: MUX_2_1_BUS<6>; // Count - 1, 16
     PART UpperAny: OR_WIDE<2>;     // Count[5..1] != 0
     PART UpperZero: NOT;
     PART LastAnd: AND3;            // Running AND Count = 1: last step
@@ -169,44 +188,123 @@ CIRCUIT MULDIV_RV32 {
     CONNECT Reset -> MReg.Reset;
     CONNECT CLK -> MReg.CLK;
 
-    // Adder inputs: multiply Hi + (M AND Lo[0]); divide (Hi:Lo << 1) + NOT M + 1
-    CONNECT MReg.Q -> MulAdd.A;
-    CONNECT LoReg.Q[0] -> MulAdd.B;   // tee
-    CONNECT MReg.Q -> NotM.A;
-    CONNECT HiReg.Q -> XMux.A;
-    CONNECT LoReg.Q[31] -> XMux.B[0];
-    FOR i IN 0..31 {
-        CONNECT HiReg.Q[i] -> XMux.B[1+i];
+    // X: multiply {0, 0, Hi}, divide {Hi, Lo[31:30]}
+    CONNECT HiReg.Q -> XLo.A;
+    CONNECT LoReg.Q[30] -> XLo.B[0];
+    CONNECT LoReg.Q[31] -> XLo.B[1];
+    FOR i IN 0..30 {
+        CONNECT HiReg.Q[i] -> XLo.B[2+i];
     }
-    CONNECT F[2] -> XMux.S;
-    CONNECT MulAdd.Out -> YMux.A;
-    CONNECT NotM.Out -> YMux.B;
-    CONNECT F[2] -> YMux.S;
-    CONNECT XMux.Out -> Adder.A;
-    CONNECT YMux.Out -> Adder.B;
-    CONNECT F[2] -> Adder.Cin;
+    CONNECT F[2] -> XLo.S;
+    CONNECT HiReg.Q[30] -> XHi.A[0];
+    CONNECT HiReg.Q[31] -> XHi.A[1];
+    CONNECT F[2] -> XHi.B[0];
+    CONNECT F[2] -> XHi.B[1];
+    CONNECT MReg.Q -> Y1x.A;
+    CONNECT F[2] -> Y1x.B;          // tee
 
-    // Divide: take = Hi[31] (33rd bit of the shifted value) OR no borrow
-    CONNECT HiReg.Q[31] -> TakeOr.in1;
-    CONNECT Adder.Cout -> TakeOr.in2;
-    CONNECT XMux.Out -> HiDiv.A;
-    CONNECT Adder.S -> HiDiv.B;
-    CONNECT TakeOr.out -> HiDiv.S;
+    // k = 1: X + Y1, Y1 = {d, d, M XOR d} (d = divide)
+    CONNECT XLo.Out -> Add1.A;
+    CONNECT Y1x.Out -> Add1.B;
+    CONNECT F[2] -> Add1.Cin;
+    CONNECT XHi.Out[0] -> Top1a.a;
+    CONNECT F[2] -> Top1a.b;
+    CONNECT Add1.Cout -> Top1a.cin;
+    CONNECT XHi.Out[1] -> Top1b.a;
+    CONNECT F[2] -> Top1b.b;
+    CONNECT Top1a.cout -> Top1b.cin;
 
-    // Next Hi: multiply {carry, sum[31..1]}, divide HiDiv
-    FOR i IN 0..31 {
-        CONNECT Adder.S[1+i] -> HiStep.A[i];
+    // k = 2: X + Y2, Y2 = {d, M XOR d, d}
+    CONNECT XLo.Out -> Add2.A;
+    CONNECT F[2] -> Add2.B[0];
+    FOR i IN 1..32 {
+        CONNECT Y1x.Out[i-1] -> Add2.B[i];
     }
-    CONNECT Adder.Cout -> HiStep.A[31];
-    CONNECT HiDiv.Out -> HiStep.B;
+    CONNECT F[2] -> Add2.Cin;
+    CONNECT XHi.Out[0] -> Top2a.a;
+    CONNECT Y1x.Out[31] -> Top2a.b;
+    CONNECT Add2.Cout -> Top2a.cin;
+    CONNECT XHi.Out[1] -> Top2b.a;
+    CONNECT F[2] -> Top2b.b;
+    CONNECT Top2a.cout -> Top2b.cin;
+
+    // k = 3: carry-save X + Y1 + Y2, then add (plus 2 for divide: carry
+    // bit 0 and Cin). Divide: the dropped carry out of bit 33 is always 1.
+    FOR i IN 0..32 {
+        PART Csa[i]: FULL_ADDER;
+        CONNECT XLo.Out[i] -> Csa[i].a;
+        CONNECT Y1x.Out[i] -> Csa[i].b;
+    }
+    CONNECT F[2] -> Csa[0].cin;
+    FOR i IN 1..32 {
+        CONNECT Y1x.Out[i-1] -> Csa[i].cin;
+    }
+    CONNECT XHi.Out[0] -> Csa32.a;
+    CONNECT F[2] -> Csa32.b;
+    CONNECT Y1x.Out[31] -> Csa32.cin;
+    FOR i IN 0..32 {
+        CONNECT Csa[i].sum -> Add3.A[i];
+    }
+    CONNECT F[2] -> Add3.B[0];
+    FOR i IN 1..32 {
+        CONNECT Csa[i-1].cout -> Add3.B[i];
+    }
+    CONNECT F[2] -> Add3.Cin;
+    CONNECT Csa32.sum -> Top3a.a;
+    CONNECT Csa[31].cout -> Top3a.b;
+    CONNECT Add3.Cout -> Top3a.cin;
+    CONNECT XHi.Out[1] -> Top3b.a;
+    CONNECT Csa32.cout -> Top3b.b;
+    CONNECT Top3a.cout -> Top3b.cin;
+
+    // Digit: multiply Lo[1:0]; divide K3 ? 3 : K2 ? 2 : K1 ? 1 : 0
+    CONNECT LoReg.Q[0] -> DigLo.A;
+    CONNECT Top1b.cout -> DigLo.B;
+    CONNECT F[2] -> DigLo.S;
+    CONNECT LoReg.Q[0] -> DigHi.A;
+    CONNECT Top3b.cout -> DigHi.B;
+    CONNECT F[2] -> DigHi.S;
+    CONNECT LoReg.Q[1] -> DigOut.A;
+    CONNECT Top2b.cout -> DigOut.B;
+    CONNECT F[2] -> DigOut.S;
+    FOR i IN 0..32 {
+        CONNECT XLo.Out[i] -> MuxL.A[i];
+        CONNECT Add1.S[i] -> MuxL.B[i];
+        CONNECT Add2.S[i] -> MuxH.A[i];
+        CONNECT Add3.S[i] -> MuxH.B[i];
+    }
+    CONNECT XHi.Out[0] -> MuxL.A[32];
+    CONNECT XHi.Out[1] -> MuxL.A[33];
+    CONNECT Top1a.sum -> MuxL.B[32];
+    CONNECT Top1b.sum -> MuxL.B[33];
+    CONNECT Top2a.sum -> MuxH.A[32];
+    CONNECT Top2b.sum -> MuxH.A[33];
+    CONNECT Top3a.sum -> MuxH.B[32];
+    CONNECT Top3b.sum -> MuxH.B[33];
+    CONNECT DigLo.Out -> MuxL.S;
+    CONNECT DigHi.Out -> MuxH.S;
+    CONNECT MuxL.Out -> MuxP.A;
+    CONNECT MuxH.Out -> MuxP.B;
+    CONNECT DigOut.Out -> MuxP.S;
+    CONNECT Top1b.cout -> Q0.A;
+    CONNECT Top3b.cout -> Q0.B;
+    CONNECT Top2b.cout -> Q0.S;
+
+    // Next Hi: multiply P[33:2], divide P[31:0]
+    FOR i IN 0..32 {
+        CONNECT MuxP.Out[2+i] -> HiStep.A[i];
+        CONNECT MuxP.Out[i] -> HiStep.B[i];
+    }
     CONNECT F[2] -> HiStep.S;
-    // Next Lo: multiply {sum[0], Lo[31..1]}, divide {Lo[30..0], take}
-    FOR i IN 0..31 {
-        CONNECT LoReg.Q[1+i] -> LoStep.A[i];
-        CONNECT LoReg.Q[i] -> LoStep.B[1+i];
+    // Next Lo: multiply {P[1:0], Lo[31:2]}, divide {Lo[29:0], digit}
+    FOR i IN 0..30 {
+        CONNECT LoReg.Q[2+i] -> LoStep.A[i];
+        CONNECT LoReg.Q[i] -> LoStep.B[2+i];
     }
-    CONNECT Adder.S[0] -> LoStep.A[31];
-    CONNECT TakeOr.out -> LoStep.B[0];
+    CONNECT MuxP.Out[0] -> LoStep.A[30];
+    CONNECT MuxP.Out[1] -> LoStep.A[31];
+    CONNECT Q0.Out -> LoStep.B[0];
+    CONNECT Top2b.cout -> LoStep.B[1];
     CONNECT F[2] -> LoStep.S;
 
     CONNECT HiStep.Out -> HiData.A;
@@ -224,11 +322,11 @@ CIRCUIT MULDIV_RV32 {
     CONNECT Reset -> LoReg.Reset;
     CONNECT CLK -> LoReg.CLK;
 
-    // Count: 32 on Start, then down to 0
+    // Count: 16 on Start, then down to 0
     CONNECT Count.Q -> CountDec.A;
     CONNECT C_TRUE.out -> CountDec.B;   // tee: all ones = -1
     CONNECT CountDec.S -> CountMux.A;
-    CONNECT C_TRUE.out -> CountMux.B[5];
+    CONNECT C_TRUE.out -> CountMux.B[4];
     CONNECT Start -> CountMux.S;
     CONNECT CountMux.Out -> Count.Data;
     CONNECT LoadOr.out -> Count.Load;
