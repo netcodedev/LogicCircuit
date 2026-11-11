@@ -124,7 +124,10 @@ cargo run -p logic_circuit_viz --bin viz-serve -- 8173
 Then open <http://localhost:8173>. Pick a circuit on the left, load and run a
 program at the bottom, and switch the view in the header (the UI is in
 German): *Bauteile* (parts), *Basis-Blöcke* (basic gates), *NANDs*,
-*Transistoren* (CMOS) and *Chip 3D*. The header also has the clock and
+*Transistoren* (CMOS) and *Chip 3D*. In *Bauteile* a double click opens a part in place: it becomes a labelled frame
+with its inner parts, its pins stay on the frame and keep their wires (Ctrl+double
+click shows it as its own level instead). *Tiefe* opens all parts down to a given
+depth. The header also has the clock and
 rebuild buttons, the Verilog export (basic blocks or NAND gates, sky130 or
 generic cells) and *Chip bauen*: a window that runs OpenROAD through
 `viz-serve` (metal layers, utilisation, clock target, memory delay,
