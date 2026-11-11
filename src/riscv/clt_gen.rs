@@ -329,11 +329,21 @@ fn shared_blocks() {
 
 fn riscv_blocks() {
     combinational("SHIFTER_RV32", "circuits/riscv/SHIFTER_RV32.clt", "Tests for SHIFTER_RV32: sll, srl, sra by every kind of amount", 60, |r, k| {
-        vec![("A", r.word()), ("Amt", if k < 32 { k as u128 } else { r.next() % 32 }), ("Left", r.next() & 1), ("Arith", r.next() & 1)]
+        vec![("A", r.word()), ("Amt", if k < 32 { k as u128 } else { r.next() % 32 }), ("Arith", r.next() & 1)]
     });
     combinational("ALU_RV32", "circuits/riscv/ALU_RV32.clt", "Tests for ALU_RV32: every function, with edge-case operands", 96, |r, k| {
         let f = (k % 8) as u128;
         vec![("A", r.word()), ("B", r.word()), ("F", f), ("Sub", ((k / 8) % 2) as u128), ("Arith", ((k / 16) % 2) as u128)]
+    });
+    combinational("BRANCH_RV32", "circuits/riscv/BRANCH_RV32.clt", "Tests for BRANCH_RV32: every branch condition, with equal and sign-crossing operands", 72, |r, k| {
+        let f = [0u128, 1, 4, 5, 6, 7][k % 6];
+        let a = r.word();
+        let b = match (k / 6) % 4 {
+            0 => a,
+            1 => a ^ 0x8000_0000,
+            _ => r.word(),
+        };
+        vec![("A", a), ("B", b), ("F", f)]
     });
     combinational("IMM_RV32", "circuits/riscv/IMM_RV32.clt", "Tests for IMM_RV32: every immediate format (and none)", 60, |r, k| {
         let fmt = k % 6;

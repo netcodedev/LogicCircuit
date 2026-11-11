@@ -38,10 +38,10 @@ the browser's Chip 3D view with an exploded layer stack.*
   `EVAL`, `ASSERT`, `SEQ`; whole buses at once: `SET A[31:0] 0xFFFF_0000`).
 - **A complete 8-bit computer** – `COMPUTER_8B` = `CPU_8B` (ALU, 16 × 8
   register file, control unit, program counter) plus a two-digit hex
-  7-segment display, 8,064 NANDs in total.
+  7-segment display, 6,352 NANDs in total.
 - **A 32-bit RISC-V SoC** – `SOC_RV32` = `CPU_RV32` (RV32IM + Zicsr, machine
   mode, three-stage pipeline, traps and interrupts) plus GPIO, an 8-digit hex
-  display, a UART and a CLINT-style timer, 123,293 NANDs, in
+  display, a UART and a CLINT-style timer, 102,206 NANDs, in
   [`circuits/riscv/`](circuits/riscv). It has its own assembler,
   instruction-level simulator and runner in [`src/riscv/`](src/riscv), runs
   assembly and C programs (clang + lld) from [`programs/riscv/`](programs/riscv),

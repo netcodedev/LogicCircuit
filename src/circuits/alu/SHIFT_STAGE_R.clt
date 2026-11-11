@@ -1,0 +1,21 @@
+// Tests for one right shifter stage, SHIFT_STAGE_R<8, 3>
+
+TESTS FOR SHIFT_STAGE_R<8,3> {
+    TEST "Sel=0: 0xB5 -> 0xB5" {
+        SET In[7:0] 0xB5, Sel 0, Fill 1;
+        EVAL;
+        ASSERT Out[7:0] 0xB5;
+    }
+
+    TEST "Sel=1 Fill=0: 0xB5 -> 0x16" {
+        SET In[7:0] 0xB5, Sel 1, Fill 0;
+        EVAL;
+        ASSERT Out[7:0] 0x16;
+    }
+
+    TEST "Sel=1 Fill=1: 0xB5 -> 0xF6" {
+        SET In[7:0] 0xB5, Sel 1, Fill 1;
+        EVAL;
+        ASSERT Out[7:0] 0xF6;
+    }
+}

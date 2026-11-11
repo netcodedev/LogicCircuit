@@ -135,9 +135,49 @@ Halbwort-Store schreibt seine Bytes in ihre Spuren und 0 in die übrigen.
       dafür ganze Busse setzen und prüfen (`SET A[31:0] 0x1234_5678`,
       `ASSERT S[31:0] -5`, `F[2:0] 0b101`)
 
+### Phase 7 – Kürzerer kritischer Pfad
+Gemessen als Logiktiefe in NAND-Stufen (wie `nands`), also ohne echte
+Gatterlaufzeiten; ein sky130-Build steht noch aus.
+
+| Schritt | Längster Pfad | `SOC_RV32` |
+|---|---:|---:|
+| Ausgangslage | 131 | 123.293 NANDs |
+| Fehlausrichtung aus (rs1 + imm)[1:0], Branch über imm[1], `minstret` lädt bei Retire, CSR-Writes ohne ALU-Wartezeit | 98 | 123.329 |
+| `MUX_2_1` als NAND-NAND (2 statt 4 Stufen, betrifft alle Schaltungen) | 84 | 100.945 |
+| Eigener Vergleicher `BRANCH_RV32` aus rs1/rs2, Immediate-Formate direkt aus den Opcode-Bits, späte Branch-Exception am Ende der Exception-Kette | 69 | 102.206 |
+
+- [x] Ergebnis: 131 → 69 Stufen (−47 %), 17 % weniger NANDs; `SOC_16B`
+      sinkt durch den neuen Mux von 85 auf 64 Stufen
+- [x] Die längsten Pfade sind jetzt ausgeglichen (65–69 Stufen): Decode →
+      Load-Use-Stall → `XGo` → CSR-Schreiben, Branch-Vergleich → Redirect →
+      `PC`, Trap → `mstatus`
+- Shifter (17 Stufen) und Registerdatei-Lesen (14) liegen nicht mehr auf
+  den längsten Pfaden; ein Umbau dort würde NANDs kosten, ohne den Takt zu
+  heben
+- [x] sky130-Build (`chip build SOC_RV32`, Basis-Blöcke, met5, 40 %):
+
+  | | master | Phase 7 |
+  |---|---:|---:|
+  | fmax ohne `--optimize` (10 ns) | 28 MHz | 30 MHz |
+  | fmax mit `--optimize` (7 ns) | 98 MHz | 131 MHz (+34 %) |
+  | Transistoren (`--optimize`) | 188.897 | 192.901 |
+  | + Shifter ohne Bit-Umkehr, `mtval` aus dem Addierer | | **134 MHz** (+37 %), 193.762 Transistoren |
+
+  Ohne `--optimize` bestimmt der ungepufferte Fanout des Befehlsregisters
+  (18 ns an einem Flipflop-Ausgang) den Takt. Mit `--optimize` lief der
+  Pfad auf master über ALU-Ergebnis → Fehlausrichtung → Commit →
+  `minstret`; jetzt über Registerdatei → Shifter → ALU-Mux → `mtval`.
+  Auf Basis-Ebene wird `MUX_2_1` als `mux2`-Zelle exportiert, Schritt 3
+  wirkt dort also nicht. Der Shifter (7 `mux2`-Stufen) lag in echten
+  Zellen wieder auf dem kritischen Pfad; jetzt sind es Links- und
+  Rechts-Shifter nebeneinander (5 Stufen, `SHIFT_STAGE_L`/`_R`), der
+  ALU-Mux wählt. Danach sind die Pfade ausgeglichen: Branch-Vergleich →
+  Trap/Redirect → `PC` (−0,48 ns) und Registerdatei → ALU → `ResultM`
+  (−0,47 ns). Mehr Takt braucht einen Umbau der Pipeline (z. B. Redirect
+  erst in der nächsten Stufe).
+
 ### Später
 - [ ] Befehls-Cache, Sprungvorhersage
 - [ ] Schnellerer Multiplizierer (z. B. 4 Bit pro Takt oder Baum)
-- [ ] Kürzerer kritischer Pfad im Execute (Sprungziel und Bedingung)
 - [ ] GF180MCU-Flow (wafer.space)
 - [ ] RV64I

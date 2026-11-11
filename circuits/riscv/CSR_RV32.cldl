@@ -336,7 +336,7 @@ CIRCUIT CSR_RV32 {
     CONNECT CycleHi.Q -> CycleIncH.A;
     CONNECT CycleInc.Cout -> CycleIncH.Cin;
     CONNECT InstretLo.Q -> InstretInc.A;
-    CONNECT Retire -> InstretInc.Cin;
+    CONNECT C_TRUE.out -> InstretInc.Cin;  // Retire loads, so it stays off the carry chain
     CONNECT InstretHi.Q -> InstretIncH.A;
     CONNECT InstretInc.Cout -> InstretIncH.Cin;
     CONNECT CycleInc.S -> CycleMux.A;
@@ -357,8 +357,14 @@ CIRCUIT CSR_RV32 {
     CONNECT InstretMuxH.Out -> InstretHi.Data;
     CONNECT C_TRUE.out -> CycleLo.Load;
     CONNECT C_TRUE.out -> CycleHi.Load;
-    CONNECT C_TRUE.out -> InstretLo.Load;
-    CONNECT C_TRUE.out -> InstretHi.Load;
+    PART InstretLoad: OR;
+    PART InstretLoadH: OR;
+    CONNECT Retire -> InstretLoad.in1;
+    CONNECT WrInstret.out -> InstretLoad.in2;
+    CONNECT Retire -> InstretLoadH.in1;
+    CONNECT WrInstretH.out -> InstretLoadH.in2;
+    CONNECT InstretLoad.out -> InstretLo.Load;
+    CONNECT InstretLoadH.out -> InstretHi.Load;
 
     // --- Interrupts ---
     PART TimerOn: AND;

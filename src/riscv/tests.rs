@@ -141,6 +141,34 @@ fn alu_rv32() {
 }
 
 #[test]
+fn branch_rv32() {
+    let c = builder().build("BRANCH_RV32");
+    let mut rng = Rng(7);
+    for k in 0..3000 {
+        let a = rng.word();
+        let b = match k % 4 {
+            0 => a,
+            1 => a ^ 0x8000_0000,
+            _ => rng.word(),
+        };
+        let f = [0, 1, 4, 5, 6, 7][k % 6];
+        set_bus(&c, "A", 32, a as u64);
+        set_bus(&c, "B", 32, b as u64);
+        set_bus(&c, "F", 3, f);
+        c.evaluate_stable();
+        let want = match f {
+            0 => a == b,
+            1 => a != b,
+            4 => (a as i32) < (b as i32),
+            5 => (a as i32) >= (b as i32),
+            6 => a < b,
+            _ => a >= b,
+        };
+        assert_eq!(c.get_wire_value("Cond"), want, "F={f} {a:x} {b:x}");
+    }
+}
+
+#[test]
 fn imm_rv32() {
     let c = builder().build("IMM_RV32");
     let mut rng = Rng(4);
@@ -226,6 +254,17 @@ fn control_rv32() {
         }
         let writes = !is(&[Sb, Sh, Sw, Beq, Bne, Blt, Bge, Bltu, Bgeu, Fence, Ecall, Ebreak, Mret, Wfi]);
         assert_eq!(get("RegWrite"), writes, "{w:08x} {:?}", i.op);
+        let fmt = match w & 0x7F {
+            0x03 | 0x13 | 0x67 => "FmtI",
+            0x23 => "FmtS",
+            0x63 => "FmtB",
+            0x37 | 0x17 => "FmtU",
+            0x6F => "FmtJ",
+            _ => "",
+        };
+        for f in ["FmtI", "FmtS", "FmtB", "FmtU", "FmtJ"] {
+            assert_eq!(get(f), f == fmt, "{f} {w:08x}");
+        }
     }
 }
 

@@ -1,26 +1,26 @@
 CIRCUIT MUX_2_1 {
-    // Inputs: Two data inputs (A, B) and one Select input (S)
+    // Out = S ? B : A, as NAND-NAND: Out = NAND(NAND(A, NOT S), NAND(B, S)).
+    // Two NAND levels from A/B to Out (an AND-OR from basic gates has four).
     INPUT A, B;
-    INPUT S; 
+    INPUT S;
 
-    // Output: Selected data input (Out)
     OUTPUT Out;
 
     PART G_NOT_S: NOT;
-    PART G_AND_A: AND;
-    PART G_AND_B: AND;
-    PART G_OR_Out: OR;
+    PART G_NAND_A: NAND;
+    PART G_NAND_B: NAND;
+    PART G_NAND_Out: NAND;
 
     CONNECT S -> G_NOT_S.in;
 
-    CONNECT A -> G_AND_A.in1;
-    CONNECT G_NOT_S.out -> G_AND_A.in2;
+    CONNECT A -> G_NAND_A.in1;
+    CONNECT G_NOT_S.out -> G_NAND_A.in2;
 
-    CONNECT B -> G_AND_B.in1;
-    CONNECT S -> G_AND_B.in2;
+    CONNECT B -> G_NAND_B.in1;
+    CONNECT S -> G_NAND_B.in2;
 
-    CONNECT G_AND_A.out -> G_OR_Out.in1;
-    CONNECT G_AND_B.out -> G_OR_Out.in2;
+    CONNECT G_NAND_A.out -> G_NAND_Out.in1;
+    CONNECT G_NAND_B.out -> G_NAND_Out.in2;
 
-    CONNECT G_OR_Out.out -> Out;
+    CONNECT G_NAND_Out.out -> Out;
 }
