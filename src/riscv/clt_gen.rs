@@ -329,7 +329,7 @@ fn shared_blocks() {
 
 fn riscv_blocks() {
     combinational("SHIFTER_RV32", "circuits/riscv/SHIFTER_RV32.clt", "Tests for SHIFTER_RV32: sll, srl, sra by every kind of amount", 60, |r, k| {
-        vec![("A", r.word()), ("Amt", if k < 32 { k as u128 } else { r.next() % 32 }), ("Left", r.next() & 1), ("Arith", r.next() & 1)]
+        vec![("A", r.word()), ("Amt", if k < 32 { k as u128 } else { r.next() % 32 }), ("Arith", r.next() & 1)]
     });
     combinational("ALU_RV32", "circuits/riscv/ALU_RV32.clt", "Tests for ALU_RV32: every function, with edge-case operands", 96, |r, k| {
         let f = (k % 8) as u128;

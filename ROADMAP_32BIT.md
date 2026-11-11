@@ -159,16 +159,22 @@ Gatterlaufzeiten; ein sky130-Build steht noch aus.
   | | master | Phase 7 |
   |---|---:|---:|
   | fmax ohne `--optimize` (10 ns) | 28 MHz | 30 MHz |
-  | fmax mit `--optimize` (7 ns) | 98 MHz | **131 MHz** (+34 %) |
+  | fmax mit `--optimize` (7 ns) | 98 MHz | 131 MHz (+34 %) |
   | Transistoren (`--optimize`) | 188.897 | 192.901 |
+  | + Shifter ohne Bit-Umkehr, `mtval` aus dem Addierer | | **134 MHz** (+37 %), 193.762 Transistoren |
 
   Ohne `--optimize` bestimmt der ungepufferte Fanout des Befehlsregisters
   (18 ns an einem Flipflop-Ausgang) den Takt. Mit `--optimize` lief der
   Pfad auf master über ALU-Ergebnis → Fehlausrichtung → Commit →
   `minstret`; jetzt über Registerdatei → Shifter → ALU-Mux → `mtval`.
   Auf Basis-Ebene wird `MUX_2_1` als `mux2`-Zelle exportiert, Schritt 3
-  wirkt dort also nicht. Der Shifter (7 `mux2`-Stufen) liegt in echten
-  Zellen wieder auf dem kritischen Pfad.
+  wirkt dort also nicht. Der Shifter (7 `mux2`-Stufen) lag in echten
+  Zellen wieder auf dem kritischen Pfad; jetzt sind es Links- und
+  Rechts-Shifter nebeneinander (5 Stufen, `SHIFT_STAGE_L`/`_R`), der
+  ALU-Mux wählt. Danach sind die Pfade ausgeglichen: Branch-Vergleich →
+  Trap/Redirect → `PC` (−0,48 ns) und Registerdatei → ALU → `ResultM`
+  (−0,47 ns). Mehr Takt braucht einen Umbau der Pipeline (z. B. Redirect
+  erst in der nächsten Stufe).
 
 ### Später
 - [ ] Befehls-Cache, Sprungvorhersage

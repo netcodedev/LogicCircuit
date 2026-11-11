@@ -481,7 +481,7 @@ CIRCUIT CPU_RV32 {
         CONNECT TgtAdd.S[i] -> TvTgt.A[i];
     }
     CONNECT MisT.out -> TvTgt.B;           // tee
-    CONNECT Alu.Result -> TvAddr.A;
+    CONNECT Alu.Sum -> TvAddr.A;           // rs1 + imm, without the result mux
     CONNECT MisLsAny.out -> TvAddr.B;      // tee
     CONNECT TvIll.Out -> TvOr1.A;
     CONNECT TvTgt.Out -> TvOr1.B;

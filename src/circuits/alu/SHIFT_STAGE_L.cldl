@@ -1,0 +1,25 @@
+CIRCUIT SHIFT_STAGE_L<W, S> {
+    // One stage of a left shifter: with Sel=1, Out = In shifted left by S
+    // bits with zeros shifted in at the bottom; with Sel=0, Out = In.
+    INPUT In[W];
+    INPUT Sel;
+
+    OUTPUT Out[W];
+
+    PART NotSel: NOT;
+    CONNECT Sel -> NotSel.in;
+    // The low S bits: In AND NOT Sel.
+    FOR i IN 0..S {
+        PART Zero[i]: AND;
+        CONNECT In[i] -> Zero[i].in1;
+        CONNECT NotSel.out -> Zero[i].in2;
+        CONNECT Zero[i].out -> Out[i];
+    }
+    FOR i IN S..W {
+        PART Mux[i]: MUX_2_1;
+        CONNECT In[i] -> Mux[i].A;
+        CONNECT In[i-S] -> Mux[i].B;
+        CONNECT Sel -> Mux[i].S;
+        CONNECT Mux[i].Out -> Out[i];
+    }
+}
