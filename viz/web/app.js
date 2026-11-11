@@ -104,9 +104,10 @@ try { const d = Number(localStorage.getItem(DEPTH_KEY)); if (d >= 0) partsDepth 
 // Explicit open (true) / closed (false) per part instance, keyed by the full
 // instance path from the built circuit, so they survive navigation.
 const expandOverrides = new Map();
-// Opening by depth stops at this many parts in one drawing, which ELK still
-// lays out in a few seconds; parts opened by double click always open.
-const PARTS_BUDGET = 1200;
+// Opening by depth stops at this many parts in one drawing (a safety net:
+// the fully opened SOC_RV32 has about 78,000); parts opened by double click
+// always open.
+const PARTS_BUDGET = 200000;
 let expandTruncated = false;
 
 // Instance paths (relative to the shown level) of the parts drawn open,
@@ -162,229 +163,304 @@ function ioWidth(p) {
 
 const GROUP_HEADER = 40;  // room for the title of an opened part
 
-async function layout(type, open = new Set()) {
-  const cacheKey = `${type}|${stripes}|${[...open].sort().join(',')}`;
-  if (layouts.has(cacheKey)) return layouts.get(cacheKey);
+// ELK runs in web workers for the parts view: levels that do not depend on
+// each other are laid out in parallel, and the page stays responsive while
+// a big design is laid out. Without workers it runs on the main thread.
+const ELK_WORKER_URL = 'https://cdn.jsdelivr.net/npm/elkjs@0.12.1/lib/elk-worker.min.js';
+const ELK_WORKERS = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 2) - 1));
+let elkPool = null;  // Promise of [{ elk, busy }]
+
+function elkWorkers() {
+  elkPool ??= (async () => {
+    try {
+      const res = await fetch(ELK_WORKER_URL);
+      if (!res.ok) return [];
+      const url = URL.createObjectURL(new Blob([await res.text()], { type: 'text/javascript' }));
+      return Array.from({ length: ELK_WORKERS }, () => ({ elk: new ELK({ workerFactory: () => new Worker(url) }), busy: 0 }));
+    } catch {
+      return [];
+    }
+  })();
+  return elkPool;
+}
+
+// Lays out `graph` on the least busy worker.
+async function elkLayout(graph) {
+  const pool = await elkWorkers();
+  if (!pool.length) return elk.layout(graph);
+  const w = pool.reduce((a, b) => (b.busy < a.busy ? b : a));
+  w.busy++;
+  try {
+    return await w.elk.layout(graph);
+  } finally {
+    w.busy--;
+  }
+}
+
+// Layouts of single levels, shared by all instances that look the same:
+// "type|stripes|top|open paths inside" -> Promise of a level layout.
+const levelLayouts = new Map();
+// All coordinates in an ELK result relative to the laid out graph, ports included.
+const ROOT_COORDS = { 'elk.json.shapeCoords': 'ROOT', 'elk.json.edgeCoords': 'ROOT' };
+// Levels with more wires than this use the faster node placement.
+const BIG_LEVEL_EDGES = 150;
+
+// The parts of `open` (instance paths) inside the part `name`, relative to it.
+function openInside(open, name) {
+  const pre = `${name}.`;
+  return new Set([...open].filter((p) => p.startsWith(pre)).map((p) => p.slice(pre.length)));
+}
+
+// Lays out the shown level with its opened parts. Each level is laid out on
+// its own, bottom-up: an opened part is laid out first (its pins on the frame
+// border), then placed in its parent like a closed part of that size with
+// pins at fixed positions. Instances of the same type with the same parts
+// opened inside share one layout, so opening every adder of a CPU costs one
+// adder layout, not one per adder.
+function layout(type, open = new Set()) {
+  return layoutLevel(type, open, true);
+}
+
+function layoutLevel(type, open, top) {
+  const key = `${type}|${stripes}|${top}|${[...open].sort().join(',')}`;
+  if (!levelLayouts.has(key)) levelLayouts.set(key, buildLevelLayout(type, open, top));
+  return levelLayouts.get(key);
+}
+
+// One level as { graph, meta, width, height, ports, ms }: `graph` is the ELK
+// result (coordinates relative to the level), `ports` the positions of the
+// level's own pins on its frame (only for an opened part, top = false).
+async function buildLevelLayout(type, open, top) {
+  const v = view(type);
   const meta = { ports: new Map(), nodes: new Map() };
-  let nodeCount = 0, edgeCount = 0;
+  const inputs = new Map(v.inputs.map((p) => [p.name, p]));
+  const outputs = new Map(v.outputs.map((p) => [p.name, p]));
+  const parts = new Map(v.parts.map((p) => [p.name, p]));
+  const children = [];
+  const edges = [];
+  let ms = 0;
 
   // Striped buses are as wide as all their stripes together. ELK spaces edges
   // as if they were thin lines, so widen the edge channels and the port pitch
-  // to the widest bus drawn, otherwise parallel buses overlap.
-  const levels = [view(type), ...[...open].map((path) => {
-    let t = type;
-    for (const inst of path.split('.')) t = view(t).parts.find((p) => p.name === inst).type;
-    return view(t);
-  })];
-  const maxBits = Math.max(1, ...levels.flatMap((v) => [...v.inputs, ...v.outputs, ...v.parts.flatMap((p) => [...p.inputs, ...p.outputs])])
+  // to the widest bus of this level, otherwise parallel buses overlap.
+  const maxBits = Math.max(1, ...[...v.inputs, ...v.outputs, ...v.parts.flatMap((p) => [...p.inputs, ...p.outputs])]
     .map((p) => p.width ?? 1));
   const busWidth = stripes && maxBits > 1 ? Math.ceil(maxBits * stripeWidth(maxBits)) + 2 : 0;
   const row = Math.max(ROW, busWidth + 6);
   const edgeGap = (thin) => String(Math.max(thin, busWidth + 4));
-  const spacing = {
+  const options = {
+    'elk.algorithm': 'layered',
+    'elk.direction': 'RIGHT',
+    'elk.edgeRouting': 'ORTHOGONAL',
     'elk.layered.spacing.nodeNodeBetweenLayers': '60',
     'elk.layered.spacing.edgeNodeBetweenLayers': edgeGap(16),
     'elk.layered.spacing.edgeEdgeBetweenLayers': edgeGap(7),
     'elk.spacing.nodeNode': '28',
     'elk.spacing.edgeEdge': edgeGap(6),
+    'elk.layered.nodePlacement.strategy': 'NETWORK_SIMPLEX',
+    'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
   };
 
-  // Lays out one level into `container` (the root graph or the frame of an
-  // opened part). `path` is the instance path of that level relative to the
-  // shown level ('' at the top); `own` is the frame's node id, whose ports
-  // stand for the level's own inputs and outputs.
-  function buildLevel(v, path, container, own) {
-    const children = container.children;
-    const edges = container.edges;
-    const loc = (name) => (path ? `${path}.${name}` : name);
-    const inputs = new Map(v.inputs.map((p) => [p.name, p]));
-    const outputs = new Map(v.outputs.map((p) => [p.name, p]));
-    const parts = new Map(v.parts.map((p) => [p.name, p]));
-
-    if (!own) {
-      for (const p of v.inputs) {
-        const id = `in:${p.name}`;
-        const w = ioWidth(p);
-        children.push({
-          id, width: w, height: 24,
-          layoutOptions: { 'elk.layered.layering.layerConstraint': 'FIRST', 'elk.portConstraints': 'FIXED_POS' },
-          ports: [{ id: `${id}#`, x: w, y: 12 - PORT / 2, width: PORT, height: PORT }],
-        });
-        meta.nodes.set(id, { kind: 'in', pin: p });
-        meta.ports.set(`${id}#`, { local: p.name, width: p.width });
-      }
-      for (const p of v.outputs) {
-        const id = `out:${p.name}`;
-        const w = ioWidth(p);
-        children.push({
-          id, width: w, height: 24,
-          layoutOptions: { 'elk.layered.layering.layerConstraint': 'LAST', 'elk.portConstraints': 'FIXED_POS' },
-          ports: [{ id: `${id}#`, x: -PORT, y: 12 - PORT / 2, width: PORT, height: PORT }],
-        });
-        meta.nodes.set(id, { kind: 'out', pin: p });
-        meta.ports.set(`${id}#`, { local: p.name, width: p.width });
-      }
-    }
-    for (const part of v.parts) {
-      const id = `p:${loc(part.name)}`;
-      const maxIn = Math.max(0, ...part.inputs.map((p) => textWidth(pinLabel(p), 10)));
-      const maxOut = Math.max(0, ...part.outputs.map((p) => textWidth(pinLabel(p), 10)));
-      nodeCount++;
-      if (open.has(loc(part.name))) {
-        // Opened part: a frame (compound node) whose size ELK picks; the
-        // pins sit on its left and right border, labelled on the inside.
-        const ports = [];
-        for (const [list, side] of [[part.inputs, 'W'], [part.outputs, 'E']]) {
-          for (const p of list) {
-            const pid = `${id}#${p.name}`;
-            ports.push({ id: pid, width: PORT, height: PORT, layoutOptions: { 'elk.port.side': side === 'W' ? 'WEST' : 'EAST' } });
-            meta.ports.set(pid, { local: loc(`${part.name}.${p.name}`), width: p.width, label: pinLabel(p), side, group: true });
-          }
-        }
-        const minW = Math.max(textWidth(part.name, 12) + textWidth(partSubtitle(part), 10) + 40, maxIn + maxOut + 60);
-        const frame = {
-          id, ports, children: [], edges: [],
-          layoutOptions: {
-            ...spacing,
-            'elk.portConstraints': 'FIXED_SIDE',
-            'elk.padding': `[top=${GROUP_HEADER},left=${Math.ceil(maxIn) + 18},bottom=16,right=${Math.ceil(maxOut) + 18}]`,
-            'elk.nodeSize.constraints': 'MINIMUM_SIZE',
-            'elk.nodeSize.minimum': `(${Math.ceil(minW)},${GROUP_HEADER + 30})`,
-          },
-        };
-        children.push(frame);
-        meta.nodes.set(id, { kind: 'group', part, path: loc(part.name) });
-        buildLevel(view(part.type), loc(part.name), frame, id);
-        continue;
-      }
-      const w = Math.max(90, textWidth(part.name, 12) + 24, textWidth(partSubtitle(part), 10) + 24, maxIn + maxOut + 30);
-      const rows = Math.max(part.inputs.length, part.outputs.length, 1);
-      // A HEX_7SEG part shows its digit below the ports.
-      const digitY = part.type === DIGIT_PART ? HEADER + rows * row + 6 : null;
-      const h = digitY != null ? digitY + DIGIT_H + 10 : HEADER + rows * row + 4;
-      const ports = [];
-      part.inputs.forEach((p, i) => {
-        const pid = `${id}#${p.name}`;
-        ports.push({ id: pid, x: -PORT, y: HEADER + i * row + row / 2 - PORT / 2, width: PORT, height: PORT });
-        meta.ports.set(pid, { local: loc(`${part.name}.${p.name}`), width: p.width, label: pinLabel(p), side: 'W', row: i });
+  if (top) {
+    for (const p of v.inputs) {
+      const id = `in:${p.name}`;
+      const w = ioWidth(p);
+      children.push({
+        id, width: w, height: 24,
+        layoutOptions: { 'elk.layered.layering.layerConstraint': 'FIRST', 'elk.portConstraints': 'FIXED_POS' },
+        ports: [{ id: `${id}#`, x: w, y: 12 - PORT / 2, width: PORT, height: PORT }],
       });
-      part.outputs.forEach((p, i) => {
-        const pid = `${id}#${p.name}`;
-        ports.push({ id: pid, x: w, y: HEADER + i * row + row / 2 - PORT / 2, width: PORT, height: PORT });
-        meta.ports.set(pid, { local: loc(`${part.name}.${p.name}`), width: p.width, label: pinLabel(p), side: 'E', row: i });
+      meta.nodes.set(id, { kind: 'in', pin: p });
+      meta.ports.set(`${id}#`, { local: p.name, width: p.width });
+    }
+    for (const p of v.outputs) {
+      const id = `out:${p.name}`;
+      const w = ioWidth(p);
+      children.push({
+        id, width: w, height: 24,
+        layoutOptions: { 'elk.layered.layering.layerConstraint': 'LAST', 'elk.portConstraints': 'FIXED_POS' },
+        ports: [{ id: `${id}#`, x: -PORT, y: 12 - PORT / 2, width: PORT, height: PORT }],
       });
-      children.push({ id, width: w, height: h, layoutOptions: { 'elk.portConstraints': 'FIXED_POS' }, ports });
-      meta.nodes.set(id, { kind: 'part', part, path: loc(part.name), digitY });
+      meta.nodes.set(id, { kind: 'out', pin: p });
+      meta.ports.set(`${id}#`, { local: p.name, width: p.width });
     }
-
-    // Width of an endpoint's pin (bus width or null), used to pick wire keys.
-    const endpointWidth = (e) => {
-      if (e.index != null) return null;
-      if (e.part != null) {
-        const part = parts.get(e.part);
-        const pin = part && [...part.inputs, ...part.outputs].find((p) => p.name === e.pin);
-        return pin ? pin.width : null;
-      }
-      return (inputs.get(e.pin) || outputs.get(e.pin) || {}).width ?? null;
-    };
-
-    const target = (e) => {
-      if (e.part != null) return `p:${loc(e.part)}#${e.pin}`;
-      if (inputs.has(e.pin)) return own ? `${own}#${e.pin}` : `in:${e.pin}#`;
-      if (outputs.has(e.pin)) return own ? `${own}#${e.pin}` : `out:${e.pin}#`;
-      const id = `net:${loc(e.pin)}`;
-      if (!meta.nodes.has(id)) {
-        children.push({ id, width: 8, height: 8 });
-        meta.nodes.set(id, { kind: 'net', name: e.pin });
-      }
-      return id;
-    };
-
-    const localKey = (e) => {
-      const base = e.part != null ? `${e.part}.${e.pin}` : e.pin;
-      return loc(e.index != null ? `${base}.${e.index}` : base);
-    };
-
-    // Bit-indexed endpoints go through a splitter (source side) or merger
-    // (dest side) next to their bus pin. Without it, edges for different bits
-    // leave the same port and share their first segments, so the drawn colour
-    // of the shared part would be whichever bit was painted last.
-    const taps = new Map(); // node id -> { kind, busPort, base, width, bits }
-    const tap = (kind, e) => {
-      const bus = { ...e, index: null };
-      const busPort = target(bus);
-      const id = `${kind}:${busPort}`;
-      if (!taps.has(id)) {
-        taps.set(id, { kind, busPort, base: localKey(bus), width: endpointWidth(bus), bits: new Set() });
-      }
-      taps.get(id).bits.add(e.index);
-      return `${id}#${e.index}`;
-    };
-
-    const addEdge = (source, dest, keys, title) => edges.push({
-      id: `e${edgeCount++}`, sources: [source], targets: [dest],
-      _keys: keys, _bus: keys.length > 1, _title: title,
-      ...(stripes && keys.length > 1
-        ? { layoutOptions: { 'elk.edge.thickness': String(keys.length * stripeWidth(keys.length)) } }
-        : {}),
-    });
-
-    for (const c of v.connections) {
-      const srcW = endpointWidth(c.source);
-      const local = localKey(c.source);
-      const src = c.source.index != null ? tap('split', c.source) : target(c.source);
-      const dst = c.dest.index != null ? tap('merge', c.dest) : target(c.dest);
-      addEdge(src, dst, pinKeys(local, srcW), `${local}${srcW != null ? `[${srcW}]` : ''} → ${localKey(c.dest)}`);
-    }
-
-    for (const [id, t] of taps) {
-      const split = t.kind === 'split';
-      // MSB on top, matching the stripe order of striped buses.
-      const bits = [...t.bits].sort((a, b) => b - a);
-      const h = bits.length * ROW;
-      const ports = [{ id: `${id}#bus`, x: split ? -PORT : TAP_W, y: h / 2 - PORT / 2, width: PORT, height: PORT }];
-      meta.ports.set(`${id}#bus`, { local: t.base, width: t.width });
-      bits.forEach((b, i) => {
-        const pid = `${id}#${b}`;
-        ports.push({ id: pid, x: split ? TAP_W : -PORT, y: i * ROW + ROW / 2 - PORT / 2, width: PORT, height: PORT });
-        meta.ports.set(pid, { local: `${t.base}.${b}`, width: null, bit: String(b), side: split ? 'E' : 'W' });
-      });
-      children.push({ id, width: TAP_W, height: h, layoutOptions: { 'elk.portConstraints': 'FIXED_POS' }, ports });
-      meta.nodes.set(id, { kind: 'tap' });
-      const busKeys = pinKeys(t.base, t.width);
-      const busLabel = `${t.base}${t.width != null ? `[${t.width}]` : ''}`;
-      if (split) addEdge(t.busPort, `${id}#bus`, busKeys, `${busLabel} → Splitter`);
-      else addEdge(`${id}#bus`, t.busPort, busKeys, `Merger → ${busLabel}`);
-    }
-    nodeCount += children.length;
   }
 
-  const graph = {
-    id: 'root',
-    layoutOptions: {
-      'elk.algorithm': 'layered',
-      'elk.direction': 'RIGHT',
-      'elk.edgeRouting': 'ORTHOGONAL',
-      ...spacing,
-      'elk.layered.nodePlacement.strategy': 'NETWORK_SIMPLEX',
-      'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
-      'elk.padding': '[top=30,left=30,bottom=30,right=30]',
-      // Opened parts: one layout across all levels, so wires into a frame
-      // line up with the wires inside it. All coordinates are absolute.
-      ...(open.size ? { 'elk.hierarchyHandling': 'INCLUDE_CHILDREN' } : {}),
-      'elk.json.shapeCoords': 'ROOT',
-      'elk.json.edgeCoords': 'ROOT',
-    },
-    children: [],
-    edges: [],
+  // Opened parts first, so their layouts run in parallel.
+  const subs = new Map(v.parts.filter((p) => open.has(p.name))
+    .map((p) => [p.name, layoutLevel(p.type, openInside(open, p.name), false)]));
+
+  for (const part of v.parts) {
+    const id = `p:${part.name}`;
+    const maxIn = Math.max(0, ...part.inputs.map((p) => textWidth(pinLabel(p), 10)));
+    const maxOut = Math.max(0, ...part.outputs.map((p) => textWidth(pinLabel(p), 10)));
+    if (open.has(part.name)) {
+      // Opened part: its own layout, placed like a closed part of that size.
+      const sub = await subs.get(part.name);
+      const ports = [];
+      for (const [list, side] of [[part.inputs, 'W'], [part.outputs, 'E']]) {
+        for (const p of list) {
+          const pid = `${id}#${p.name}`;
+          const at = sub.ports.get(p.name);
+          ports.push({ id: pid, x: at.x, y: at.y, width: PORT, height: PORT });
+          meta.ports.set(pid, { local: `${part.name}.${p.name}`, width: p.width, label: pinLabel(p), side, group: true });
+        }
+      }
+      children.push({ id, width: sub.width, height: sub.height, layoutOptions: { 'elk.portConstraints': 'FIXED_POS' }, ports });
+      meta.nodes.set(id, { kind: 'group', part, sub });
+      continue;
+    }
+    const w = Math.max(90, textWidth(part.name, 12) + 24, textWidth(partSubtitle(part), 10) + 24, maxIn + maxOut + 30);
+    const rows = Math.max(part.inputs.length, part.outputs.length, 1);
+    // A HEX_7SEG part shows its digit below the ports.
+    const digitY = part.type === DIGIT_PART ? HEADER + rows * row + 6 : null;
+    const h = digitY != null ? digitY + DIGIT_H + 10 : HEADER + rows * row + 4;
+    const ports = [];
+    part.inputs.forEach((p, i) => {
+      const pid = `${id}#${p.name}`;
+      ports.push({ id: pid, x: -PORT, y: HEADER + i * row + row / 2 - PORT / 2, width: PORT, height: PORT });
+      meta.ports.set(pid, { local: `${part.name}.${p.name}`, width: p.width, label: pinLabel(p), side: 'W', row: i });
+    });
+    part.outputs.forEach((p, i) => {
+      const pid = `${id}#${p.name}`;
+      ports.push({ id: pid, x: w, y: HEADER + i * row + row / 2 - PORT / 2, width: PORT, height: PORT });
+      meta.ports.set(pid, { local: `${part.name}.${p.name}`, width: p.width, label: pinLabel(p), side: 'E', row: i });
+    });
+    children.push({ id, width: w, height: h, layoutOptions: { 'elk.portConstraints': 'FIXED_POS' }, ports });
+    meta.nodes.set(id, { kind: 'part', part, digitY });
+  }
+
+  // Width of an endpoint's pin (bus width or null), used to pick wire keys.
+  const endpointWidth = (e) => {
+    if (e.index != null) return null;
+    if (e.part != null) {
+      const part = parts.get(e.part);
+      const pin = part && [...part.inputs, ...part.outputs].find((p) => p.name === e.pin);
+      return pin ? pin.width : null;
+    }
+    return (inputs.get(e.pin) || outputs.get(e.pin) || {}).width ?? null;
   };
-  buildLevel(view(type), '', graph, null);
-  statusEl.textContent = `Layout ${type} (${nodeCount} Knoten, ${edgeCount} Kanten)…`;
+
+  // In an opened part, the level's own pins are ports of the frame ("self").
+  const target = (e) => {
+    if (e.part != null) return `p:${e.part}#${e.pin}`;
+    if (inputs.has(e.pin)) return top ? `in:${e.pin}#` : `self#${e.pin}`;
+    if (outputs.has(e.pin)) return top ? `out:${e.pin}#` : `self#${e.pin}`;
+    const id = `net:${e.pin}`;
+    if (!meta.nodes.has(id)) {
+      children.push({ id, width: 8, height: 8 });
+      meta.nodes.set(id, { kind: 'net', name: e.pin });
+    }
+    return id;
+  };
+
+  const localKey = (e) => {
+    const base = e.part != null ? `${e.part}.${e.pin}` : e.pin;
+    return e.index != null ? `${base}.${e.index}` : base;
+  };
+
+  // Bit-indexed endpoints go through a splitter (source side) or merger
+  // (dest side) next to their bus pin. Without it, edges for different bits
+  // leave the same port and share their first segments, so the drawn colour
+  // of the shared part would be whichever bit was painted last.
+  const taps = new Map(); // node id -> { kind, busPort, base, width, bits }
+  const tap = (kind, e) => {
+    const bus = { ...e, index: null };
+    const busPort = target(bus);
+    const id = `${kind}:${busPort}`;
+    if (!taps.has(id)) {
+      taps.set(id, { kind, busPort, base: localKey(bus), width: endpointWidth(bus), bits: new Set() });
+    }
+    taps.get(id).bits.add(e.index);
+    return `${id}#${e.index}`;
+  };
+
+  const addEdge = (source, dest, keys, title) => edges.push({
+    id: `e${edges.length}`, sources: [source], targets: [dest],
+    _keys: keys, _bus: keys.length > 1, _title: title,
+    ...(stripes && keys.length > 1
+      ? { layoutOptions: { 'elk.edge.thickness': String(keys.length * stripeWidth(keys.length)) } }
+      : {}),
+  });
+
+  for (const c of v.connections) {
+    const srcW = endpointWidth(c.source);
+    const local = localKey(c.source);
+    const src = c.source.index != null ? tap('split', c.source) : target(c.source);
+    const dst = c.dest.index != null ? tap('merge', c.dest) : target(c.dest);
+    addEdge(src, dst, pinKeys(local, srcW), `${local}${srcW != null ? `[${srcW}]` : ''} → ${localKey(c.dest)}`);
+  }
+
+  for (const [id, t] of taps) {
+    const split = t.kind === 'split';
+    // MSB on top, matching the stripe order of striped buses.
+    const bits = [...t.bits].sort((a, b) => b - a);
+    const h = bits.length * ROW;
+    const ports = [{ id: `${id}#bus`, x: split ? -PORT : TAP_W, y: h / 2 - PORT / 2, width: PORT, height: PORT }];
+    meta.ports.set(`${id}#bus`, { local: t.base, width: t.width });
+    bits.forEach((b, i) => {
+      const pid = `${id}#${b}`;
+      ports.push({ id: pid, x: split ? TAP_W : -PORT, y: i * ROW + ROW / 2 - PORT / 2, width: PORT, height: PORT });
+      meta.ports.set(pid, { local: `${t.base}.${b}`, width: null, bit: String(b), side: split ? 'E' : 'W' });
+    });
+    children.push({ id, width: TAP_W, height: h, layoutOptions: { 'elk.portConstraints': 'FIXED_POS' }, ports });
+    meta.nodes.set(id, { kind: 'tap' });
+    const busKeys = pinKeys(t.base, t.width);
+    const busLabel = `${t.base}${t.width != null ? `[${t.width}]` : ''}`;
+    if (split) addEdge(t.busPort, `${id}#bus`, busKeys, `${busLabel} → Splitter`);
+    else addEdge(`${id}#bus`, t.busPort, busKeys, `Merger → ${busLabel}`);
+  }
+
+  // Parts and wires drawn when everything inside is shown, for the status line
+  // and to decide whether frames are filled in only when zoomed in.
+  let nodes = v.parts.length + (top ? v.inputs.length + v.outputs.length : 0), wires = edges.length;
+  for (const s of subs.values()) { const sub = await s; nodes += sub.nodes; wires += sub.wires; }
+
+  // Network simplex gives the straightest wires but takes most of the time
+  // on big levels (CPU_16B: 1.4 s of 4 s); Brandes-Köpf is about 6x faster there.
+  if (edges.length > BIG_LEVEL_EDGES) options['elk.layered.nodePlacement.strategy'] = 'BRANDES_KOEPF';
   const t0 = performance.now();
-  const result = await elk.layout(graph);
-  const out = { graph: result, meta, ms: performance.now() - t0, nodeCount, edgeCount };
-  layouts.set(cacheKey, out);
-  return out;
+  if (top) {
+    const graph = await elkLayout({
+      id: 'root',
+      layoutOptions: { ...options, 'elk.padding': '[top=30,left=30,bottom=30,right=30]', ...ROOT_COORDS },
+      children, edges,
+    });
+    ms += performance.now() - t0;
+    return { graph, meta, width: graph.width, height: graph.height, ms, nodes, wires };
+  }
+
+  // Opened part: lay out the inside of a node ("self") whose ports are the
+  // part's pins, on the left and right border. ELK cannot give the root graph
+  // ports, hence the wrapper.
+  const part = { name: '', type, blocks: v.blocks };
+  const maxIn = Math.max(0, ...v.inputs.map((p) => textWidth(pinLabel(p), 10)));
+  const maxOut = Math.max(0, ...v.outputs.map((p) => textWidth(pinLabel(p), 10)));
+  const ports = [];
+  for (const [list, side] of [[v.inputs, 'WEST'], [v.outputs, 'EAST']]) {
+    for (const p of list) ports.push({ id: `self#${p.name}`, width: PORT, height: PORT, layoutOptions: { 'elk.port.side': side } });
+  }
+  // Wide enough for "<instance name>  <type · n Blöcke>" in the title bar.
+  const minW = Math.max(textWidth(partSubtitle(part), 10) + 160, maxIn + maxOut + 60);
+  const self = {
+    id: 'self', ports, children, edges,
+    layoutOptions: {
+      ...options,
+      'elk.portConstraints': 'FIXED_SIDE',
+      'elk.padding': `[top=${GROUP_HEADER},left=${Math.ceil(maxIn) + 18},bottom=16,right=${Math.ceil(maxOut) + 18}]`,
+      'elk.nodeSize.constraints': 'MINIMUM_SIZE',
+      'elk.nodeSize.minimum': `(${Math.ceil(minW)},${GROUP_HEADER + 30})`,
+    },
+  };
+  const wrapped = await elkLayout({
+    id: 'root',
+    layoutOptions: { 'elk.algorithm': 'fixed', 'elk.padding': '[top=0,left=0,bottom=0,right=0]', ...ROOT_COORDS },
+    children: [self],
+  });
+  ms += performance.now() - t0;
+  const graph = wrapped.children[0];
+  const pinPos = new Map(graph.ports.map((p) => [p.id.slice('self#'.length), { x: p.x, y: p.y }]));
+  return { graph, meta, width: graph.width, height: graph.height, ports: pinPos, ms, nodes, wires };
 }
 
 // ---------------------------------------------------------------- render
@@ -456,46 +532,121 @@ async function render() {
   if (viewMode === 'chip') return renderChip();
   leaveChip();
   if (viewMode !== 'parts') return renderFlat(top);
+  const tRender = performance.now();
   const open = expandedPaths(top.type);
-  const { graph, meta, ms, nodeCount, edgeCount } = await layout(top.type, open);
-  currentGraph = graph;
+  const level = await layout(top.type, open);
+  const tLayout = performance.now() - tRender;
+  currentGraph = level.graph;
   const vp = $('viewport');
   vp.replaceChildren();
   probes = [];
   const settable = stack.length === 1;
 
   // Frames of opened parts go below the wires, everything else above.
-  const frameLayer = el('g', {}, vp);
-  const edgeLayer = el('g', {}, vp);
-  const nodeLayer = el('g', {}, vp);
-  const labelLayer = el('g', {}, vp);
+  const layers = {
+    frame: el('g', {}, vp), edge: el('g', {}, vp), node: el('g', {}, vp), label: el('g', {}, vp),
+  };
+  // Big drawings fill in opened parts only once they are big enough on screen.
+  lod = { layers, frames: [], lazy: level.nodes > LOD_ALL, topProbes: null };
+  drawLevel(level, 0, 0, '', 0, layers, settable);
+  lod.topProbes = probes;
 
-  // All coordinates are absolute (elk.json.*Coords = ROOT); walk the tree of
-  // opened parts, outer frames first so inner ones are drawn on top.
-  const nodes = [];
-  const allEdges = [...(graph.edges || [])];
-  (function walk(list, depth) {
-    for (const n of list || []) {
-      nodes.push({ n, depth });
-      if (n.children) {
-        allEdges.push(...(n.edges || []));
-        walk(n.children, depth + 1);
-      }
+  renderCrumbs();
+  fit();
+  updateLod(false);
+  probesChanged();
+  refresh();
+  window.__perf = { layout: tLayout, total: performance.now() - tRender };
+  const opened = open.size ? ` · ${fmtCount(open.size)} aufgeklappt${expandTruncated ? ' (Tiefe begrenzt: zu viele Bauteile)' : ''}` : '';
+  statusEl.textContent = `${top.type} · ${blockLabel(view(top.type).blocks)} · ${fmtCount(level.nodes)} Knoten · ${fmtCount(level.wires)} Verbindungen${opened} · Layout ${tLayout.toFixed(0)} ms`;
+}
+
+// Level of detail for big drawings: an opened part's inside is drawn only
+// while its frame is on screen and at least LOD_MIN_PX wide, so a fully
+// opened SoC (over a million SVG elements) stays fast to show, pan and zoom.
+// Drawings with up to LOD_ALL parts are always drawn completely.
+const LOD_ALL = 4000;
+const LOD_MIN_PX = 60;
+let lod = null;  // { layers, frames, lazy, topProbes } of the parts view
+let lodTimer = null;
+
+function scheduleLod() {
+  if (!lod?.lazy || viewMode !== 'parts') return;
+  clearTimeout(lodTimer);
+  lodTimer = setTimeout(() => updateLod(true), 120);
+}
+
+// Fills in or clears frames for the current pan and zoom.
+function updateLod(refreshValues) {
+  if (!lod) return;
+  const r = svg.getBoundingClientRect();
+  // Visible area in drawing coordinates, with half a screen of margin.
+  const x0 = (-tf.x - r.width / 2) / tf.k, y0 = (-tf.y - r.height / 2) / tf.k;
+  const x1 = x0 + (r.width * 2) / tf.k, y1 = y0 + (r.height * 2) / tf.k;
+  const wanted = (f) => !lod.lazy
+    || (f.w * tf.k >= LOD_MIN_PX && f.x < x1 && f.x + f.w > x0 && f.y < y1 && f.y + f.h > y0);
+  const clear = (f) => {
+    for (const k of f.kids) clear(k);
+    for (const g of f.drawn || []) g.remove();
+    f.drawn = null;
+    f.kids = [];
+    f.probes = [];
+  };
+  let changed = false;
+  // Frames are added while drawing, so this also visits the new inner ones.
+  for (let i = 0; i < lod.frames.length; i++) {
+    const f = lod.frames[i];
+    if (f.parent && !f.parent.drawn) continue;
+    const want = wanted(f);
+    if (want && !f.drawn) {
+      probes = f.probes;
+      drawLevel(f.level, f.x, f.y, f.path, f.depth, lod.layers, false, f);
+      changed = true;
+    } else if (!want && f.drawn) {
+      clear(f);
+      changed = true;
     }
-  })(graph.children, 0);
+  }
+  if (changed) lod.frames = lod.frames.filter((f) => !f.parent || f.parent.drawn);
+  probes = [...lod.topProbes, ...lod.frames.flatMap((f) => (f.drawn ? f.probes : []))];
+  if (changed) {
+    probesChanged();
+    if (refreshValues) refresh();
+  }
+}
 
-  for (const e of allEdges) {
-    const sec = e.sections && e.sections[0];
-    if (!sec) continue;
+// Draws one laid out level at (ox, oy); `path` is its instance path relative
+// to the shown level. Opened parts are drawn recursively inside their frame.
+function drawLevel(level, ox, oy, path, depth, layers, settable, frame = null) {
+  const { graph, meta } = level;
+  const key = (local) => fullKey(path ? `${path}.${local}` : local);
+  const at = (layer) => (ox || oy ? el('g', { transform: `translate(${ox},${oy})` }, layer) : layer);
+  const frameLayer = at(layers.frame), edgeLayer = at(layers.edge), nodeLayer = at(layers.node), labelLayer = at(layers.label);
+  if (frame) frame.drawn = [frameLayer, edgeLayer, nodeLayer, labelLayer];
+
+  // Port centres, for wires ELK leaves unrouted (a pin of an opened part
+  // wired straight to another of its pins).
+  const portAt = new Map();
+  for (const p of graph.ports || []) portAt.set(p.id, { x: p.x + PORT / 2, y: p.y + PORT / 2 });
+  for (const n of graph.children) for (const p of n.ports || []) portAt.set(p.id, { x: p.x + PORT / 2, y: p.y + PORT / 2 });
+
+  for (const e of graph.edges || []) {
+    let sec = e.sections && e.sections[0];
+    if (!sec) {
+      const a = portAt.get(e.sources[0]), b = portAt.get(e.targets[0]);
+      if (!a || !b) continue;
+      const mx = (a.x + b.x) / 2;
+      sec = { startPoint: a, endPoint: b, bendPoints: a.y === b.y ? [] : [{ x: mx, y: a.y }, { x: mx, y: b.y }] };
+    }
     const pts = [sec.startPoint, ...(sec.bendPoints || []), sec.endPoint];
     const d = toPath(pts);
-    const keys = e._keys.map(fullKey);
+    const keys = e._keys.map(key);
     if (stripes && e._bus) {
       renderStripedEdge(e, sec, pts, keys, edgeLayer, labelLayer);
       continue;
     }
-    const path = el('path', { d, class: `edge${e._bus ? ' bus' : ''}` }, edgeLayer);
-    const title = el('title', {}, path);
+    const pathEl = el('path', { d, class: `edge${e._bus ? ' bus' : ''}` }, edgeLayer);
+    const title = el('title', {}, pathEl);
     const dots = (e.junctionPoints || []).map((p) => el('circle', { cx: p.x, cy: p.y, r: e._bus ? 3.5 : 2.5 }, labelLayer));
     let label = null;
     if (e._bus) label = el('text', { x: sec.startPoint.x + 6, y: sec.startPoint.y - 5, class: 'elabel' }, labelLayer);
@@ -503,7 +654,7 @@ async function render() {
       keys,
       apply(vals) {
         const s = summarize(vals);
-        path.setAttribute('class', `edge${e._bus ? ' bus' : ''} e${s.cls}`);
+        pathEl.setAttribute('class', `edge${e._bus ? ' bus' : ''} e${s.cls}`);
         for (const d of dots) d.setAttribute('class', `junction s${s.cls}`);
         title.textContent = `${e._title} = ${s.text}`;
         if (label) label.textContent = s.text;
@@ -511,7 +662,7 @@ async function render() {
     });
   }
 
-  for (const { n, depth } of nodes) {
+  for (const n of graph.children) {
     const m = meta.nodes.get(n.id);
     const isGroup = m.kind === 'group';
     const g = el('g', { transform: `translate(${n.x},${n.y})` }, isGroup ? frameLayer : nodeLayer);
@@ -521,9 +672,10 @@ async function render() {
       el('text', { x: 4, y: -4, 'text-anchor': 'middle' }, g).textContent = m.name;
       continue;
     }
+    const partPath = m.part ? (path ? `${path}.${m.part.name}` : m.part.name) : null;
     if (isGroup) {
       // Opened part: frame with its name and type; double click on the title
-      // bar closes it again. Ports and their labels sit above the wires.
+      // bar closes it again. Its inside is drawn on top of the frame.
       const part = m.part;
       g.setAttribute('class', `group d${depth % 4}`);
       el('rect', { class: 'body', width: n.width, height: n.height, rx: 8 }, g);
@@ -533,9 +685,12 @@ async function render() {
       el('title', {}, bar).textContent = `${part.name}: ${part.type} — Doppelklick zum Zuklappen, Strg+Doppelklick öffnet die Ebene allein`;
       bar.addEventListener('dblclick', (ev) => {
         ev.stopPropagation();
-        if (ev.ctrlKey || ev.metaKey) enterPath(m.path);
-        else setExpanded(m.path, false);
+        if (ev.ctrlKey || ev.metaKey) enterPath(partPath);
+        else setExpanded(partPath, false);
       });
+      const inner = { level: m.sub, x: ox + n.x, y: oy + n.y, w: n.width, h: n.height, path: partPath, depth: depth + 1, parent: frame, drawn: null, kids: [], probes: [] };
+      lod.frames.push(inner);
+      if (frame) frame.kids.push(inner);
     } else if (m.kind === 'tap') {
       el('rect', { class: 'tapbar', x: TAP_W / 2 - 2, y: -2, width: 4, height: n.height + 4, rx: 2 }, g);
     } else if (m.kind === 'in' || m.kind === 'out') {
@@ -544,8 +699,8 @@ async function render() {
       el('rect', { class: 'body', width: n.width, height: n.height, rx: 12 }, g);
       const txt = el('text', { x: m.kind === 'in' ? 10 : 18, y: 16 }, g);
       txt.textContent = pinLabel(m.pin);
-      const val = el('text', { x: m.kind === 'in' ? n.width - 8 : n.width - 8, y: 16, 'text-anchor': 'end' }, g);
-      const keys = pinKeys(fullKey(m.pin.name), m.pin.width);
+      const val = el('text', { x: n.width - 8, y: 16, 'text-anchor': 'end' }, g);
+      const keys = pinKeys(key(m.pin.name), m.pin.width);
       probes.push({ keys, apply(vals) { val.textContent = summarize(vals).text; } });
       if (canSet) g.addEventListener('click', () => toggleInput(m.pin.name));
     } else {
@@ -560,13 +715,13 @@ async function render() {
       if (part.expandable) {
         g.addEventListener('dblclick', (ev) => {
           ev.stopPropagation();
-          if (ev.ctrlKey || ev.metaKey) enterPath(m.path);
-          else setExpanded(m.path, true);
+          if (ev.ctrlKey || ev.metaKey) enterPath(partPath);
+          else setExpanded(partPath, true);
         });
       }
       if (m.digitY != null) {
         const segs = drawDigit(g, n.width / 2 - DIGIT_W / 2, m.digitY);
-        probes.push({ keys: pinKeys(fullKey(`${m.path}.Seg`), 7), apply(vals) { showSegments(segs, vals); } });
+        probes.push({ keys: pinKeys(key(`${part.name}.Seg`), 7), apply(vals) { showSegments(segs, vals); } });
       }
     }
     // Ports of a frame go to the node layer, so wires inside do not cover them.
@@ -588,18 +743,11 @@ async function render() {
         }, pg).textContent = pm.label;
       }
       probes.push({
-        keys: pinKeys(fullKey(pm.local), pm.width),
+        keys: pinKeys(key(pm.local), pm.width),
         apply(vals) { sq.setAttribute('class', `port s${summarize(vals).cls}`); },
       });
     }
   }
-
-  renderCrumbs();
-  fit();
-  probesChanged();
-  refresh();
-  const opened = open.size ? ` · ${open.size} aufgeklappt${expandTruncated ? ' (Tiefe begrenzt: zu viele Bauteile)' : ''}` : '';
-  statusEl.textContent = `${top.type} · ${blockLabel(view(top.type).blocks)} · ${nodeCount} Knoten · ${edgeCount} Verbindungen${opened} · Layout ${ms.toFixed(0)} ms`;
 }
 
 // Depth selector: only in the parts view.
@@ -2134,7 +2282,10 @@ function revealInList(name) {
 
 const svg = $('canvas');
 let tf = { x: 0, y: 0, k: 1 };
-const applyTf = () => $('viewport').setAttribute('transform', `translate(${tf.x},${tf.y}) scale(${tf.k})`);
+const applyTf = () => {
+  $('viewport').setAttribute('transform', `translate(${tf.x},${tf.y}) scale(${tf.k})`);
+  scheduleLod();
+};
 
 function fit() {
   const graph = currentGraph;
