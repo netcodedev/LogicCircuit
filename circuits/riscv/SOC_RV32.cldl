@@ -3,8 +3,8 @@ CIRCUIT SOC_RV32 {
     // GPIO, display register, UART, mtime/mtimecmp) and the 8-digit hex
     // display. The memory bus pins (Addr, DataIn, DataOut, ByteEn, Write,
     // Read, Fetch, Wait) go to the external memory (RAM from address 0);
-    // accesses to the I/O region 0x1000_0000 are answered inside (they
-    // never wait, and Write/Read stay 0 outside for them).
+    // accesses to the I/O region 0x1000_0000 are answered inside (reads
+    // wait one clock, and Write/Read stay 0 outside for them).
     //
     // Reset, GpioIn and Rx come from outside the clock domain and pass
     // two-flip-flop synchronizers (SYNC): they act two clocks late, and
@@ -50,7 +50,7 @@ CIRCUIT SOC_RV32 {
     PART DisplayLo: HEX_DISPLAY_16B;
     PART DataMux: MUX_2_1_BUS<32>; // external memory, I/O
     PART NotSel: NOT;
-    PART WaitAnd: AND;             // Wait only for external accesses
+    PART WaitMux: MUX_2_1;         // Wait of external memory or I/O
     PART WriteAnd: AND;            // Write only for external accesses
     PART ReadAnd: AND;
 
@@ -75,9 +75,10 @@ CIRCUIT SOC_RV32 {
     CONNECT Io.Sel -> DataMux.S;
     CONNECT DataMux.Out -> Cpu.DataIn;
     CONNECT Io.Sel -> NotSel.in;
-    CONNECT Wait -> WaitAnd.in1;
-    CONNECT NotSel.out -> WaitAnd.in2;
-    CONNECT WaitAnd.out -> Cpu.Wait;
+    CONNECT Wait -> WaitMux.A;
+    CONNECT Io.Wait -> WaitMux.B;
+    CONNECT Io.Sel -> WaitMux.S;
+    CONNECT WaitMux.Out -> Cpu.Wait;
     CONNECT Io.MTIP -> Cpu.MTIP;
     CONNECT Io.MEIP -> Cpu.MEIP;
     CONNECT CLK -> Cpu.CLK;

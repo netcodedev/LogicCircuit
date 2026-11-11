@@ -3,8 +3,12 @@ CIRCUIT CPU_RV32 {
     //
     // Three stages, as CPU_16B_SOC: fetch | execute | memory.
     //   Fetch reads the word at PC into Ir (with PcE = its address) when
-    //   the bus is free; IrValid = 0 marks a bubble.
-    //   Execute decodes Ir (CONTROL_RV32, IMM_RV32), reads the registers,
+    //   the bus is free; IrValid = 0 marks a bubble. In the same clock it
+    //   decodes the word (DECODE_RV32: control signals and immediate into
+    //   registers) and reads rs1/rs2 into OpA/OpB; a register written on
+    //   that edge is bypassed, and HazR marks operands that the memory
+    //   stage still has to forward.
+    //   Execute takes the decoded signals and operands from flip-flops,
     //   computes the ALU result, the jump target and the branch condition,
     //   reads/writes CSRs, raises exceptions and takes interrupts. A jump,
     //   taken branch, trap or mret loads PC and drops the word fetched in
@@ -67,13 +71,15 @@ CIRCUIT CPU_RV32 {
                                     // Size 8..9, Unsigned 10
     PART HaltReg: REGISTER_R<1>;
     PART PredE: REGISTER_R<1>;      // Ir was predicted taken at fetch
+    PART HazR: REGISTER_R<3>;       // FwdA, FwdB, load-use
+    PART OpA: REGISTER<32>;         // rs1 / rs2 as read (plus writes since)
+    PART OpB: REGISTER<32>;
     PART RegFile: REG_FILE_32<32>;
     PART Csr: CSR_RV32;
     PART MulDiv: MULDIV_RV32;
 
     PART C_TRUE: NOR;               // Constant 1 (VCC), NOR(0,0) = 1
-    PART Control: CONTROL_RV32;
-    PART Imm: IMM_RV32;
+    PART Control: DECODE_RV32;      // decoded at fetch, loads with Ir
     PART Alu: ALU_RV32;
     PART Lsu: LSU_RV32;
 
@@ -87,24 +93,50 @@ CIRCUIT CPU_RV32 {
     PART WbMux: MUX_2_1_BUS<32>;    // register write data: ResultM, load data
     PART WbEn: AND;                 // RegWriteM AND NOT Freeze
 
-    // --- Forwarding and load-use ---
-    PART EqXA: XOR_BUS<5>;          // rs1 XOR RdM
-    PART EqXB: XOR_BUS<5>;
-    PART NeA: OR_WIDE<2>;
-    PART NeB: OR_WIDE<2>;
-    PART EqA: NOT;
-    PART EqB: NOT;
+    // --- Register read in fetch, forwarding and load-use ---
+    // The register file is read with the rs fields of the fetched word
+    // (DataIn) into OpA/OpB; a write in the same clock is bypassed. While
+    // execute holds, OpA/OpB keep their value and take the memory stage's
+    // write. The forwarding selects and load-use are decided in fetch too.
     PART RdNz: OR_WIDE<2>;          // RdM != 0
-    PART NotLoadM: NOT;
-    PART MWrites: AND3;             // RegWriteM AND RdM != 0 AND NOT LoadM
-    PART FwdA: AND;
-    PART FwdB: AND;
-    PART LoadNz: AND;               // LoadM AND RdM != 0
-    PART LuA: AND3;                 // ... AND rs1 = RdM AND uses rs1
+    PART WbHitEn: AND;              // WbEn AND RdM != 0
+    PART RAddrA: MUX_2_1_BUS<5>;    // Ir.rs1 (hold), DataIn.rs1
+    PART RAddrB: MUX_2_1_BUS<5>;
+    PART WXA: XOR_BUS<5>;           // ... XOR RdM
+    PART WXB: XOR_BUS<5>;
+    PART WNeA: OR_WIDE<2>;
+    PART WNeB: OR_WIDE<2>;
+    PART WEqA: NOR;                 // NOT WNe AND WbHitEn
+    PART WEqB: NOR;
+    PART NotWbHit: NOT;
+    PART SrcA: MUX_2_1_BUS<32>;     // OpA (hold), register file
+    PART SrcB: MUX_2_1_BUS<32>;
+    PART NextA: MUX_2_1_BUS<32>;    // ..., write data
+    PART NextB: MUX_2_1_BUS<32>;
+    PART FXA: XOR_BUS<5>;           // DataIn.rs1 XOR Ir.rd
+    PART FXB: XOR_BUS<5>;
+    PART FNeA: OR_WIDE<2>;
+    PART FNeB: OR_WIDE<2>;
+    PART FEqA: NOT;
+    PART FEqB: NOT;
+    PART RdENz: OR_WIDE<2>;         // Ir.rd != 0
+    PART NotLoadE: NOT;
+    PART EWrites: AND3;             // RegWrite AND rd != 0 AND NOT IsLoad
+    PART EWritesV: AND3;            // ... AND IrValid AND NOT HoldE
+    PART ELoadV: AND3;              // IsLoad AND rd != 0 AND IrValid
+    PART ELoadG: AND;               // ... AND NOT HoldE
+    PART FwdNA: AND;
+    PART FwdNB: AND;
+    PART NotOp2: NOT;               // predecode of DataIn's opcode:
+    PART NotOp3Or4: NOR;            //   uses rs1 = NOT op[2] OR NOT (op[3] OR op[4])
+    PART PreRs1: OR;
+    PART PreRs2: AND;               //   uses rs2 = op[5] AND NOT op[2]
+    PART LuA: AND3;
     PART LuB: AND3;
     PART LuOr: OR;
-    PART LoadUse: AND;              // ... AND IrValid
-    PART RegA: MUX_2_1_BUS<32>;     // rs1: register file, ResultM
+    PART LuN: AND;
+    PART LoadUse: AND;              // HazR load-use AND IrValid
+    PART RegA: MUX_2_1_BUS<32>;     // rs1: OpA, ResultM
     PART RegB: MUX_2_1_BUS<32>;
 
     // --- Operands, target, condition ---
@@ -187,8 +219,9 @@ CIRCUIT CPU_RV32 {
     PART TrapAny: OR;               // IrqPending OR Exc
     PART TrapTake: AND;             // XGo AND ...
     PART JumpMret: OR;
-    PART CommitJump: AND;
-    PART Redirect: OR;
+    PART RedirExc: OR;              // IrqPending OR exception (not MisB)
+    PART RedirAny: OR;              // ... OR jump/branch/mret
+    PART Redirect: AND;             // XGo AND RedirAny
     PART NotRedirect: NOT;
     PART MretMux: MUX_2_1_BUS<32>;  // target, mepc
     PART TrapMux: MUX_2_1_BUS<32>;  // ..., mtvec
@@ -335,62 +368,123 @@ CIRCUIT CPU_RV32 {
     CONNECT CLK -> PcReg.CLK;
 
     // ================= Execute =================
-    CONNECT Ir.Q -> Control.Ir;
-    CONNECT Ir.Q -> Imm.Ir;
-    CONNECT Control.FmtI -> Imm.FmtI;
-    CONNECT Control.FmtS -> Imm.FmtS;
-    CONNECT Control.FmtB -> Imm.FmtB;
-    CONNECT Control.FmtU -> Imm.FmtU;
-    CONNECT Control.FmtJ -> Imm.FmtJ;
+    CONNECT DataIn -> Control.Word;
+    CONNECT NotHoldE.out -> Control.Load;
+    CONNECT CLK -> Control.CLK;
+    CONNECT Reset -> Control.Reset;
 
-    // Register file: read rs1/rs2 in execute, write in the memory stage
+    // Register file: read rs1/rs2 of the fetched word, write in the memory stage
     FOR i IN 0..5 {
-        CONNECT Ir.Q[15+i] -> RegFile.ReadAddrA[i];
-        CONNECT Ir.Q[20+i] -> RegFile.ReadAddrB[i];
+        CONNECT DataIn[15+i] -> RegFile.ReadAddrA[i];
+        CONNECT DataIn[20+i] -> RegFile.ReadAddrB[i];
         CONNECT CtrlM.Q[i] -> RegFile.WriteAddr[i];
     }
     CONNECT WbMux.Out -> RegFile.DataIn;
     CONNECT WbEn.out -> RegFile.WriteEnable;
     CONNECT CLK -> RegFile.CLK;
 
-    // Forwarding from the memory stage (not for loads: load-use waits)
+    // OpA/OpB: the register file (fetch moves on) or the old value (hold),
+    // replaced by the memory stage's write to the same register.
     FOR i IN 0..5 {
-        CONNECT Ir.Q[15+i] -> EqXA.A[i];
-        CONNECT Ir.Q[20+i] -> EqXB.A[i];
-        CONNECT CtrlM.Q[i] -> EqXA.B[i];
-        CONNECT CtrlM.Q[i] -> EqXB.B[i];
-        CONNECT EqXA.Out[i] -> NeA.In[i];
-        CONNECT EqXB.Out[i] -> NeB.In[i];
+        CONNECT Ir.Q[15+i] -> RAddrA.A[i];
+        CONNECT DataIn[15+i] -> RAddrA.B[i];
+        CONNECT Ir.Q[20+i] -> RAddrB.A[i];
+        CONNECT DataIn[20+i] -> RAddrB.B[i];
+        CONNECT RAddrA.Out[i] -> WXA.A[i];
+        CONNECT RAddrB.Out[i] -> WXB.A[i];
+        CONNECT CtrlM.Q[i] -> WXA.B[i];
+        CONNECT CtrlM.Q[i] -> WXB.B[i];
+        CONNECT WXA.Out[i] -> WNeA.In[i];
+        CONNECT WXB.Out[i] -> WNeB.In[i];
         CONNECT CtrlM.Q[i] -> RdNz.In[i];
     }
-    CONNECT NeA.Out -> EqA.in;
-    CONNECT NeB.Out -> EqB.in;
-    CONNECT CtrlM.Q[6] -> NotLoadM.in;
-    CONNECT CtrlM.Q[5] -> MWrites.A;
-    CONNECT RdNz.Out -> MWrites.B;
-    CONNECT NotLoadM.out -> MWrites.C;
-    CONNECT MWrites.Out -> FwdA.in1;
-    CONNECT EqA.out -> FwdA.in2;
-    CONNECT MWrites.Out -> FwdB.in1;
-    CONNECT EqB.out -> FwdB.in2;
-    CONNECT RegFile.DataOutA -> RegA.A;
-    CONNECT ResultM.Q -> RegA.B;
-    CONNECT FwdA.out -> RegA.S;
-    CONNECT RegFile.DataOutB -> RegB.A;
-    CONNECT ResultM.Q -> RegB.B;
-    CONNECT FwdB.out -> RegB.S;
+    CONNECT NotHoldE.out -> RAddrA.S;
+    CONNECT NotHoldE.out -> RAddrB.S;
+    CONNECT WbEn.out -> WbHitEn.in1;
+    CONNECT RdNz.Out -> WbHitEn.in2;
+    CONNECT WbHitEn.out -> NotWbHit.in;
+    CONNECT WNeA.Out -> WEqA.in1;
+    CONNECT NotWbHit.out -> WEqA.in2;
+    CONNECT WNeB.Out -> WEqB.in1;
+    CONNECT NotWbHit.out -> WEqB.in2;
+    CONNECT OpA.Q -> SrcA.A;
+    CONNECT RegFile.DataOutA -> SrcA.B;
+    CONNECT NotHoldE.out -> SrcA.S;
+    CONNECT OpB.Q -> SrcB.A;
+    CONNECT RegFile.DataOutB -> SrcB.B;
+    CONNECT NotHoldE.out -> SrcB.S;
+    CONNECT SrcA.Out -> NextA.A;
+    CONNECT WbMux.Out -> NextA.B;
+    CONNECT WEqA.out -> NextA.S;
+    CONNECT SrcB.Out -> NextB.A;
+    CONNECT WbMux.Out -> NextB.B;
+    CONNECT WEqB.out -> NextB.S;
+    CONNECT NextA.Out -> OpA.Data;
+    CONNECT NotFreeze.out -> OpA.Load;
+    CONNECT CLK -> OpA.CLK;
+    CONNECT NextB.Out -> OpB.Data;
+    CONNECT NotFreeze.out -> OpB.Load;
+    CONNECT CLK -> OpB.CLK;
 
-    CONNECT CtrlM.Q[6] -> LoadNz.in1;
-    CONNECT RdNz.Out -> LoadNz.in2;
-    CONNECT LoadNz.out -> LuA.A;
-    CONNECT EqA.out -> LuA.B;
-    CONNECT Control.UsesRs1 -> LuA.C;
-    CONNECT LoadNz.out -> LuB.A;
-    CONNECT EqB.out -> LuB.B;
-    CONNECT Control.UsesRs2 -> LuB.C;
+    // Forwarding next clock: the instruction in execute writes the
+    // fetched word's rs (not a load: that is load-use). The selects are 0
+    // after a hold (the memory stage then gets a bubble).
+    FOR i IN 0..5 {
+        CONNECT DataIn[15+i] -> FXA.A[i];
+        CONNECT DataIn[20+i] -> FXB.A[i];
+        CONNECT Ir.Q[7+i] -> FXA.B[i];
+        CONNECT Ir.Q[7+i] -> FXB.B[i];
+        CONNECT FXA.Out[i] -> FNeA.In[i];
+        CONNECT FXB.Out[i] -> FNeB.In[i];
+        CONNECT Ir.Q[7+i] -> RdENz.In[i];
+    }
+    CONNECT FNeA.Out -> FEqA.in;
+    CONNECT FNeB.Out -> FEqB.in;
+    CONNECT Control.IsLoad -> NotLoadE.in;
+    CONNECT Control.RegWrite -> EWrites.A;
+    CONNECT RdENz.Out -> EWrites.B;
+    CONNECT NotLoadE.out -> EWrites.C;
+    CONNECT EWrites.Out -> EWritesV.A;
+    CONNECT IrValid.Q[0] -> EWritesV.B;
+    CONNECT NotHoldE.out -> EWritesV.C;
+    CONNECT EWritesV.Out -> FwdNA.in1;
+    CONNECT FEqA.out -> FwdNA.in2;
+    CONNECT EWritesV.Out -> FwdNB.in1;
+    CONNECT FEqB.out -> FwdNB.in2;
+    CONNECT DataIn[2] -> NotOp2.in;
+    CONNECT DataIn[3] -> NotOp3Or4.in1;
+    CONNECT DataIn[4] -> NotOp3Or4.in2;
+    CONNECT NotOp2.out -> PreRs1.in1;
+    CONNECT NotOp3Or4.out -> PreRs1.in2;
+    CONNECT DataIn[5] -> PreRs2.in1;
+    CONNECT NotOp2.out -> PreRs2.in2;
+    CONNECT Control.IsLoad -> ELoadV.A;
+    CONNECT RdENz.Out -> ELoadV.B;
+    CONNECT IrValid.Q[0] -> ELoadV.C;
+    CONNECT ELoadV.Out -> ELoadG.in1;
+    CONNECT NotHoldE.out -> ELoadG.in2;
+    CONNECT ELoadG.out -> LuA.A;
+    CONNECT FEqA.out -> LuA.B;
+    CONNECT PreRs1.out -> LuA.C;
+    CONNECT ELoadG.out -> LuB.A;
+    CONNECT FEqB.out -> LuB.B;
+    CONNECT PreRs2.out -> LuB.C;
     CONNECT LuA.Out -> LuOr.in1;
     CONNECT LuB.Out -> LuOr.in2;
-    CONNECT LuOr.out -> LoadUse.in1;
+    CONNECT FwdNA.out -> HazR.Data[0];
+    CONNECT FwdNB.out -> HazR.Data[1];
+    CONNECT LuOr.out -> HazR.Data[2];
+    CONNECT NotFreeze.out -> HazR.Load;
+    CONNECT Reset -> HazR.Reset;
+    CONNECT CLK -> HazR.CLK;
+
+    CONNECT OpA.Q -> RegA.A;
+    CONNECT ResultM.Q -> RegA.B;
+    CONNECT HazR.Q[0] -> RegA.S;
+    CONNECT OpB.Q -> RegB.A;
+    CONNECT ResultM.Q -> RegB.B;
+    CONNECT HazR.Q[1] -> RegB.S;
+    CONNECT HazR.Q[2] -> LoadUse.in1;
     CONNECT IrValid.Q[0] -> LoadUse.in2;
 
     // ALU operands: A = rs1 / PcE / 0, B = rs2 / Imm / 4
@@ -401,7 +495,7 @@ CIRCUIT CPU_RV32 {
     CONNECT AMux.Out -> AOp.A;
     CONNECT NotAZero.out -> AOp.B;      // tee
     CONNECT RegB.Out -> BMux.A;
-    CONNECT Imm.Imm -> BMux.B;
+    CONNECT Control.Imm -> BMux.B;
     CONNECT Control.BSelImm -> BMux.S;
     CONNECT BMux.Out -> BOp.A;
     CONNECT C_TRUE.out -> BOp.B[2];
@@ -417,7 +511,7 @@ CIRCUIT CPU_RV32 {
     CONNECT RegA.Out -> TgtMux.B;
     CONNECT Control.IsJalr -> TgtMux.S;
     CONNECT TgtMux.Out -> TgtAdd.A;
-    CONNECT Imm.Imm -> TgtB.A;
+    CONNECT Control.Imm -> TgtB.A;
     CONNECT C_TRUE.out -> TgtB.B[2];
     CONNECT PredE.Q[0] -> TgtB.S;
     CONNECT TgtB.Out -> TgtAdd.B;
@@ -505,18 +599,18 @@ CIRCUIT CPU_RV32 {
     CONNECT TgtAdd.S[1] -> MisJ.B;
     CONNECT NotIll.out -> MisJ.C;
     CONNECT Control.IsBranch -> MisBPre.A;
-    CONNECT Imm.Imm[1] -> MisBPre.B;
+    CONNECT Control.Imm[1] -> MisBPre.B;
     CONNECT NotIll.out -> MisBPre.C;
     CONNECT MisBPre.Out -> MisB.in1;
     CONNECT Branch.Cond -> MisB.in2;
     CONNECT MisJ.Out -> MisT.in1;
     CONNECT MisB.out -> MisT.in2;
     CONNECT RegA.Out[0] -> AddrLo0.in1;
-    CONNECT Imm.Imm[0] -> AddrLo0.in2;
+    CONNECT Control.Imm[0] -> AddrLo0.in2;
     CONNECT RegA.Out[0] -> AddrC0.in1;
-    CONNECT Imm.Imm[0] -> AddrC0.in2;
+    CONNECT Control.Imm[0] -> AddrC0.in2;
     CONNECT RegA.Out[1] -> AddrX1.in1;
-    CONNECT Imm.Imm[1] -> AddrX1.in2;
+    CONNECT Control.Imm[1] -> AddrX1.in2;
     CONNECT AddrX1.out -> AddrLo1.in1;
     CONNECT AddrC0.out -> AddrLo1.in2;
     CONNECT AddrLo0.out -> A0or1.in1;
@@ -614,10 +708,15 @@ CIRCUIT CPU_RV32 {
     // Redirect: trap -> mtvec, mret -> mepc, jump/branch -> target
     CONNECT JumpOr.Out -> JumpMret.in1;
     CONNECT Control.Mret -> JumpMret.in2;
-    CONNECT Commit.Out -> CommitJump.in1;
-    CONNECT JumpMret.out -> CommitJump.in2;
-    CONNECT TrapTake.out -> Redirect.in1;
-    CONNECT CommitJump.out -> Redirect.in2;
+    // = TrapTake OR (Commit AND JumpMret), without the late MisB: a
+    // misaligned taken branch (MisB) is a taken branch, so JumpMret is 1
+    // and it redirects either way (TrapMux then picks mtvec).
+    CONNECT Csr.IrqPending -> RedirExc.in1;
+    CONNECT ExcOr.Out -> RedirExc.in2;
+    CONNECT RedirExc.out -> RedirAny.in1;
+    CONNECT JumpMret.out -> RedirAny.in2;
+    CONNECT XGo.out -> Redirect.in1;
+    CONNECT RedirAny.out -> Redirect.in2;
     CONNECT Redirect.out -> NotRedirect.in;
     FOR i IN 1..32 {
         CONNECT TgtAdd.S[i] -> MretMux.A[i];

@@ -1,0 +1,109 @@
+CIRCUIT DECODE_RV32 {
+    // Pre-decode for CPU_RV32: decodes the fetched word (DataIn) with
+    // CONTROL_RV32 and IMM_RV32 during fetch and keeps the results in
+    // registers that load together with the instruction register. Execute
+    // then gets every control signal and the immediate straight from
+    // flip-flops instead of after the decoder.
+    //
+    // Outputs: the CONTROL_RV32 outputs that execute uses (same names) and
+    // Imm[32]. With Load = 0 they hold; Reset clears them (Ir is 0 then and
+    // not valid, so its decode does not matter).
+    INPUT Word[32];
+    INPUT Load;
+    INPUT CLK;
+    INPUT Reset;
+
+    OUTPUT IsLoad, IsStore, IsBranch, IsJal, IsJalr;
+    OUTPUT IsCsr, CsrImm, Ecall, Ebreak, Mret, IsMulDiv;
+    OUTPUT Illegal;
+    OUTPUT RegWrite;
+    OUTPUT ASelPc, ASelZero, BSelImm, BSelFour;
+    OUTPUT AluF[3];
+    OUTPUT AluSub, AluArith;
+    OUTPUT CsrHi[16], CsrMid[16], CsrLo[16];
+    OUTPUT Imm[32];
+
+    PART Control: CONTROL_RV32;
+    PART ImmGen: IMM_RV32;
+    PART Bits: REGISTER_R<22>;     // single-bit signals and AluF
+    PART CsrHiR: REGISTER_R<16>;
+    PART CsrMidR: REGISTER_R<16>;
+    PART CsrLoR: REGISTER_R<16>;
+    PART ImmR: REGISTER_R<32>;
+
+    CONNECT Word -> Control.Ir;
+    CONNECT Word -> ImmGen.Ir;
+    CONNECT Control.FmtI -> ImmGen.FmtI;
+    CONNECT Control.FmtS -> ImmGen.FmtS;
+    CONNECT Control.FmtB -> ImmGen.FmtB;
+    CONNECT Control.FmtU -> ImmGen.FmtU;
+    CONNECT Control.FmtJ -> ImmGen.FmtJ;
+
+    CONNECT Control.IsLoad -> Bits.Data[0];
+    CONNECT Bits.Q[0] -> IsLoad;
+    CONNECT Control.IsStore -> Bits.Data[1];
+    CONNECT Bits.Q[1] -> IsStore;
+    CONNECT Control.IsBranch -> Bits.Data[2];
+    CONNECT Bits.Q[2] -> IsBranch;
+    CONNECT Control.IsJal -> Bits.Data[3];
+    CONNECT Bits.Q[3] -> IsJal;
+    CONNECT Control.IsJalr -> Bits.Data[4];
+    CONNECT Bits.Q[4] -> IsJalr;
+    CONNECT Control.IsCsr -> Bits.Data[5];
+    CONNECT Bits.Q[5] -> IsCsr;
+    CONNECT Control.CsrImm -> Bits.Data[6];
+    CONNECT Bits.Q[6] -> CsrImm;
+    CONNECT Control.Ecall -> Bits.Data[7];
+    CONNECT Bits.Q[7] -> Ecall;
+    CONNECT Control.Ebreak -> Bits.Data[8];
+    CONNECT Bits.Q[8] -> Ebreak;
+    CONNECT Control.Mret -> Bits.Data[9];
+    CONNECT Bits.Q[9] -> Mret;
+    CONNECT Control.IsMulDiv -> Bits.Data[10];
+    CONNECT Bits.Q[10] -> IsMulDiv;
+    CONNECT Control.Illegal -> Bits.Data[11];
+    CONNECT Bits.Q[11] -> Illegal;
+    CONNECT Control.RegWrite -> Bits.Data[12];
+    CONNECT Bits.Q[12] -> RegWrite;
+    CONNECT Control.ASelPc -> Bits.Data[13];
+    CONNECT Bits.Q[13] -> ASelPc;
+    CONNECT Control.ASelZero -> Bits.Data[14];
+    CONNECT Bits.Q[14] -> ASelZero;
+    CONNECT Control.BSelImm -> Bits.Data[15];
+    CONNECT Bits.Q[15] -> BSelImm;
+    CONNECT Control.BSelFour -> Bits.Data[16];
+    CONNECT Bits.Q[16] -> BSelFour;
+    CONNECT Control.AluSub -> Bits.Data[17];
+    CONNECT Bits.Q[17] -> AluSub;
+    CONNECT Control.AluArith -> Bits.Data[18];
+    CONNECT Bits.Q[18] -> AluArith;
+    CONNECT Control.AluF[0] -> Bits.Data[19];
+    CONNECT Bits.Q[19] -> AluF[0];
+    CONNECT Control.AluF[1] -> Bits.Data[20];
+    CONNECT Bits.Q[20] -> AluF[1];
+    CONNECT Control.AluF[2] -> Bits.Data[21];
+    CONNECT Bits.Q[21] -> AluF[2];
+    CONNECT Control.CsrHi -> CsrHiR.Data;
+    CONNECT Control.CsrMid -> CsrMidR.Data;
+    CONNECT Control.CsrLo -> CsrLoR.Data;
+    CONNECT ImmGen.Imm -> ImmR.Data;
+    CONNECT CsrHiR.Q -> CsrHi;
+    CONNECT CsrMidR.Q -> CsrMid;
+    CONNECT CsrLoR.Q -> CsrLo;
+    CONNECT ImmR.Q -> Imm;
+    CONNECT Load -> Bits.Load;
+    CONNECT CLK -> Bits.CLK;
+    CONNECT Reset -> Bits.Reset;
+    CONNECT Load -> CsrHiR.Load;
+    CONNECT CLK -> CsrHiR.CLK;
+    CONNECT Reset -> CsrHiR.Reset;
+    CONNECT Load -> CsrMidR.Load;
+    CONNECT CLK -> CsrMidR.CLK;
+    CONNECT Reset -> CsrMidR.Reset;
+    CONNECT Load -> CsrLoR.Load;
+    CONNECT CLK -> CsrLoR.CLK;
+    CONNECT Reset -> CsrLoR.Reset;
+    CONNECT Load -> ImmR.Load;
+    CONNECT CLK -> ImmR.CLK;
+    CONNECT Reset -> ImmR.Reset;
+}
