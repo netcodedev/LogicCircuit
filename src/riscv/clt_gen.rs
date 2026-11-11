@@ -356,6 +356,29 @@ fn riscv_blocks() {
         let w = if k < words.len() { words[k] } else { r.next() as u32 | if k % 2 == 0 { 3 } else { 0 } };
         vec![("Ir", w as u128)]
     });
+    // DECODE_RV32: the decode of each word loads on the clock edge (Load = 1)
+    // and holds while Load = 0.
+    let mut s = Suite::new("DECODE_RV32");
+    let mut rng = Rng::new(0xDE);
+    s.test("reset");
+    s.set(&[("Reset", 1), ("Load", 0), ("Word", 0)]);
+    s.clock();
+    s.set(&[("Reset", 0)]);
+    s.eval();
+    s.check_all();
+    s.end();
+    let words = sample_instructions();
+    for (t, chunk) in words.chunks(16).enumerate() {
+        s.test(&format!("instructions {t}"));
+        for &w in chunk {
+            let load = rng.next() % 4 != 0;
+            s.set(&[("Word", w as u128), ("Load", load as u128)]);
+            s.clock();
+            s.check_all();
+        }
+        s.end();
+    }
+    s.write("circuits/riscv/DECODE_RV32.clt", "Tests for DECODE_RV32: every instruction decoded into the registers, Load = 0 holds");
     combinational("LSU_RV32", "circuits/riscv/LSU_RV32.clt", "Tests for LSU_RV32: every size, signedness and address offset", 64, |r, k| {
         vec![("Rs2", r.word()), ("Word", r.word()), ("Size", (k % 3) as u128), ("Unsigned", ((k / 3) % 2) as u128), ("Addr", ((k / 6) % 4) as u128)]
     });

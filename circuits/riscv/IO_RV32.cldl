@@ -17,12 +17,14 @@ CIRCUIT IO_RV32 {
     //   0x28  MTIMECMP     64 bits (low, high at 0x2C); MTIP = 1 while
     //                      mtime >= mtimecmp
     //
-    // Reads are combinational (RData for the current Addr), writes happen
-    // on the rising CLK edge when Write = 1. A write takes WData AND the
+    // Reads take two clocks: in the first, Wait = 1 and the selected
+    // register is latched; in the second, RData shows the latched value
+    // (this keeps the I/O read mux off the CPU's fetch/decode path).
+    // Writes happen on the rising CLK edge when Write = 1 and never wait. A write takes WData AND the
     // byte lanes of ByteEn (other bytes of the register become 0, so a
     // byte store to UART_DATA sends that byte). DataRead = 1 marks a load
-    // by the CPU, so reading UART_DATA acknowledges the byte on that edge.
-    // Never waits.
+    // by the CPU, so reading UART_DATA acknowledges the byte at the end of the second
+    // clock.
     INPUT Addr[32];
     INPUT WData[32];
     INPUT ByteEn[4];
@@ -35,6 +37,7 @@ CIRCUIT IO_RV32 {
 
     OUTPUT Sel;          // Addr is in the I/O region
     OUTPUT RData[32];
+    OUTPUT Wait;         // no write, first clock (only valid while Sel = 1)
     OUTPUT GpioOut[32];
     OUTPUT Display[32];
     OUTPUT Tx;
@@ -71,6 +74,16 @@ CIRCUIT IO_RV32 {
     PART NotCmpHi: NOT_BUS<32>;
     PART GeLo: CMP_KS5<32>;     // mtime - mtimecmp: carry = no borrow
     PART GeHi: CMP_KS5<32>;
+    PART MtipR: REGISTER_R<1>;
+
+    // Registered read
+    PART RDataR: REGISTER_R<32>;
+    PART PendR: REGISTER_R<1>;  // second clock of a read
+    PART NotPend: NOT;
+    PART NotWrite: NOT;
+    PART WaitAnd: AND;       // no write, first clock (SOC_RV32 uses it only when Sel = 1)
+    PART AckDone: AND;
+    PART PendAnd: AND;       // Sel AND Wait: a read is waiting
 
     PART RxIrqAnd: AND;
 
@@ -93,6 +106,19 @@ CIRCUIT IO_RV32 {
     CONNECT C_TRUE.out -> ReadDec.Enable;
     CONNECT ReadAnd.out -> AckAnd.in1;
     CONNECT ReadDec.O[3] -> AckAnd.in2;
+    CONNECT AckAnd.out -> AckDone.in1;
+    CONNECT PendR.Q[0] -> AckDone.in2;
+    CONNECT PendR.Q[0] -> NotPend.in;
+    CONNECT Write -> NotWrite.in;
+    CONNECT NotWrite.out -> WaitAnd.in1;
+    CONNECT NotPend.out -> WaitAnd.in2;
+    CONNECT WaitAnd.out -> Wait;
+    CONNECT WaitAnd.out -> PendAnd.in1;
+    CONNECT SelAnd.out -> PendAnd.in2;
+    CONNECT PendAnd.out -> PendR.Data[0];
+    CONNECT C_TRUE.out -> PendR.Load;
+    CONNECT Reset -> PendR.Reset;
+    CONNECT CLK -> PendR.CLK;
     CONNECT WData -> Lanes.A;
     FOR b IN 0..4 {
         FOR i IN 0..8 {
@@ -121,7 +147,7 @@ CIRCUIT IO_RV32 {
     CONNECT Uart.Tx -> Tx;
     CONNECT Rx -> UartRx.Rx;
     CONNECT Uart.Div -> UartRx.Div;
-    CONNECT AckAnd.out -> UartRx.Read;
+    CONNECT AckDone.out -> UartRx.Read;
     CONNECT Reset -> UartRx.Reset;
     CONNECT CLK -> UartRx.CLK;
     CONNECT Lanes.Out[0] -> RxIrqEn.Data[0];
@@ -167,13 +193,23 @@ CIRCUIT IO_RV32 {
     CONNECT MtimeHi.Q -> GeHi.A;
     CONNECT NotCmpHi.Out -> GeHi.B;
     CONNECT GeLo.Cout -> GeHi.Cin;
-    CONNECT GeHi.Cout -> MTIP;
+    // MTIP is registered so the 64-bit compare does not feed the
+    // interrupt-take logic in the same cycle (one cycle later is fine).
+    CONNECT GeHi.Cout -> MtipR.Data[0];
+    CONNECT C_TRUE.out -> MtipR.Load;
+    CONNECT Reset -> MtipR.Reset;
+    CONNECT CLK -> MtipR.CLK;
+    CONNECT MtipR.Q[0] -> MTIP;
 
     // Reads: OR of the selected sources, bit by bit
     FOR i IN 0..32 {
         PART Rd[i]: OR_WIDE<3>;
-        CONNECT Rd[i].Out -> RData[i];
+        CONNECT Rd[i].Out -> RDataR.Data[i];
     }
+    CONNECT C_TRUE.out -> RDataR.Load;
+    CONNECT Reset -> RDataR.Reset;
+    CONNECT CLK -> RDataR.CLK;
+    CONNECT RDataR.Q -> RData;
     PART RGpio: AND_BUS<32>;
     PART RGpioIn: AND_BUS<32>;
     PART RDisplay: AND_BUS<32>;

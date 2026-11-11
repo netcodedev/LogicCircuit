@@ -64,6 +64,8 @@ Weitere Festlegungen (2026-11-10):
 Die I/O-Register wiederholen sich alle 64 Byte im Bereich `0x1000_0000`–`0x1FFF_FFFF`
 (IO_RV32 dekodiert nur die Adressbits 31..28 und 5..2). Ein Byte- oder
 Halbwort-Store schreibt seine Bytes in ihre Spuren und 0 in die übrigen.
+I/O-Lesezugriffe dauern zwei Takte (ein Wartetakt, das gelesene Register
+wird zwischengespeichert), Schreibzugriffe einen.
 
 ## Phasen
 
@@ -199,11 +201,24 @@ und Fläche untersucht (Prototypen). Umgesetzt sind die billigen Gewinne:
 - [x] `SOC_RV32`: 102.406 → 99.430 NANDs; sky130 (`--optimize`, 7 ns):
       134 → 135 MHz, 193.762 → 183.531 Transistoren (−5 %), Die 689 → 667 µm
 - [x] `--lib hs` (schnelle Zellen, Stand Phase 7): 143 MHz bei Die 787 µm
-- Weitere Prototypen (noch nicht übernommen): Registerdatei schon im Fetch
-  lesen (69 → 60 Stufen, geschätzt 155–165 MHz, CPI gleich),
-  Registerdatei aus Latches (−27k NANDs, braucht Latch-Zellen und
-  Timing-Constraints im Export), Befehls-Cache mit 32 Wörtern (+54k NANDs,
-  bei 3 Wartetakten 2–3,5× schneller). Cache, Vorhersage und frühes
+- [x] Registerdatei schon im Fetch lesen: rs1/rs2 landen mit dem Befehl in
+      `OpA`/`OpB` (ein Write auf derselben Flanke wird umgeleitet, `HazR`
+      merkt sich, was die Memory-Stufe noch weiterreichen muss)
+- [x] Vor-Dekodierung im Fetch: `DECODE_RV32` (`CONTROL_RV32` + `IMM_RV32`
+      in Registern), Execute bekommt alle Steuersignale aus Flipflops
+- [x] `MTIP` registriert; I/O-Lesezugriffe mit einem Wartetakt (gelesenes
+      Register zwischengespeichert), damit der I/O-Lese-Mux nicht vor dem
+      Dekoder liegt; `Redirect` ohne die späte Branch-Exception
+- [x] Ergebnis: 69 → 52 NAND-Stufen (`SOC_RV32`), 99.430 → 106.760 NANDs,
+      CPI gleich (sieve 1,26 → 1,27 durch die I/O-Wartetakte); sky130
+      (`--optimize`): 135 → **170 MHz** (+26 %, Ziel 5 ns;
+      bei 6 ns wird das Ziel mit 167 MHz genau erreicht), 183.531 →
+      193.292 Transistoren, Die 667 → 684 µm. Der längste Pfad ist jetzt
+      ein Schritt von `MULDIV_RV32` (Ir → Radix-4-Schritt → `LoReg`),
+      danach Forwarding → Branch-Vergleich → `PC`
+- Weitere Prototypen (noch nicht übernommen): Registerdatei aus Latches
+  (−27k NANDs, braucht Latch-Zellen und Timing-Constraints im Export),
+  Befehls-Cache mit 32 Wörtern (+54k NANDs, bei 3 Wartetakten 2–3,5× schneller). Cache, Vorhersage und frühes
   Register-Lesen teilen sich den Fetch-Pfad: zusammen brauchen sie
   Vor-Dekodier-Bits im Cache oder eine eigene Fetch-Stufe.
 

@@ -186,6 +186,40 @@ fn traps_and_csrs() {
     ");
 }
 
+#[test]
+fn misaligned_branch_targets() {
+    // Taken branches to a target with bit 1 set trap (mepc = the branch);
+    // not-taken ones do not. Forward (predicted not taken) and backward
+    // (predicted taken) branches, and a jal.
+    let (iss, _) = cpu("
+        la t0, handler
+        csrw mtvec, t0
+        li a0, 1
+    back:
+        beq a0, a0, fwd+2         // forward, taken: trap
+        bne a0, a0, fwd+2         // forward, not taken
+        blt x0, a0, back+2        // backward, taken: trap
+        bge x0, a0, back+2        // backward, not taken
+        jal x0, fwd+2             // trap
+        addi s7, s7, 1
+    fwd:
+        addi s8, s8, 1
+        ebreak
+    handler:
+        csrr s0, mcause
+        csrr s1, mepc
+        csrr s2, mtval
+        add s3, s3, s0
+        xor s4, s4, s2
+        add s5, s5, s1
+        addi s6, s6, 1
+        addi s1, s1, 4
+        csrw mepc, s1
+        mret
+    ");
+    assert_eq!(iss.x[22], 3, "three traps");
+}
+
 /// A random program: register-register and immediate operations, loads
 /// and stores into a buffer (base in x31), short forward branches.
 fn random_program(rng: &mut Rng, len: usize) -> String {
