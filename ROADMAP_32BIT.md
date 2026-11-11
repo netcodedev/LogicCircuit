@@ -176,8 +176,39 @@ Gatterlaufzeiten; ein sky130-Build steht noch aus.
   (−0,47 ns). Mehr Takt braucht einen Umbau der Pipeline (z. B. Redirect
   erst in der nächsten Stufe).
 
+### Phase 8 – CPI und Fläche (aus der Untersuchung vom 11.11.2026)
+Vier Recherche-Agenten haben Pipeline, Befehls-Cache, MulDiv/Sprungvorhersage
+und Fläche untersucht (Prototypen). Umgesetzt sind die billigen Gewinne:
+
+- [x] `INC_KS5<W>` (Inkrementierer) statt Addierer für `mcycle`/`minstret`,
+      `mtime`, die Vorzeichen in `MULDIV_RV32` und PC + 4; `CMP_KS5<W>`
+      (nur Übertrag) für `BRANCH_RV32` und `mtime >= mtimecmp`
+- [x] `MULDIV_RV32` mit 2 Bit pro Takt (18 statt 34 Takte)
+- [x] Statische Sprungvorhersage im Fetch: Rückwärtssprünge genommen,
+      Vorwärtssprünge nicht, `jal` immer; Execute prüft nur die Richtung
+
+| Programm | CPI vorher | CPI jetzt |
+|---|---:|---:|
+| branch | 1,23 | 1,02 |
+| calls | 1,52 | 1,43 |
+| memory | 2,88 | 2,04 |
+| muldiv | 16,26 | 8,78 |
+| sieve (C) | 1,47 | 1,26 |
+| sort | 1,74 | 1,45 |
+
+- [x] `SOC_RV32`: 102.406 → 99.430 NANDs; sky130 (`--optimize`, 7 ns):
+      134 → 135 MHz, 193.762 → 183.531 Transistoren (−5 %), Die 689 → 667 µm
+- [x] `--lib hs` (schnelle Zellen, Stand Phase 7): 143 MHz bei Die 787 µm
+- Weitere Prototypen (noch nicht übernommen): Registerdatei schon im Fetch
+  lesen (69 → 60 Stufen, geschätzt 155–165 MHz, CPI gleich),
+  Registerdatei aus Latches (−27k NANDs, braucht Latch-Zellen und
+  Timing-Constraints im Export), Befehls-Cache mit 32 Wörtern (+54k NANDs,
+  bei 3 Wartetakten 2–3,5× schneller). Cache, Vorhersage und frühes
+  Register-Lesen teilen sich den Fetch-Pfad: zusammen brauchen sie
+  Vor-Dekodier-Bits im Cache oder eine eigene Fetch-Stufe.
+
 ### Später
-- [ ] Befehls-Cache, Sprungvorhersage
-- [ ] Schnellerer Multiplizierer (z. B. 4 Bit pro Takt oder Baum)
+- [ ] Befehls-Cache
+- [ ] Schnellerer Multiplizierer (4 Bit pro Takt) und Division mit frühem Ende
 - [ ] GF180MCU-Flow (wafer.space)
 - [ ] RV64I

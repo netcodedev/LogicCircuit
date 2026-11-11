@@ -1,0 +1,31 @@
+// Tests for CMP_KS5<W> (Kogge-Stone carry/equality) at W = 32
+// B is given as NOT X, Cin = 1: Cout = A >= X unsigned, PAll = A == X.
+
+TESTS FOR CMP_KS5<32> {
+    TEST "compare" {
+        SET A[31:0] 0x00000005, B[31:0] 0xFFFFFFFA, Cin 1;
+        EVAL;
+        ASSERT Cout 1; ASSERT PAll 1;
+        SET A[31:0] 0x00000005, B[31:0] 0xFFFFFFFB, Cin 1;
+        EVAL;
+        ASSERT Cout 1; ASSERT PAll 0;
+        SET A[31:0] 0x00000005, B[31:0] 0xFFFFFFF8, Cin 1;
+        EVAL;
+        ASSERT Cout 0; ASSERT PAll 0;
+        SET A[31:0] 0x80000000, B[31:0] 0x80000000, Cin 1;
+        EVAL;
+        ASSERT Cout 1; ASSERT PAll 0;
+        SET A[31:0] 0x7FFFFFFF, B[31:0] 0x7FFFFFFF, Cin 1;
+        EVAL;
+        ASSERT Cout 0; ASSERT PAll 0;
+        SET A[31:0] 0xFFFFFFFF, B[31:0] 0x00000000, Cin 1;
+        EVAL;
+        ASSERT Cout 1; ASSERT PAll 1;
+        SET A[31:0] 0xFFFFFFFF, B[31:0] 0x00000000, Cin 0;
+        EVAL;
+        ASSERT Cout 0; ASSERT PAll 1;
+        SET A[31:0] 0x12345678, B[31:0] 0xEDCBA987, Cin 1;
+        EVAL;
+        ASSERT Cout 1; ASSERT PAll 1;
+    }
+}

@@ -1,0 +1,39 @@
+CIRCUIT INC_KS5<W> {
+    // W-bit incrementer S = A + Cin (17 <= W <= 32): ADDER_KS5<W> with B = 0.
+    // Generate is always 0, so only the AND-prefix of the propagate bits is
+    // left: bit i flips when Cin and A[0..i-1] are all 1. Same ports
+    // (without B) and the same five prefix levels as ADDER_KS5, so the carry
+    // path is no deeper, at about a third of the gates.
+    INPUT A[W];
+    INPUT Cin;
+
+    OUTPUT S[W];
+    OUTPUT Cout;
+
+    PART CinAnd: AND;                // Cin folded into bit 0
+    PART Level1: AND_PREFIX_LEVEL<W, 1>;
+    PART Level2: AND_PREFIX_LEVEL<W, 2>;
+    PART Level4: AND_PREFIX_LEVEL<W, 4>;
+    PART Level8: AND_PREFIX_LEVEL<W, 8>;
+    PART Level16: AND_PREFIX_LEVEL<W, 16>;
+    PART Sum: XOR_BUS<W>;
+
+    CONNECT Cin -> CinAnd.in1;
+    CONNECT A[0] -> CinAnd.in2;
+    CONNECT CinAnd.out -> Level1.P[0];
+    FOR i IN 1..W {
+        CONNECT A[i] -> Level1.P[i];
+    }
+    CONNECT Level1.PO -> Level2.P;
+    CONNECT Level2.PO -> Level4.P;
+    CONNECT Level4.PO -> Level8.P;
+    CONNECT Level8.PO -> Level16.P;
+
+    CONNECT A -> Sum.A;
+    CONNECT Cin -> Sum.B[0];
+    FOR i IN 1..W {
+        CONNECT Level16.PO[i-1] -> Sum.B[i];
+    }
+    CONNECT Sum.Out -> S;
+    CONNECT Level16.PO[W-1] -> Cout;
+}

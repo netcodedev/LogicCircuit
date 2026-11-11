@@ -1,0 +1,17 @@
+CIRCUIT AND_PREFIX_LEVEL<W, D> {
+    // One level of a Kogge-Stone AND-prefix network (the propagate half of
+    // PREFIX_LEVEL): bit i >= D is ANDed with bit i-D; bits below D pass.
+    INPUT P[W];
+
+    OUTPUT PO[W];
+
+    FOR i IN 0..D {
+        CONNECT P[i] -> PO[i];
+    }
+    FOR i IN D..W {
+        PART G[i]: AND;
+        CONNECT P[i] -> G[i].in1;
+        CONNECT P[i-D] -> G[i].in2;
+        CONNECT G[i].out -> PO[i];
+    }
+}

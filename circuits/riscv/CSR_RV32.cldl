@@ -323,10 +323,10 @@ CIRCUIT CSR_RV32 {
     CONNECT TvalLoad.out -> MtvalReg.Load;
 
     // --- Counters: count, or take WData ---
-    PART CycleInc: ADDER_KS5<32>;
-    PART CycleIncH: ADDER_KS5<32>;
-    PART InstretInc: ADDER_KS5<32>;
-    PART InstretIncH: ADDER_KS5<32>;
+    PART CycleInc: INC_KS5<32>;
+    PART CycleIncH: INC_KS5<32>;
+    PART InstretInc: INC_KS5<32>;
+    PART InstretIncH: INC_KS5<32>;
     PART CycleMux: MUX_2_1_BUS<32>;
     PART CycleMuxH: MUX_2_1_BUS<32>;
     PART InstretMux: MUX_2_1_BUS<32>;

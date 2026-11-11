@@ -1,0 +1,47 @@
+// Tests for INC_KS5<W> (Kogge-Stone incrementer) at W = 32 and W = 30
+
+TESTS FOR INC_KS5<32> {
+    TEST "increment and carry" {
+        SET A[31:0] 0x00000000, Cin 1;
+        EVAL;
+        ASSERT S[31:0] 0x00000001; ASSERT Cout 0;
+        SET A[31:0] 0x00000000, Cin 0;
+        EVAL;
+        ASSERT S[31:0] 0x00000000; ASSERT Cout 0;
+        SET A[31:0] 0x0000FFFF, Cin 1;
+        EVAL;
+        ASSERT S[31:0] 0x00010000; ASSERT Cout 0;
+        SET A[31:0] 0x7FFFFFFF, Cin 1;
+        EVAL;
+        ASSERT S[31:0] 0x80000000; ASSERT Cout 0;
+        SET A[31:0] 0xFFFFFFFF, Cin 1;
+        EVAL;
+        ASSERT S[31:0] 0x00000000; ASSERT Cout 1;
+        SET A[31:0] 0xFFFFFFFF, Cin 0;
+        EVAL;
+        ASSERT S[31:0] 0xFFFFFFFF; ASSERT Cout 0;
+        SET A[31:0] 0xA5A5A5A7, Cin 1;
+        EVAL;
+        ASSERT S[31:0] 0xA5A5A5A8; ASSERT Cout 0;
+        SET A[31:0] 0x12345678, Cin 1;
+        EVAL;
+        ASSERT S[31:0] 0x12345679; ASSERT Cout 0;
+        SET A[31:0] 0xF0FFFFFF, Cin 1;
+        EVAL;
+        ASSERT S[31:0] 0xF1000000; ASSERT Cout 0;
+    }
+}
+
+TESTS FOR INC_KS5<30> {
+    TEST "increment and carry" {
+        SET A[29:0] 0x00000003, Cin 1;
+        EVAL;
+        ASSERT S[29:0] 0x00000004; ASSERT Cout 0;
+        SET A[29:0] 0x3FFFFFFF, Cin 1;
+        EVAL;
+        ASSERT S[29:0] 0x00000000; ASSERT Cout 1;
+        SET A[29:0] 0x1FFFFFFF, Cin 1;
+        EVAL;
+        ASSERT S[29:0] 0x20000000; ASSERT Cout 0;
+    }
+}
