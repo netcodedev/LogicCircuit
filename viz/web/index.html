@@ -16,6 +16,7 @@
     --text: #d8dee9; --muted: #7d8794; --accent: #6cb6ff;
     --hi: #3ddc84; --lo: #3b4350; --mix: #e8b339; --unk: #e5534b;
     --node: #1b2028; --node-x: #1e2733; --node-stroke: #3a4452; --io: #232a34;
+    --group-bg: rgba(108, 182, 255, 0.04); --group-bg-2: rgba(108, 182, 255, 0.09);
     --seg-on: #ff4d3d; --seg-off: #2a1614;
     --scroll: #343c47; --scroll-hover: #4a5563;
     font-family: ui-sans-serif, system-ui, sans-serif; font-size: 13px;
@@ -26,6 +27,7 @@
       --text: #1f2328; --muted: #6a737d; --accent: #0969da;
       --hi: #1a9f53; --lo: #c3c9d1; --mix: #c08a0a; --unk: #cf222e;
       --node: #ffffff; --node-x: #f1f6fd; --node-stroke: #b8c0ca; --io: #eef0f3;
+      --group-bg: rgba(9, 105, 218, 0.03); --group-bg-2: rgba(9, 105, 218, 0.07);
       --scroll: #c9cfd7; --scroll-hover: #aab2bd;
     }
   }
@@ -116,6 +118,15 @@
   .node .title { font-weight: 600; font-size: 12px; fill: var(--text); }
   .node .type { font-size: 10px; fill: var(--muted); }
   .node .plabel { font-size: 10px; fill: var(--muted); font-family: ui-monospace, monospace; }
+  /* Opened parts (parts view): a frame with a title bar; nested frames alternate their tint. */
+  .group rect.body { fill: var(--group-bg); stroke: var(--node-stroke); stroke-width: 1; }
+  .group.d1 rect.body, .group.d3 rect.body { fill: var(--group-bg-2); }
+  .group rect.bar { fill: var(--node-x); stroke: var(--node-stroke); stroke-width: 1; cursor: zoom-out; }
+  .group rect.bar:hover { stroke: var(--accent); stroke-width: 1.5; }
+  .group .title { font-weight: 600; font-size: 12px; fill: var(--text); pointer-events: none; }
+  .group .type { font-size: 10px; fill: var(--muted); pointer-events: none; }
+  #depth-wrap select { padding: 1px 4px; }
+  #depth-wrap[hidden] { display: none; }
   .io rect.body { fill: var(--io); stroke: var(--node-stroke); }
   .io.settable { cursor: pointer; }
   .io.settable:hover rect.body { stroke: var(--accent); }
@@ -319,6 +330,17 @@
       <button data-mode="cmos" role="radio">Transistoren</button>
       <button data-mode="chip" role="radio">Chip 3D</button>
     </div>
+    <label id="depth-wrap" class="tbtn-toggle" title="Bis zu welcher Tiefe alle Bauteile aufgeklappt werden. Einzelne Bauteile per Doppelklick auf- und zuklappen.">Tiefe
+      <select id="depth">
+        <option value="0">keine</option>
+        <option value="1">1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
+        <option value="99">alle</option>
+      </select>
+    </label>
     <span class="tsep"></span>
     <button id="pulse" class="primary" hidden>Takt ↑↓</button>
     <button id="reset" title="Schaltung neu aufbauen: alle Register auf 0">↻<span class="lbl"> Neu bauen</span></button>
@@ -445,7 +467,7 @@
     <div id="chip-message" hidden></div>
     <div id="loading" hidden><div class="box"><div class="spinner"></div><span id="loading-text">Lade…</span></div></div>
     <div id="status">Lade…</div>
-    <div id="hint">Doppelklick auf Bauteil: hineinzoomen · Mausrad: Zoom · Ziehen: verschieben</div>
+    <div id="hint">Doppelklick auf Bauteil: aufklappen (Strg: als eigene Ebene) · Mausrad: Zoom · Ziehen: verschieben</div>
   </div>
   <div class="splitter horizontal" id="prog-split" title="Ziehen, um die Höhe zu ändern" hidden></div>
   <section id="program-panel" hidden>
