@@ -191,7 +191,7 @@ CIRCUIT CPU_RV32 {
     PART NotRedirect: NOT;
     PART MretMux: MUX_2_1_BUS<32>;  // target, mepc
     PART TrapMux: MUX_2_1_BUS<32>;  // ..., mtvec
-    PART PcInc: ADDER_KS5<30>;      // PC[31:2] + 1
+    PART PcInc: INC_KS5<30>;      // PC[31:2] + 1
     PART PcMux: MUX_2_1_BUS<32>;    // PC + 4, redirect
     PART FetchGo: AND;              // FetchOk AND NOT HoldE
     PART PcLoad: OR;

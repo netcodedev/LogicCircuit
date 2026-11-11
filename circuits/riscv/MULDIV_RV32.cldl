@@ -56,8 +56,8 @@ CIRCUIT MULDIV_RV32 {
     PART NegB: AND;
     PART XorA: XOR_BUS<32>;
     PART XorB: XOR_BUS<32>;
-    PART AbsA: ADDER_KS5<32>;      // (A XOR s) + s = |A|
-    PART AbsB: ADDER_KS5<32>;
+    PART AbsA: INC_KS5<32>;      // (A XOR s) + s = |A|
+    PART AbsB: INC_KS5<32>;
     PART BAny: OR_WIDE<8>;         // B != 0
     PART SignX: XOR;               // sign A XOR sign B
     PART QNeg: AND;                // ... AND B != 0
@@ -95,8 +95,8 @@ CIRCUIT MULDIV_RV32 {
     PART SelHi: OR;                // ... OR rem*
     PART NotLo: NOT_BUS<32>;
     PART NotHi: NOT_BUS<32>;
-    PART NegLo: ADDER_KS5<32>;     // -Lo, and the carry into -Hi:Lo
-    PART NegHi: ADDER_KS5<32>;     // NOT Hi + (divide ? 1 : carry)
+    PART NegLo: INC_KS5<32>;     // -Lo, and the carry into -Hi:Lo
+    PART NegHi: INC_KS5<32>;     // NOT Hi + (divide ? 1 : carry)
     PART HiCin: OR;
     PART OutMux: MUX_4_1_BUS<32>;  // Lo, Hi, -Lo, -Hi (S = Neg, SelHi)
 

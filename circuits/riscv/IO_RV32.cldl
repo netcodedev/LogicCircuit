@@ -63,14 +63,14 @@ CIRCUIT IO_RV32 {
     PART Lanes: AND_BUS<32>; // WData AND byte lanes
 
     // Timer
-    PART IncLo: ADDER_KS5<32>;    // mtime + 1
-    PART IncHi: ADDER_KS5<32>;
+    PART IncLo: INC_KS5<32>;    // mtime + 1
+    PART IncHi: INC_KS5<32>;
     PART TimeLoMux: MUX_2_1_BUS<32>;
     PART TimeHiMux: MUX_2_1_BUS<32>;
     PART NotCmpLo: NOT_BUS<32>;
     PART NotCmpHi: NOT_BUS<32>;
-    PART GeLo: ADDER_KS5<32>;     // mtime - mtimecmp: carry = no borrow
-    PART GeHi: ADDER_KS5<32>;
+    PART GeLo: CMP_KS5<32>;     // mtime - mtimecmp: carry = no borrow
+    PART GeHi: CMP_KS5<32>;
 
     PART RxIrqAnd: AND;
 

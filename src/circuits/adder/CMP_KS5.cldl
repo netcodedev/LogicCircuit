@@ -1,0 +1,49 @@
+CIRCUIT CMP_KS5<W> {
+    // Comparator half of ADDER_KS5<W> (17 <= W <= 32): the same generate/
+    // propagate prefix network, without the sum bits.
+    //   Cout = carry out of A + B + Cin
+    //   PAll = AND of all propagate bits (A XOR B): with B = NOT X it is
+    //          1 exactly when A == X
+    // For A - X pass B = NOT X and Cin = 1: Cout = 1 means A >= X unsigned.
+    INPUT A[W];
+    INPUT B[W];
+    INPUT Cin;
+
+    OUTPUT Cout;
+    OUTPUT PAll;
+
+    PART Gen: AND_BUS<W>;
+    PART Prop: XOR_BUS<W>;
+    PART CinCell: PREFIX_CELL;
+    PART Level1: PREFIX_LEVEL<W, 1>;
+    PART Level2: PREFIX_LEVEL<W, 2>;
+    PART Level4: PREFIX_LEVEL<W, 4>;
+    PART Level8: PREFIX_LEVEL<W, 8>;
+    PART Level16: PREFIX_LEVEL<W, 16>;
+
+    CONNECT A -> Gen.A;
+    CONNECT B -> Gen.B;
+    CONNECT A -> Prop.A;
+    CONNECT B -> Prop.B;
+
+    CONNECT Gen.Out[0] -> CinCell.Gh;
+    CONNECT Prop.Out[0] -> CinCell.Ph;
+    CONNECT Cin -> CinCell.Gl;
+    CONNECT CinCell.G -> Level1.G[0];
+    FOR i IN 1..W {
+        CONNECT Gen.Out[i] -> Level1.G[i];
+    }
+    CONNECT Prop.Out -> Level1.P;
+
+    CONNECT Level1.GO -> Level2.G;
+    CONNECT Level1.PO -> Level2.P;
+    CONNECT Level2.GO -> Level4.G;
+    CONNECT Level2.PO -> Level4.P;
+    CONNECT Level4.GO -> Level8.G;
+    CONNECT Level4.PO -> Level8.P;
+    CONNECT Level8.GO -> Level16.G;
+    CONNECT Level8.PO -> Level16.P;
+
+    CONNECT Level16.GO[W-1] -> Cout;
+    CONNECT Level16.PO[W-1] -> PAll;
+}

@@ -3,9 +3,10 @@ CIRCUIT BRANCH_RV32 {
     // (A, B): its own comparator keeps the immediate and operand muxes of
     // the ALU off the branch path. F = funct3:
     //   000 beq, 001 bne, 100 blt, 101 bge, 110 bltu, 111 bgeu
-    //   Eq  = A == B (from A XOR B)
-    //   Lt  = A < B signed:   A[31] if the signs differ, else the sign of A - B
-    //   Ltu = A < B unsigned: no carry out of A + ~B + 1
+    // One comparator (CMP_KS5, the carry network of A + ~B + 1):
+    //   Eq  = A == B: all propagate bits A XOR ~B are 1
+    //   Ltu = A < B unsigned: no carry out
+    //   Lt  = A < B signed: A[31] if the signs differ, else Ltu
     // Cond = (F[2] ? (F[1] ? Ltu : Lt) : Eq) XOR F[0]
     INPUT A[32];
     INPUT B[32];
@@ -15,38 +16,30 @@ CIRCUIT BRANCH_RV32 {
 
     PART C_TRUE: NOR;              // Constant 1 (VCC), NOR(0,0) = 1
     PART BNot: NOT_BUS<32>;
-    PART Sub: ADDER_KS5<32>;       // A + ~B + 1
-    PART Diff: XOR_BUS<32>;
-    PART NeqOr: OR_WIDE<8>;
-    PART EqNot: NOT;
+    PART Cmp: CMP_KS5<32>;         // A + ~B + 1
     PART SignDiff: XOR;
-    PART LtSel: MUX_2_1;           // signs equal: Sum[31]; differ: A[31]
     PART LtuNot: NOT;
+    PART LtSel: MUX_2_1;           // signs equal: Ltu; differ: A[31]
     PART LtMux: MUX_2_1;           // Lt, Ltu by F[1]
     PART CondMux: MUX_2_1;         // Eq, LtMux by F[2]
     PART CondX: XOR;               // ... XOR F[0]
 
     CONNECT B -> BNot.A;
-    CONNECT A -> Sub.A;
-    CONNECT BNot.Out -> Sub.B;
-    CONNECT C_TRUE.out -> Sub.Cin;
-
-    CONNECT A -> Diff.A;
-    CONNECT B -> Diff.B;
-    CONNECT Diff.Out -> NeqOr.In;
-    CONNECT NeqOr.Out -> EqNot.in;
+    CONNECT A -> Cmp.A;
+    CONNECT BNot.Out -> Cmp.B;
+    CONNECT C_TRUE.out -> Cmp.Cin;
 
     CONNECT A[31] -> SignDiff.in1;
     CONNECT B[31] -> SignDiff.in2;
-    CONNECT Sub.S[31] -> LtSel.A;
+    CONNECT Cmp.Cout -> LtuNot.in;
+    CONNECT LtuNot.out -> LtSel.A;
     CONNECT A[31] -> LtSel.B;
     CONNECT SignDiff.out -> LtSel.S;
-    CONNECT Sub.Cout -> LtuNot.in;
 
     CONNECT LtSel.Out -> LtMux.A;
     CONNECT LtuNot.out -> LtMux.B;
     CONNECT F[1] -> LtMux.S;
-    CONNECT EqNot.out -> CondMux.A;
+    CONNECT Cmp.PAll -> CondMux.A;
     CONNECT LtMux.Out -> CondMux.B;
     CONNECT F[2] -> CondMux.S;
     CONNECT CondMux.Out -> CondX.in1;
